@@ -662,7 +662,7 @@ function runtime() {
     });
     authShell(h("section", { class: "card" },
       h("h1", { text: "Tu panel" }),
-      h("p", { class: "muted", text: "Administra el menú, el club de fidelidad y revisa tus resultados." }),
+      h("p", { class: "muted", text: "Administra la carta, los pedidos y los reportes de tus sedes." }),
       notice ? h("p", { class: "hint", text: notice }) : null,
       form));
     email.focus();

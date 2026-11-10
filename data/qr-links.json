@@ -1,0 +1,36 @@
+{
+  "base_url": "https://cristhian-menu.cristhian-loyos.workers.dev",
+  "parametro": "sede",
+  "links": [
+    {
+      "sede": "sede-01",
+      "nombre": "Food truck 1",
+      "url": "https://cristhian-menu.cristhian-loyos.workers.dev/?sede=sede-01"
+    },
+    {
+      "sede": "sede-02",
+      "nombre": "Food truck 2",
+      "url": "https://cristhian-menu.cristhian-loyos.workers.dev/?sede=sede-02"
+    },
+    {
+      "sede": "sede-03",
+      "nombre": "Food truck 3",
+      "url": "https://cristhian-menu.cristhian-loyos.workers.dev/?sede=sede-03"
+    },
+    {
+      "sede": "sede-04",
+      "nombre": "Food truck 4",
+      "url": "https://cristhian-menu.cristhian-loyos.workers.dev/?sede=sede-04"
+    },
+    {
+      "sede": "sede-05",
+      "nombre": "Food truck 5",
+      "url": "https://cristhian-menu.cristhian-loyos.workers.dev/?sede=sede-05"
+    },
+    {
+      "sede": "sede-06",
+      "nombre": "Food truck 6",
+      "url": "https://cristhian-menu.cristhian-loyos.workers.dev/?sede=sede-06"
+    }
+  ]
+}
