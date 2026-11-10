@@ -134,6 +134,7 @@ function menu({checkout=true,fetchImpl,search='' }={}){
   const fetch=async(url,options)=>{
     if(url==='productos.json')return {ok:true,json:async()=>products};
     if(url==='config.json')return {ok:true,json:async()=>baseConfig};
+    if(url==='/api/payment-options')return {ok:true,status:200,json:async()=>({cash:true,transfer:true,payphone:false})};
     calls.push([url,options]);
     const result=await fetchImpl(url,options);
     if(result instanceof Error)throw result;
@@ -178,7 +179,7 @@ test('checkout nativo: sede + POST /api/orders + recibo + polling, sin WhatsApp'
 
 test('sede del QR (?sede=) preselecciona y se envía',async()=>{
   const m=menu({fetchImpl:handler,search:'?sede=sede-01'});await m.ready();
-  assert.equal(m.doc.getElementById('fieldSede').value,'sede-01');
+  assert.equal(m.doc.getElementById('fieldSede'),null);
   m.doc.getElementById('fieldName').value='Ana';m.doc.getElementById('fieldPhone').value='099';
   m.checkout();await m.ready();await m.ready();
   assert.equal(JSON.parse(m.calls[0][1].body).sede_id,'sede-01');

@@ -560,3 +560,5 @@
       .promo-title{font-size:18px}
       .promo-content{max-width:80%;padding:14px}
     }
+
+.payment-return{position:sticky;top:0;z-index:200;padding:14px 18px;text-align:center;background:#102638;color:#f4faff;border-bottom:2px solid var(--primary);font-weight:700;box-shadow:0 5px 20px #23ddf444}

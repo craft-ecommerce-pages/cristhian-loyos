@@ -436,7 +436,7 @@
 
     /* ── HORARIO Y EMPAQUE (opt-in por config; no-op si faltan) ── */
     // Modo de entrega activo en el checkout (por defecto domicilio; el empaque solo aplica a domicilio).
-    const currentMode=()=>document.querySelector('.dtog-btn.active')?.dataset.mode||'delivery';
+    const currentMode=()=>checkoutOrders(config)?'pickup':document.querySelector('.dtog-btn.active')?.dataset.mode||'delivery';
     // Costo de empaque: plano por pedido (per_order, default), por unidad (per_unit) o individual
     // por producto (per_product, usa products[].costo_empaque de cada ítem). 0 en retiro o sin config.
     // exempt_categories: ítems cuya categoría esté ahí no pagan empaque (ej. bebidas). Sin la clave = todos pagan.
@@ -1213,7 +1213,7 @@
     function renderSedeField(){
       if(!checkoutOrders(config)) return;
       const sedes=sedeList(config);
-      if(sedes.length<2||document.getElementById('fieldSede')) return;
+      if(sedes.length<2||sedeFromQuery(config,location.search)||document.getElementById('fieldSede')) return;
       const body=document.querySelector('#cartStep2 .step2-body');
       if(!body) return;
       const wrap=document.createElement('div');wrap.className='form-field';
@@ -1235,7 +1235,8 @@
     function selectedSede(){
       const sedes=sedeList(config);
       const select=document.getElementById('fieldSede');
-      const value=select?select.value:(defaultSede(sedes,sedeFromQuery(config,location.search),readSede())||'');
+      const fixed=sedeFromQuery(config,location.search);
+      const value=fixed||(select?select.value:(defaultSede(sedes,'',readSede())||''));
       return sedes.some(sede=>sede.id===value)?value:'';
     }
     async function sha256hex(value){
@@ -1258,7 +1259,7 @@
         producto_no_disponible:'Un producto ya no está disponible. Revisa tu pedido',sin_stock:'Un producto ya no tiene stock. Revisa tu pedido',
         variante_no_existe:'Una opción del pedido cambió. Vuelve a elegirla',precio_no_disponible:'El precio de un producto cambió. Revisa tu pedido',
         idempotencia_conflicto:'El pedido cambió. Revisa el carrito e intenta de nuevo',demasiados_pedidos:'Demasiados intentos. Espera un momento',
-        pedido_invalido:'Revisa los datos del pedido',catalogo_no_disponible:'El menú no está disponible ahora. Reintenta',
+        pedido_invalido:'Revisa los datos del pedido',metodo_pago_invalido:'Elige un método de pago válido',payphone_no_disponible:'Payphone no está disponible ahora. Elige efectivo o transferencia.',catalogo_no_disponible:'El menú no está disponible ahora. Reintenta',
       };
       return map[code]||(status===429?'Demasiados intentos. Espera un momento':'No se pudo enviar tu pedido. Reintenta.');
     }
@@ -1322,6 +1323,7 @@
       const name=document.getElementById('fieldName').value.trim();
       const phone=document.getElementById('fieldPhone').value.trim();
       const mode=currentMode();
+      const paymentMethod=document.getElementById('fieldPayment')?.value||'cash';
       const address=mode==='delivery'?document.getElementById('fieldAddress').value.trim():'';
       if(!name||!phone){showToast(t('Completa tu nombre y teléfono'));return;}
       if(mode==='delivery'&&!requireCoverage())return;
@@ -1331,7 +1333,7 @@
       const items=orderCartItems(cartItems,products);
       if(!items.length){showToast(t('Tu pedido está vacío'));return;}
       writeSede(sedeId);
-      const fingerprint=JSON.stringify({sede_id:sedeId,items,customer:{name,phone},delivery_mode:mode,address:address||null});
+      const fingerprint=JSON.stringify({sede_id:sedeId,items,customer:{name,phone},delivery_mode:mode,payment_method:paymentMethod,address:address||null});
       const key=await orderKey(fingerprint);
       const button=document.getElementById('btnConfirm'),label=button?.textContent;
       checkoutBusy=true;
@@ -1341,7 +1343,7 @@
       try{
         const response=await fetch(ordersEndpoint(checkout,'/api/orders'),{
           method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,
-          body:JSON.stringify({sede_id:sedeId,items,customer:{name,phone},delivery_mode:mode,
+          body:JSON.stringify({sede_id:sedeId,items,customer:{name,phone},delivery_mode:mode,payment_method:paymentMethod,
             address:address||undefined,idempotency_key:key}),
         });
         const receipt=await response.json().catch(()=>null);
@@ -1349,6 +1351,18 @@
         if(!ok||!receipt||typeof receipt.id!=='string'||!Number.isSafeInteger(receipt.number)||receipt.number<1||typeof receipt.order_token!=='string'){
           if(response.status===409) forgetOrderKey();
           throw new Error(orderErrorMessage(response.status,receipt&&receipt.error));
+        }
+        if(paymentMethod==='payphone'){
+          const pay=await fetch(ordersEndpoint(checkout,`/api/orders/${encodeURIComponent(receipt.id)}/payphone`),{
+            method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({order_token:receipt.order_token,idempotency_key:crypto.randomUUID()}),
+          });
+          const started=await pay.json().catch(()=>null);
+          if(!pay.ok||!started?.payment_url)throw new Error('Pedido recibido, pero Payphone no pudo abrirse. Muestra el número en caja.');
+          forgetOrderKey();
+          try{sessionStorage.setItem('munch_last_order',JSON.stringify({...receipt,sede_id:sedeId}));}catch(e){}
+          window.location.assign(started.payment_url);
+          return;
         }
         forgetOrderKey();
         track('Purchase',{contents:cartItems,value:Number(receipt.total_cents)/100,order_id:receipt.id});
@@ -1373,7 +1387,7 @@
       let num=orderPhone();
       const name=document.getElementById('fieldName').value.trim();
       const phone=document.getElementById('fieldPhone').value.trim();
-      const mode=document.querySelector('.dtog-btn.active')?.dataset.mode||'delivery';
+      const mode=currentMode();
       const address=mode==='delivery'?document.getElementById('fieldAddress').value.trim():'';
       const isTable=tableModeAvailable()&&mode==='mesa';
       if(!isTable&&!num){showToast(t('WhatsApp no configurado'));return;}
@@ -1628,6 +1642,19 @@
       // Legacy (Pages estático): cae al fetch de config.json. Retrocompatible.
       if(window.__CONFIG__){ config=window.__CONFIG__; panelCount(window,'view'); }
       else{ try{const r=await fetch('config.json',{cache:'no-store'});if(r.ok) config=await r.json();}catch(e){} }
+      // Retorno de Payphone: consultar el estado con el token opaco y limpiar la URL.
+      const resultParams=new URLSearchParams(location.search);
+      const returnedId=resultParams.get('pedido'),returnedToken=resultParams.get('token');
+      if(returnedId&&returnedToken&&checkoutOrders(config)){
+        history.replaceState(null,'',location.pathname);
+        fetch(ordersEndpoint(checkoutOrders(config),`/api/orders/${encodeURIComponent(returnedId)}?token=${encodeURIComponent(returnedToken)}`),{cache:'no-store'})
+          .then(r=>r.ok?r.json():null).then(receipt=>{
+            if(!receipt)return;
+            const banner=document.createElement('div');banner.setAttribute('role','status');banner.className='payment-return';
+            banner.textContent=`Pedido #${String(receipt.number).padStart(6,'0')} · ${t(orderStatusLabel(receipt.status))}`;
+            document.body.prepend(banner);
+          }).catch(()=>{});
+      }
       // Opt-in config.store_mode: tienda (no restaurante) → sin entrega "Mesa", nota e ícono genéricos.
       if(config.store_mode) document.querySelector('.dtog-btn[data-mode="mesa"]')?.remove();
       renderExtraFields();
@@ -1635,6 +1662,8 @@
       // Checkout nativo: seis sedes → `?sede=` o selector; sin modo Mesa (lo atiende el mesero).
       if(checkoutOrders(config)){
         document.querySelector('.dtog-btn[data-mode="mesa"]')?.remove();
+        document.querySelector('.dtog-btn[data-mode="delivery"]')?.remove();
+        const toggle=document.getElementById('deliveryToggle');if(toggle)toggle.style.display='none';
         const pickup=document.querySelector('.dtog-btn[data-mode="pickup"]');
         if(pickup){
           document.querySelectorAll('.dtog-btn').forEach(btn=>btn.classList.remove('active'));
@@ -1643,6 +1672,18 @@
           if(addressWrap) addressWrap.style.display='none';
         }
         renderSedeField();
+        const paymentWrap=document.getElementById('fieldPaymentWrap');if(paymentWrap)paymentWrap.hidden=false;
+        const payment=document.getElementById('fieldPayment');
+        const card=payment?.querySelector('option[value="payphone"]');
+        fetch(ordersEndpoint(checkoutOrders(config),'/api/payment-options'),{cache:'no-store'})
+          .then(r=>r.ok?r.json():null).then(options=>{if(card&&options?.payphone){card.disabled=false;card.textContent='Tarjeta con Payphone';}})
+          .catch(()=>{});
+        payment?.addEventListener('change',()=>{
+          const hint=document.getElementById('paymentHint');if(!hint)return;
+          hint.textContent=payment.value==='payphone'?'Serás dirigido a Payphone para pagar con tarjeta.':
+            payment.value==='transfer'?'Presenta tu comprobante en caja para confirmar el pago.':
+            'Paga en caja; el pedido se prepara después del cobro.';
+        });
       }
       if(needsCoverage()){
         try{

@@ -1458,7 +1458,6 @@ function meseroRuntime() {
           h("b", { text: "Total" }),
           h("b", { text: money(cartTotal()) }),
         ),
-        input("table_no", 10, "Mesa"),
         input("client_name", 60, "Cliente"),
         input("note", 200, "Nota general", "textarea"),
         send,
@@ -1653,8 +1652,7 @@ function meseroRuntime() {
       : {
           sede_id: sede,
           idempotency_key: builder.key,
-          delivery_mode: builder.table_no ? "mesa" : "pickup",
-          table_no: builder.table_no || undefined,
+          delivery_mode: "pickup",
           client_name: builder.client_name || undefined,
           note: builder.note || undefined,
           items,

@@ -18,7 +18,7 @@ import {
   setMeseroOrderStatus, setOrderStatus, upsertSedes,
 } from "./orders.js";
 import { handleGetInvoice, handleRetryInvoice } from "./invoices.js";
-import { handlePayphoneMock, handlePayphoneReturn, reconcilePayphone, startPayphone } from "./payphone.js";
+import { handlePayphoneMock, handlePayphoneReturn, reconcilePayphone, startPayphone, startPublicPayphone } from "./payphone.js";
 import { salesReport } from "./reports.js";
 
 const COOKIE = value => `panel_s=${value}; Path=/panel; HttpOnly; Secure; SameSite=Strict; Max-Age=2592000`;
@@ -32,7 +32,11 @@ export async function handlePublicApi(request, env, ctx, site) {
   const path = url.pathname.replace(/^\/api\/?/, "");
   if (!path) return error("ruta_no_encontrada", 404);
   if (request.method === "GET" && path === "sedes") return publicSedes(env, site.slug);
+  if (request.method === "GET" && path === "payment-options") return json({ cash: true, transfer: true, payphone: env.PAYPHONE_MODE === "live" && Boolean(env.PAYPHONE_TOKEN) });
   if (path === "orders" && request.method === "POST") return createPublicPosOrder(request, env, ctx, site);
+  const publicPayment = /^orders\/([^/]+)\/payphone$/.exec(path);
+  if (publicPayment && request.method === "POST" && isJson(request))
+    return startPublicPayphone(request, env, site, publicPayment[1], await readJson(request));
   const status = /^orders\/([^/]+)$/.exec(path);
   if (status && request.method === "GET") return getPosOrderStatus(env, site, status[1], url.searchParams.get("token"));
   if (request.method === "GET" && path === "payphone/return") return handlePayphoneReturn(request, env, site);

@@ -1229,8 +1229,12 @@ function runtime() {
       actions.append(btn("Rechazar", "btn ghost small", ev => run("reject", ev)));
     }
     if (order.status === "confirmed") {
-      actions.append(btn("Cobrar efectivo", "btn primary small", ev => payPosOrder(order, "cash", ev.currentTarget, reload)));
-      actions.append(btn(me?.payment_mode === "live" ? "Payphone" : "Payphone (simulación)", "btn small", ev => payPosOrder(order, "payphone", ev.currentTarget, reload)));
+      if (order.payment_method === "payphone") {
+        actions.append(h("span", { class: "hint", text: "Esperando confirmación de Payphone" }));
+      } else {
+        actions.append(btn(order.payment_method === "transfer" ? "Confirmar transferencia" : "Cobrar efectivo", "btn primary small", ev => payPosOrder(order, "cash", ev.currentTarget, reload)));
+        if (order.source !== "web" && me?.payment_mode === "live") actions.append(btn("Payphone", "btn small", ev => payPosOrder(order, "payphone", ev.currentTarget, reload)));
+      }
       actions.append(btn("Rechazar", "btn ghost small", ev => run("reject", ev)));
     }
     if (order.status === "paid") actions.append(h("span", { class: "order-state paid", text: "En cocina · cobrada" }));
@@ -1241,6 +1245,7 @@ function runtime() {
         h("strong", { text: posMoney(order) })),
       h("p", { class: "pos-meta", text: [posName(order) || "Sin cliente", POS_SOURCE[order.source] || "", place, Number.isNaN(when.getTime()) ? "" : when.toLocaleString("es-EC", { dateStyle: "short", timeStyle: "short", timeZone: "America/Guayaquil" })].filter(Boolean).join(" · ") }),
       h("p", { class: "pos-meta", text: summary || "Sin ítems" }),
+      h("p", { class: "pos-meta", text: "Pago: " + ({ cash: "efectivo", transfer: "transferencia", payphone: "tarjeta Payphone" }[order.payment_method] || "efectivo") }),
       h("span", { class: "order-state " + status, text: POS_STATE[status] }),
       actions);
   }
@@ -1263,7 +1268,7 @@ function runtime() {
   function payPosOrder(order, provider, buttonEl, reload) {
     const isCash = provider === "cash";
     if (typeof window.confirm === "function" && !window.confirm(isCash
-      ? "¿Confirmas que recibiste el pago en efectivo de esta orden? La comanda se enviará a cocina."
+      ? order.payment_method === "transfer" ? "¿Verificaste la transferencia en la cuenta? La comanda se enviará a cocina." : "¿Confirmas que recibiste el pago en efectivo de esta orden? La comanda se enviará a cocina."
       : me?.payment_mode === "live"
         ? "¿Abrir el pago con Payphone? La comanda se enviará a cocina solo si el pago se aprueba."
         : "¿Simular el pago con Payphone? Esta prueba no cobra dinero; la comanda se enviará a cocina al aprobarla.")) return;
@@ -1578,20 +1583,8 @@ function runtime() {
       const total = cartTotal();
       const name = h("input", { maxlength: "120", placeholder: "Cliente (opcional)", value: st.client_name || "" });
       name.addEventListener("input", () => { st.client_name = name.value; });
-      const mode = h("select", { "aria-label": "Forma de entrega" },
-        h("option", { value: "pickup", text: "Retiro en local" }),
-        h("option", { value: "mesa", text: "Mesa" }),
-        h("option", { value: "delivery", text: "Domicilio" }));
-      mode.value = st.delivery_mode || "pickup";
-      const table = h("input", { maxlength: "10", placeholder: "Mesa", value: st.table_no || "", "aria-label": "Número de mesa" });
-      const tableField = h("label", { class: "field" }, h("span", { text: "Mesa" }), table);
-      tableField.hidden = mode.value !== "mesa";
-      mode.addEventListener("change", () => {
-        st.delivery_mode = mode.value;
-        if (mode.value !== "mesa") st.table_no = "";
-        tableField.hidden = mode.value !== "mesa";
-      });
-      table.addEventListener("input", () => { st.table_no = table.value; });
+      st.delivery_mode = "pickup";
+      st.table_no = "";
       const lines = st.items.length ? st.items.map((item, index) => {
         const qty = h("b", { text: String(item.qty) });
         const plus = btn("+", "link", () => { item.qty = Math.min(99, item.qty + 1); paintCart(); paintGrid(); }, { "aria-label": "Aumentar " + item.nombre });
@@ -1612,8 +1605,7 @@ function runtime() {
         h("p", { class: "pos-head" }, h("strong", { text: "Total" }), h("strong", { text: money(total) })),
         h("div", { class: "grid2" },
           h("label", { class: "field" }, h("span", { text: "Cliente" }), name),
-          h("label", { class: "field" }, h("span", { text: "Entrega" }), mode)),
-        tableField,
+          h("p", { class: "field" }, h("span", { text: "Retiro en local" }))),
         h("p", { class: "hint", text: "La orden queda pendiente. Confirmar no cobra: el cobro es lo que envía la comanda a cocina." }),
         create);
     }
@@ -1633,8 +1625,8 @@ function runtime() {
       });
       buttonEl.disabled = true;
       const r = await api("mesero/orders", {
-        sede_id: st.sede_id, idempotency_key: st.key, delivery_mode: st.delivery_mode || "pickup",
-        client_name: st.client_name || undefined, table_no: st.table_no || undefined, items,
+        sede_id: st.sede_id, idempotency_key: st.key, delivery_mode: "pickup",
+        client_name: st.client_name || undefined, items,
       });
       buttonEl.disabled = false;
       if (r.status === 401) return goLogin("Tu sesión venció. Vuelve a entrar.");

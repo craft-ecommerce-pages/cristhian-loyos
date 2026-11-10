@@ -4,9 +4,10 @@
 //   · El intento se guarda en D1 antes de Prepare; el retorno es idempotente y
 //     un timeout deja el pago en `unknown` para conciliación (nunca rechazo por timeout).
 import { error, json } from "./contract.js";
+import { timingEqual } from "./auth.js";
 import {
   attachProviderId, createPaymentAttempt, failPayment, markPaymentUnknown, posOrderForAction,
-  posOrderRow, posPaymentByKey, posPaymentByRef, setPaymentPending, settlePaymentApproved, settlePaymentRejected,
+  posOrderRow, posPaymentByKey, posPaymentByRef, orderToken, setPaymentPending, settlePaymentApproved, settlePaymentRejected,
 } from "./orders.js";
 
 const BASE = "https://pay.payphonetodoesposible.com";
@@ -109,7 +110,22 @@ export async function startPayphone(request, env, site, session, encodedId, body
   if (!IDEM_RE.test(key)) return error("idempotency_key_requerida", 400);
   const found = await posOrderForAction(env, site, session, encodedId);
   if (found.response) return found.response;
-  const order = found.order;
+  return startPayphoneForOrder(request, env, site, found.order, key);
+}
+
+export async function startPublicPayphone(request, env, site, encodedId, body) {
+  if (payphoneMode(env) !== "live" || !env.PAYPHONE_TOKEN) return error("payphone_no_disponible", 503);
+  const id = typeof encodedId === "string" ? encodedId : "";
+  const order = await posOrderRow(env, site.slug, id);
+  if (!order || order.source !== "web" || order.payment_method !== "payphone") return error("pedido_no_existe", 404);
+  const token = typeof body?.order_token === "string" ? body.order_token : "";
+  if (!token || !timingEqual(token, await orderToken(env, site.slug, id))) return error("pedido_no_existe", 404);
+  const key = typeof body?.idempotency_key === "string" ? body.idempotency_key.trim() : "";
+  if (!IDEM_RE.test(key)) return error("idempotency_key_requerida", 400);
+  return startPayphoneForOrder(request, env, site, order, key);
+}
+
+async function startPayphoneForOrder(request, env, site, order, key) {
   if (order.currency !== "USD") return error("moneda_no_soportada", 400);
   const existing = await posPaymentByKey(env, site.slug, order.id, key);
   if (existing) {
@@ -157,8 +173,8 @@ export async function handlePayphoneReturn(request, env, site) {
   if (!order) return error("pedido_no_existe", 404);
 
   // Retorno repetido (recarga del navegador): idempotente, sin nueva comanda.
-  if (payment.status === "paid" || order.status === "paid") return finish(request, url, site, order, "aprobado");
-  if (payment.status === "rejected" || order.status === "rejected") return finish(request, url, site, order, "rechazado");
+  if (payment.status === "paid" || order.status === "paid") return finish(request, url, env, site, order, "aprobado");
+  if (payment.status === "rejected" || order.status === "rejected") return finish(request, url, env, site, order, "rechazado");
   if (payment.provider_id && payment.provider_id !== id) {
     await markPaymentUnknown(env, site.slug, payment.id, "identificador_alterado");
     return error("pago_alterado", 422);
@@ -173,7 +189,7 @@ export async function handlePayphoneReturn(request, env, site) {
   catch (cause) {
     // Timeout/red: estado desconocido. Nunca se asume rechazo ni se rechaza la orden.
     await markPaymentUnknown(env, site.slug, payment.id, cause instanceof PayphoneError ? cause.code : "confirm_timeout");
-    return finish(request, url, site, order, "pendiente", 502);
+    return finish(request, url, env, site, order, "pendiente", 502);
   }
   if (!payphoneMatches(confirmation, payment, id)) {
     await markPaymentUnknown(env, site.slug, payment.id, "confirmacion_alterada");
@@ -183,20 +199,24 @@ export async function handlePayphoneReturn(request, env, site) {
     const resolved = await settlePaymentApproved(env, site.slug, order, payment, {
       providerId: id, authorization: confirmation.authorizationCode,
     });
-    return finish(request, url, site, resolved, "aprobado");
+    return finish(request, url, env, site, resolved, "aprobado");
   }
   const rejected = await settlePaymentRejected(env, site.slug, order, payment,
     confirmation.message || "Pago no aprobado por el banco.");
-  return finish(request, url, site, rejected, "rechazado");
+  return finish(request, url, env, site, rejected, "rechazado");
 }
 
-function finish(request, url, site, order, status, httpStatus = 200) {
+async function finish(request, url, env, site, order, status, httpStatus = 200) {
   const wantsJson = (request.headers.get("accept") || "").includes("application/json") ||
     url.searchParams.get("format") === "json";
   if (wantsJson) return json({ status, order_id: order.id, order_status: order.status }, httpStatus);
   const state = STATUS_PATH[status] || "pendiente";
-  const token = `${url.origin}/panel?pago=${state}&pedido=${encodeURIComponent(order.id)}`;
-  return new Response(null, { status: 302, headers: { location: token, "cache-control": "no-store" } });
+  const menu = typeof env.MENU_PUBLIC_URL === "string" && /^https:\/\/[a-z0-9.-]+$/i.test(env.MENU_PUBLIC_URL)
+    ? env.MENU_PUBLIC_URL : "";
+  const target = order.source === "web" && menu
+    ? `${menu}/?pago=${state}&pedido=${encodeURIComponent(order.id)}&token=${encodeURIComponent(await orderToken(env, site.slug, order.id))}`
+    : `${url.origin}/panel?pago=${state}&pedido=${encodeURIComponent(order.id)}`;
+  return new Response(null, { status: 302, headers: { location: target, "cache-control": "no-store" } });
 }
 
 /* ── Conciliación autenticada de un pago `unknown` ───────────────────────── */

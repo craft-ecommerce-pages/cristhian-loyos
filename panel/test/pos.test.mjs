@@ -46,8 +46,7 @@ const webOrder = (overrides = {}) => ({
   idempotency_key: "11111111-1111-4111-8111-111111111111",
   items: [{ product_id: "margarita", qty: 2, note: "sin cebolla" }, { product_id: "bebida", qty: 1 }],
   customer: { name: "Ana", phone: "0991234567" },
-  delivery_mode: "delivery",
-  address: "Calle 9",
+  delivery_mode: "pickup",
   // El navegador puede mentir: el servidor debe ignorarlo.
   total: 1, total_cents: 1,
   ...overrides,
@@ -66,7 +65,7 @@ test("pedido web: sede obligatoria, precios del catálogo en centavos y token op
   response = await panel.fetch(body("/api/orders", webOrder()), env, makeCtx());
   assert.equal(response.status, 201);
   const created = await response.json();
-  assert.deepEqual(Object.keys(created).sort(), ["currency", "id", "number", "order_token", "status", "total_cents"]);
+  assert.deepEqual(Object.keys(created).sort(), ["currency", "id", "number", "order_token", "payment_method", "status", "total_cents"]);
   assert.equal(created.status, "pending");
   assert.equal(created.currency, "USD");
   assert.equal(created.total_cents, 2 * 850 + 250, "ignora total del navegador y recalcula");
@@ -287,4 +286,19 @@ test("pedido pendiente editable por caja: recalcula y no toca los pagados", asyn
     items: [{ product_id: "bebida", qty: 1 }],
   }, { method: "PUT", headers: { cookie: owner } }), env, ctx);
   assert.deepEqual(await response.json(), { error: "estado_invalido" });
+});
+
+test("Munch: retiro obligatorio y método de pago persistido", async () => {
+  const env = posEnv(), ctx = makeCtx();
+  const delivery = await panel.fetch(body("/api/orders", webOrder({ delivery_mode: "delivery", address: "Calle 9" })), env, ctx);
+  assert.equal(delivery.status, 400);
+  assert.equal((await delivery.json()).error, "solo_retiro");
+  const transfer = await panel.fetch(body("/api/orders", webOrder({ payment_method: "transfer" })), env, ctx);
+  assert.equal(transfer.status, 201);
+  const created = await transfer.json();
+  assert.equal(created.payment_method, "transfer");
+  assert.equal(rowOf(env, created.id).payment_method, "transfer");
+  const card = await panel.fetch(body("/api/orders", webOrder({ payment_method: "payphone", idempotency_key: "card-11111111" })), env, ctx);
+  assert.equal(card.status, 503);
+  assert.equal((await card.json()).error, "payphone_no_disponible");
 });

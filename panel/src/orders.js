@@ -280,11 +280,12 @@ function integer(raw, fallback, max) {
 export const POS_STATUS = ["pending", "confirmed", "paid", "rejected"];
 const POS_COLUMNS = "id, slug, sede_id, created_at, updated_at, number, source, status, status_at, currency, " +
   "subtotal_cents, total_cents, items, customer_name, customer_phone, delivery_mode, address, table_no, note, " +
-  "staff_id, idempotency_key, paid_at";
+  "staff_id, idempotency_key, paid_at, payment_method";
 const SEDE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const IDEM_RE = /^[A-Za-z0-9_.:-]{8,100}$/;
 const PRODUCT_ID_RE = /^[A-Za-z0-9_-]{1,120}$/;
 const DELIVERY_MODES = new Set(["delivery", "pickup", "mesa"]);
+const PAYMENT_METHODS = new Set(["cash", "transfer", "payphone"]);
 
 const isObject = value => value != null && typeof value === "object" && !Array.isArray(value);
 const clippedText = (value, min, max) => typeof value === "string" && [...value.trim()].length >= min &&
@@ -486,7 +487,7 @@ export function posOrderData(row, extra = {}) {
     total: totalCents / 100, // compatibilidad con las pantallas que muestran soles/dólares
     items: Array.isArray(items) ? items : [],
     customer_name: row.customer_name || "", customer_phone: row.customer_phone || "",
-    delivery_mode: row.delivery_mode || "", address: row.address || null,
+    delivery_mode: row.delivery_mode || "", payment_method: row.payment_method || "cash", address: row.address || null,
     table_no: row.table_no || null, note: row.note || null, staff_id: row.staff_id || null,
     paid_at: row.paid_at == null ? null : Number(row.paid_at),
     print_count: row.print_count == null ? 0 : Number(row.print_count),
@@ -549,6 +550,8 @@ function parsePosOrder(body) {
   }
   const mode = body.delivery_mode == null ? (address ? "delivery" : "pickup") : body.delivery_mode;
   if (!DELIVERY_MODES.has(mode)) return { error: "pedido_invalido", status: 400 };
+  const paymentMethod = body.payment_method == null ? "cash" : body.payment_method;
+  if (!PAYMENT_METHODS.has(paymentMethod)) return { error: "metodo_pago_invalido", status: 400 };
   const table = body.table_no == null ? null : String(body.table_no);
   if (table != null && [...table].length > 10) return { error: "pedido_invalido", status: 400 };
   const note = body.note == null ? null : body.note;
@@ -557,7 +560,7 @@ function parsePosOrder(body) {
   }
   return {
     sede_id: sedeId, idempotency_key: key, items, customer_name: String(name).trim(), customer_phone: String(phone).trim(),
-    delivery_mode: mode, address: address == null ? null : String(address).trim(), table_no: table || null,
+    delivery_mode: mode, payment_method: paymentMethod, address: address == null ? null : String(address).trim(), table_no: table || null,
     note: note == null || note === "" ? null : note,
   };
 }
@@ -565,7 +568,7 @@ function parsePosOrder(body) {
 async function idempotencyHash(slug, source, order) {
   return sha256hex(JSON.stringify({
     slug, source, sede_id: order.sede_id, items: order.items,
-    delivery_mode: order.delivery_mode, address: order.address, table_no: order.table_no,
+    delivery_mode: order.delivery_mode, payment_method: order.payment_method, address: order.address, table_no: order.table_no,
     customer_name: order.customer_name, customer_phone: order.customer_phone, note: order.note,
   }));
 }
@@ -578,13 +581,13 @@ async function insertPosOrder(env, values) {
     env.DB.prepare(
       "INSERT INTO pos_orders (id, slug, sede_id, created_at, updated_at, number, source, status, currency, " +
       "subtotal_cents, total_cents, items, customer_name, customer_phone, delivery_mode, address, table_no, note, " +
-      "staff_id, idempotency_key, idempotency_hash) " +
-      "VALUES (?, ?, ?, ?, ?, (SELECT n FROM order_seq WHERE slug = ? AND day = ?), ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "staff_id, idempotency_key, idempotency_hash, payment_method) " +
+      "VALUES (?, ?, ?, ?, ?, (SELECT n FROM order_seq WHERE slug = ? AND day = ?), ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     ).bind(
       values.id, values.slug, values.sede_id, values.created_at, values.created_at, values.slug, day, values.source,
       values.currency, values.total_cents, values.total_cents, JSON.stringify(values.items), values.customer_name,
       values.customer_phone, values.delivery_mode, values.address, values.table_no, values.note, values.staff_id,
-      values.idempotency_key, values.idempotency_hash,
+      values.idempotency_key, values.idempotency_hash, values.payment_method,
     ),
   ]);
 }
@@ -592,7 +595,7 @@ async function insertPosOrder(env, values) {
 async function createdResponse(env, slug, row) {
   return json({
     id: row.id, number: row.number == null ? null : Number(row.number), status: row.status,
-    total_cents: Number(row.total_cents), currency: row.currency, order_token: await orderToken(env, slug, row.id),
+    total_cents: Number(row.total_cents), currency: row.currency, payment_method: row.payment_method, order_token: await orderToken(env, slug, row.id),
   }, 201);
 }
 
@@ -601,6 +604,7 @@ export async function createPosOrder(env, site, body, options = {}) {
   const source = options.source === "caja" || options.source === "mesero" ? options.source : "web";
   const order = parsePosOrder(body);
   if (order.error) return error(order.error, order.status);
+  if (order.delivery_mode !== "pickup") return error("solo_retiro", 400);
   const sede = await sedeById(env, site.slug, order.sede_id);
   if (!sede || !sede.activa) return error("sede_invalida", 400);
   if (source !== "web") {
@@ -610,6 +614,10 @@ export async function createPosOrder(env, site, body, options = {}) {
   }
   const priced = await pricePosItems(env, site.slug, order.items);
   if (priced.error) return error(priced.error, priced.status, priced.product_id ? { product_id: priced.product_id } : {});
+  if (source === "web" && order.payment_method === "payphone" &&
+      !(env.PAYPHONE_MODE === "live" && typeof env.PAYPHONE_TOKEN === "string" && env.PAYPHONE_TOKEN)) {
+    return error("payphone_no_disponible", 503);
+  }
   const currency = await currencyOf(env, site.slug);
   const id = crypto.randomUUID(), now = Date.now();
   const hash = await idempotencyHash(site.slug, source, order);

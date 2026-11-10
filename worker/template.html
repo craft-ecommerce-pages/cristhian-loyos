@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="referrer" content="no-referrer"/>
   <title><!--TITLE--></title>
   <!--OG-->
   <link rel="icon" href="<!--FAVICON-->" type="image/png"/>
@@ -128,6 +129,15 @@
         <div class="form-field">
           <label>Teléfono</label>
           <input type="tel" id="fieldPhone" placeholder="Ej: 0991234567" autocomplete="tel">
+        </div>
+        <div class="form-field" id="fieldPaymentWrap" hidden>
+          <label for="fieldPayment">Método de pago</label>
+          <select id="fieldPayment">
+            <option value="cash">Efectivo en caja</option>
+            <option value="transfer">Transferencia (validar en caja)</option>
+            <option value="payphone" disabled>Tarjeta con Payphone (no disponible)</option>
+          </select>
+          <small id="paymentHint">El cobro se confirma en caja antes de enviar el pedido a cocina.</small>
         </div>
         <div class="form-field" id="fieldAddressWrap">
           <label>Dirección de entrega</label>
