@@ -37,7 +37,7 @@ function resolveVariantPrice(p, variantes){
 function formatPrice(n, currency, locale, decimals){
   if(!locale) return `${currency || '$'}${Number(n).toFixed(2)}`;
   const d = decimals ?? 0;
-  return `${currency || '$'}${Number(n).toLocaleString(locale, {minimumFractionDigits:d, maximumFractionDigits:d})}`;
+  return `${currency || '$'}${locale === 'en-US' ? ' ' : ''}${Number(n).toLocaleString(locale === true ? 'en-US' : locale, {minimumFractionDigits:d, maximumFractionDigits:d})}`;
 }
 
 const cartTotalQty   = items => items.reduce((s,i) => s + i.qty, 0);
@@ -45,7 +45,7 @@ const cartTotalPrice = items => items.reduce((s,i) => s + i.precio * i.qty, 0);
 
 // Arma el texto del pedido para WhatsApp. fields: {name, phone, mode, address}.
 function buildOrderMessage(items, config, fields){
-  const cur = config.currency || '$';
+  const cur = config.price_symbol || config.currency || '$';
   const line = i => {
     const vL = i.variantes ? Object.values(i.variantes).map(variantOptDisplay).filter(Boolean).join(' · ') : '';
     return `▸ ${i.nombre}${vL ? ' (' + vL + ')' : ''}\n  ${i.qty} × ${formatPrice(i.precio,cur,config.price_locale,config.price_decimals)} = ${formatPrice(i.qty*i.precio,cur,config.price_locale,config.price_decimals)}`;
@@ -104,7 +104,7 @@ if(typeof document !== 'undefined'){ (function(){
   }
   let toastTimer;
 
-  const cur = () => state.config.currency || '$';
+  const cur = () => state.config.price_symbol || state.config.currency || '$';
   const fmt = n => formatPrice(n, cur(), state.config.price_locale, state.config.price_decimals);
   const find = key => state.items.find(i => i.key === key);
   const save = () => { try{ localStorage.setItem(state.storageKey, JSON.stringify(state.items)); }catch(e){} };

@@ -333,9 +333,9 @@
       return (absolute!==null?absolute:basePrice(p))+delta;
     }
     function formatPrice(n){
-      const c=config.currency||'$';
+      const c=config.price_symbol||config.currency||'$';
       const d=Math.abs(n)<10?2:(Number.isInteger(n)?0:2);
-      if(config.price_locale){const k=config.price_decimals??0;return c+n.toLocaleString(config.price_locale,{minimumFractionDigits:k,maximumFractionDigits:k});}
+      if(config.price_locale){const k=config.price_decimals??0;return c+' '+n.toLocaleString(config.price_locale===true?'en-US':config.price_locale,{minimumFractionDigits:k,maximumFractionDigits:k});}
       return c+n.toFixed(d);
     }
     // distribute guarda la variante como objeto {label,price}; extraer el texto o coacciona a "[object Object]".
@@ -1675,7 +1675,7 @@
         `© ${new Date().getFullYear()} <strong>${store}</strong>`+
         `<span class="footer-sep">|</span><a href="#" id="lnkTerms">${t('Términos y condiciones')}</a>`+
         `<span class="footer-sep">|</span><a href="#" id="lnkPrivacy">${t('Política de privacidad')}</a>`+
-        `<br><span class="footer-credit">Powered by <a href="https://craftmarketing.agency" target="_blank" rel="noopener">Craft Systems</a></span>`;
+        `<br><span class="footer-credit">Powered by <a href="https://craft-systems.com" target="_blank" rel="noopener">Craft Systems</a></span>`;
       if(config.hero_title) document.getElementById('heroTitle').innerHTML=config.hero_title;
 
       // Personalizaciones opcionales desde config (edge y legacy). Si la clave no está,
