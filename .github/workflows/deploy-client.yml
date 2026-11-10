@@ -55,6 +55,7 @@ jobs:
           RATELIMIT_NAMESPACE_ID: ${{ secrets.RATELIMIT_NAMESPACE_ID }}
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
           ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+          PAYPHONE_TOKEN: ${{ secrets.PAYPHONE_TOKEN }}
           ENGINE_ORIGIN: ${{ vars.ENGINE_ORIGIN }}
           MENU_PUBLIC_URL: ${{ vars.MENU_PUBLIC_URL }}
           PANEL_PUBLIC_URL: ${{ vars.PANEL_PUBLIC_URL }}

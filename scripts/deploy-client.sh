@@ -120,6 +120,7 @@ put_secret() {
 }
 put_secret SESSION_SECRET
 put_secret ADMIN_TOKEN
+put_secret PAYPHONE_TOKEN
 
 # 4) Menú con sus assets locales /v1.
 log "desplegando menú ($MENU_WORKER_NAME)"

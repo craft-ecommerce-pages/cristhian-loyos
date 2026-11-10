@@ -1,6 +1,6 @@
 // Payphone (botón de pago): Prepare + V2/Confirm. Adaptado del sorteo sin acoplar rifas.
 //   · Solo llama al proveedor real con PAYPHONE_MODE="live" y env.PAYPHONE_TOKEN.
-//   · Cualquier otro caso (o PAYPHONE_MODE="mock") usa el mock local: nunca red.
+//   · El mock requiere PAYPHONE_MODE="mock" explícito; sin modo, pagos deshabilitados.
 //   · El intento se guarda en D1 antes de Prepare; el retorno es idempotente y
 //     un timeout deja el pago en `unknown` para conciliación (nunca rechazo por timeout).
 import { error, json } from "./contract.js";
@@ -20,7 +20,7 @@ class PayphoneError extends Error {
 }
 
 export function payphoneMode(env) {
-  return env.PAYPHONE_MODE === "live" ? "live" : "mock";
+  return env.PAYPHONE_MODE === "live" ? "live" : env.PAYPHONE_MODE === "mock" ? "mock" : "disabled";
 }
 
 function baseUrl(env) {
@@ -31,7 +31,8 @@ function baseUrl(env) {
 // Prepara el botón y devuelve la URL de pago. Lanza PayphoneError si no se puede.
 export async function preparePayphone(env, origin, order, payment) {
   const responseUrl = `${origin}/api/payphone/return`;
-  if (payphoneMode(env) !== "live") {
+  if (payphoneMode(env) === "disabled") throw new PayphoneError("payphone_no_disponible", 503);
+  if (payphoneMode(env) === "mock") {
     return `${origin}/api/payphone/mock?p=${encodeURIComponent(payment.provider_ref)}&resultado=aprobado`;
   }
   if (typeof env.PAYPHONE_TOKEN !== "string" || !env.PAYPHONE_TOKEN) {
@@ -68,7 +69,8 @@ export async function preparePayphone(env, origin, order, payment) {
 
 // V2/Confirm. En mock devuelve la misma forma que el proveedor real, sin red.
 export async function confirmPayphone(env, payment, id) {
-  if (payphoneMode(env) !== "live") {
+  if (payphoneMode(env) === "disabled") throw new PayphoneError("payphone_no_disponible", 503);
+  if (payphoneMode(env) === "mock") {
     if (id === "timeout") throw new PayphoneError("pago_pendiente", 502, "Timeout simulado de Payphone");
     const expected = `m${payment.provider_ref.slice(0, 12)}`;
     return {
@@ -106,6 +108,7 @@ export function payphoneMatches(confirmation, payment, id) {
 /* ── Caja: iniciar pago ──────────────────────────────────────────────────── */
 
 export async function startPayphone(request, env, site, session, encodedId, body) {
+  if (payphoneMode(env) === "disabled") return error("payphone_no_disponible", 503);
   const key = typeof body?.idempotency_key === "string" ? body.idempotency_key.trim() : "";
   if (!IDEM_RE.test(key)) return error("idempotency_key_requerida", 400);
   const found = await posOrderForAction(env, site, session, encodedId);
@@ -311,7 +314,7 @@ export async function reconcilePendingPayments(env, now = Date.now()) {
 
 // Simulador local del retorno de Payphone. En live no existe.
 export function handlePayphoneMock(request, env) {
-  if (payphoneMode(env) === "live") return error("ruta_no_encontrada", 404);
+  if (payphoneMode(env) !== "mock") return error("ruta_no_encontrada", 404);
   const url = new URL(request.url);
   const ref = url.searchParams.get("p") || "";
   if (!REF_RE.test(ref)) return error("pago_invalido", 422);

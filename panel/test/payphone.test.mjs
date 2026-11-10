@@ -22,6 +22,7 @@ function payEnv(currency = "USD") {
     "pizza:config": { currency, location: { sedes: [{ nombre: "Centro", direccion: "Calle 1" }] } },
   });
   env.CLIENT_SLUG = "pizza";
+  env.PAYPHONE_MODE = "mock";
   env.DB.raw.prepare("INSERT INTO catalogs (slug, doc, version, updated_at) VALUES (?, ?, 1, ?)")
     .run("pizza", JSON.stringify({ categories: [], packagings: [], variant_groups: [], products: [product] }), Date.now());
   return env;
@@ -268,4 +269,16 @@ test("ruta autenticada de conciliación: reconsulta sin recobrar y respeta la ve
   assert.equal(response.status, 409);
   assert.deepEqual(await response.json(), { error: "conciliacion_vencida", payment_status: "unknown" });
   assert.equal(comandas(env, old.id), 0);
+});
+
+test("sin modo explícito el mock público no existe y no se abre un cobro", async () => {
+  const env = payEnv(), ctx = makeCtx();
+  delete env.PAYPHONE_MODE;
+  const mock = await panel.fetch(request("/api/payphone/mock?p=AAAAAAAAAAAAAAA"), env, ctx);
+  assert.equal(mock.status, 404);
+  const cookie = await ownerCookie(env);
+  const order = await newOrder(env, ctx, "web-disabled-0001");
+  const response = await start(env, ctx, order.id, "disabled-0001", cookie);
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error, "payphone_no_disponible");
 });
