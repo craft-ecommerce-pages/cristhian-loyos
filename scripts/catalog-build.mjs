@@ -258,18 +258,18 @@ const doc = {
 };
 
 const config = {
-  // Nombre provisional y neutro: el nombre comercial no está confirmado por el cliente.
-  store_name: "Carta de Food Trucks",
-  site_title: "Carta · Food Trucks",
-  brand_sub: "Sushi · Fast food · Tradicional",
-  hero_kicker: "Una carta, seis food trucks",
-  hero_title: "Pide en tu food truck",
-  hero_divider: true,
+  store_name: "Munch",
+  site_title: "Munch · Sushi, Fast Food y Tradicional",
+  brand_sub: "",
+  hero_kicker: "",
+  hero_title: "Munch",
+  hero_divider: false,
   search_placeholder: "Busca tu antojo...",
   currency: "USD",
   price_locale: true,
-  theme: { primary: "#C81E1E", accent: "#E0A526", bg: "#0B0B0B", surface: "#161616", surface2: "#1F1F1F", text: "#F5F0E6", text2: "#C9C2B6", border: "#2E2E2E" },
-  og_image: `${MEDIA_ORIGIN}/media/panel/${CLIENT_SLUG}/brand/food-truck.webp`,
+  theme: { primary: "#23DDF4", accent: "#F339A8", bg: "#080A12", surface: "#141624", surface2: "#1D2030", text: "#F4FAFF", text2: "#C5D2DC", border: "#363B50" },
+  hero_image: `${MEDIA_ORIGIN}/media/panel/${CLIENT_SLUG}/brand/munch-hero.png`,
+  og_image: `${MEDIA_ORIGIN}/media/panel/${CLIENT_SLUG}/brand/munch-hero.png`,
   categories: Object.fromEntries(CATEGORIES.map(([slug, name]) => [slug, name])),
   category_order: CATEGORIES.map(([slug]) => slug),
   packaging: { enabled: true, mode: "per_product", label: "Empaque" },

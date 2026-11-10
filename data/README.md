@@ -35,7 +35,7 @@ node scripts/catalog-import.mjs    # valida contrato del panel y emite data/kv/*
   únicos; los combos estudiantiles de 10–50 bocados quedaron como seis productos.
 - **Sedes**: `sede-01` … `sede-06`, nombre genérico `Food truck N`, dirección `Por confirmar`,
   `universidad` vacía. No se inventaron campus ni marcas.
-- **Marca**: se muestra `Food Trucks` hasta recibir el nombre comercial definitivo.
+- **Marca**: Munch, confirmada por Juan Carlos. La portada usa la imagen oficial proporcionada.
 - **Sin datos personales**: no se copiaron RUC, correos, teléfonos ni capturas de documentos fuente.
 
 ## Checkout nativo (opt-in)
@@ -63,15 +63,14 @@ node scripts/catalog-import.mjs    # valida contrato del panel y emite data/kv/*
 
 ## Incertidumbres pendientes de confirmar
 
-1. **Marca y nombre comercial** definitivos (hoy se muestra `Food Trucks`).
-2. **Sedes reales**: nombres, direcciones y universidades de los seis food trucks.
-3. **Precios estudiantiles**: la carta Munch/Arizona indica precios “ESTUDIANTES presentando carnet”.
+1. **Sedes reales**: nombres, direcciones y universidades de los seis food trucks.
+2. **Precios estudiantiles**: la carta Munch/Arizona indica precios “ESTUDIANTES presentando carnet”.
    Se cargaron esos importes; falta confirmar si el público general paga otro valor.
-4. **Arizona Patisserie**: la carta dice “Menú Exclusivo Universidad Internacional” / “Decanos y
+3. **Arizona Patisserie**: la carta dice “Menú Exclusivo Universidad Internacional” / “Decanos y
    Alumnos UIDE”. No se incluyó universidad, correo ni dato personal; confirmar alcance del menú.
-5. **Postres**: se reportan como `postres`, separados de `fastfood`, y el reporte reconcilia las cuatro categorías.
-6. **Rollo Dragón**: la carta solo lista 5 bocados ($5.10); no se creó una porción de 10.
-7. **Combos**: el contenido exacto de los combos de alitas/hamburguesa no está detallado en la carta;
+4. **Postres**: se reportan como `postres`, separados de `fastfood`, y el reporte reconcilia las cuatro categorías.
+5. **Rollo Dragón**: la carta solo lista 5 bocados ($5.10); no se creó una porción de 10.
+6. **Combos**: el contenido exacto de los combos de alitas/hamburguesa no está detallado en la carta;
    las descripciones son conservadoras.
-8. **Fotos compartidas**: majado, bolón, tortillas, papa rellena y arroz moro usan una sola foto para
+7. **Fotos compartidas**: majado, bolón, tortillas, papa rellena y arroz moro usan una sola foto para
    varias variantes; reemplazar cuando el cliente entregue fotos individuales.

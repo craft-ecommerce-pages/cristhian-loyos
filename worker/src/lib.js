@@ -79,6 +79,7 @@ export function render(tpl, cfg, cfgRaw, theme, engineOrigin = ENGINE_ORIGIN_DEF
     .replace("<!--VARS-->", `:root{--primary:${esc(primary)};--accent:${esc(accent)}}`)
     .replace("<!--THEME-->", theme) // CSS bespoke del cliente: se inyecta tal cual (confiable)
     .replace("<!--LOGO-->", esc(cfg.logo || ""))
+    .replace("<!--HERO_IMAGE-->", esc(cfg.hero_image || ""))
     .replace("<!--BRAND-->", esc(store))
     .replace("<!--BRANDSUB-->", cfg.brand_sub_html ? sanitizeBrandSub(cfg.brand_sub_html) : esc(cfg.brand_sub || ""))
     .replace("<!--DIVIDER-->", cfg.hero_divider ? '<div class="hero-divider"></div>' : "")

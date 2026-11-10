@@ -51,4 +51,4 @@ Despliegue y migraciones: `docs/DESPLIEGUE.md`. Nunca compilar ni desplegar desd
 - Sin emisión fiscal real hasta validar RIMPE, establecimiento y proveedor con el titular.
 - Payphone en modo `mock` por defecto; el token de pruebas no se versiona.
 - Precios estudiantiles de las cartas originales: pendiente de confirmación comercial; no se alteraron importes.
-- Sedes, direcciones y nombre comercial son provisionales.
+- El nombre comercial es Munch; las seis sedes y direcciones siguen provisionales.

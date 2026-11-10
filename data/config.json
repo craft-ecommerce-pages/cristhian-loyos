@@ -1,24 +1,24 @@
 {
-  "store_name": "Carta de Food Trucks",
-  "site_title": "Carta · Food Trucks",
-  "brand_sub": "Sushi · Fast food · Tradicional",
-  "hero_kicker": "Una carta, seis food trucks",
-  "hero_title": "Pide en tu food truck",
-  "hero_divider": true,
+  "store_name": "Munch",
+  "site_title": "Munch · Sushi, Fast Food y Tradicional",
+  "brand_sub": "",
+  "hero_kicker": "",
+  "hero_title": "Munch",
+  "hero_divider": false,
   "search_placeholder": "Busca tu antojo...",
   "currency": "USD",
   "price_locale": true,
   "theme": {
-    "primary": "#C81E1E",
-    "accent": "#E0A526",
-    "bg": "#0B0B0B",
-    "surface": "#161616",
-    "surface2": "#1F1F1F",
-    "text": "#F5F0E6",
-    "text2": "#C9C2B6",
-    "border": "#2E2E2E"
+    "primary": "#23DDF4",
+    "accent": "#F339A8",
+    "bg": "#080A12",
+    "surface": "#141624",
+    "surface2": "#1D2030",
+    "text": "#F4FAFF",
+    "text2": "#C5D2DC",
+    "border": "#363B50"
   },
-  "og_image": "/media/panel/cristhian-loyos/brand/food-truck.webp",
+  "og_image": "/media/panel/cristhian-loyos/brand/munch-hero.png",
   "categories": {
     "sushi-entradas": "🍣 Sushi · Entradas",
     "sushi-rollos-frios": "🍣 Sushi · Rollos fríos",
@@ -117,5 +117,6 @@
     "enabled": true,
     "api_base": "",
     "poll_ms": 5000
-  }
+  },
+  "hero_image": "/media/panel/cristhian-loyos/brand/munch-hero.png"
 }
