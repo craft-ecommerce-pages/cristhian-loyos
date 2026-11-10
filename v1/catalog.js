@@ -1361,7 +1361,13 @@
           if(!pay.ok||!started?.payment_url)throw new Error('Pedido recibido, pero Payphone no pudo abrirse. Muestra el número en caja.');
           forgetOrderKey();
           try{sessionStorage.setItem('munch_last_order',JSON.stringify({...receipt,sede_id:sedeId}));}catch(e){}
-          window.location.assign(started.payment_url);
+          // Payphone valida el dominio de origen del navegador. La política global
+          // no-referrer protege el token del recibo; esta navegación envía solo el origen.
+          const paymentLink=document.createElement('a');
+          paymentLink.href=started.payment_url;
+          paymentLink.referrerPolicy='origin';
+          document.body.append(paymentLink);
+          paymentLink.click();
           return;
         }
         forgetOrderKey();
