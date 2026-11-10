@@ -96,7 +96,7 @@ async function flush() {
 }
 
 const PRODUCTS = [
-  { id: "p1", name: "Pizza margarita", price: "9.50", active: true, catalog_visible: true,
+  { id: "p1", name: "Pizza margarita", price: "9.50", promo_price: "", active: true, catalog_visible: true,
     categories: ["pizzas"], images: ["https://cdn.example.com/pizza.jpg"] },
   { id: "p2", name: "Jugo natural", precio: "2.25", active: true, catalog_visible: true,
     categories: ["bebidas"] },

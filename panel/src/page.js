@@ -1496,7 +1496,8 @@ function runtime() {
         return;
       }
       grid.replaceChildren(...found.map(product => {
-        const qty = pickCount(product), price = money(productPromo(product) ?? productPrice(product));
+        const promo = productPromo(product);
+        const qty = pickCount(product), price = money(promo != null && promo !== "" ? promo : productPrice(product));
         const stockOff = isOff(product);
         const card = h("button", {
           type: "button", class: "pick-card" + (qty ? " in-cart" : ""), disabled: stockOff,
@@ -1606,7 +1607,7 @@ function runtime() {
       cartBox.replaceChildren(
         h("h2", { text: "Orden en curso" }),
         h("label", { class: "field" }, h("span", { text: "Sede" }), sedeSelect),
-        !sedes.length ? h("p", { class: "notice", text: "No hay sedes activas. Configúralas en Mi negocio antes de crear órdenes." }) : null,
+        ...(!sedes.length ? [h("p", { class: "notice", text: "No hay sedes activas. Configúralas en Mi negocio antes de crear órdenes." })] : []),
         h("div", { class: "cart-list" }, lines),
         h("p", { class: "pos-head" }, h("strong", { text: "Total" }), h("strong", { text: money(total) })),
         h("div", { class: "grid2" },
