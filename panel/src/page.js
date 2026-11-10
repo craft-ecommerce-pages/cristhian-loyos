@@ -1230,7 +1230,7 @@ function runtime() {
     }
     if (order.status === "confirmed") {
       actions.append(btn("Cobrar efectivo", "btn primary small", ev => payPosOrder(order, "cash", ev.currentTarget, reload)));
-      actions.append(btn("Payphone", "btn small", ev => payPosOrder(order, "payphone", ev.currentTarget, reload)));
+      actions.append(btn(me?.payment_mode === "live" ? "Payphone" : "Payphone (simulación)", "btn small", ev => payPosOrder(order, "payphone", ev.currentTarget, reload)));
       actions.append(btn("Rechazar", "btn ghost small", ev => run("reject", ev)));
     }
     if (order.status === "paid") actions.append(h("span", { class: "order-state paid", text: "En cocina · cobrada" }));
@@ -1264,7 +1264,9 @@ function runtime() {
     const isCash = provider === "cash";
     if (typeof window.confirm === "function" && !window.confirm(isCash
       ? "¿Confirmas que recibiste el pago en efectivo de esta orden? La comanda se enviará a cocina."
-      : "¿Abrir el pago con Payphone? La comanda se enviará a cocina solo si el pago se aprueba.")) return;
+      : me?.payment_mode === "live"
+        ? "¿Abrir el pago con Payphone? La comanda se enviará a cocina solo si el pago se aprueba."
+        : "¿Simular el pago con Payphone? Esta prueba no cobra dinero; la comanda se enviará a cocina al aprobarla.")) return;
     const key = paymentKeys.get(order.id) || uuid();
     paymentKeys.set(order.id, key);
     buttonEl.disabled = true;

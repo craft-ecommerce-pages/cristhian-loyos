@@ -198,6 +198,7 @@ test("la lista separa confirmar de cobrar y no imprime en estados sin pago", asy
   assert.match(doc.body.textContent, /Pendiente/);
   assert.match(doc.body.textContent, /Cobrar efectivo/);
   assert.match(doc.body.textContent, /Payphone/);
+  assert.match(doc.body.textContent, /Payphone \(simulación\)/);
   assert.equal(doc.body.textContent.includes("Imprimir comanda"), false, "la caja no imprime antes de pagar");
 
   const confirm = find(doc.body, node => node.tagName === "button" && node.textContent === "Confirmar");

@@ -695,6 +695,7 @@ async function meData(env, site, user) {
   return {
     email: user.email,
     must_change_password: Boolean(user.must_change_password),
+    payment_mode: env.PAYPHONE_MODE === "live" && typeof env.PAYPHONE_TOKEN === "string" && env.PAYPHONE_TOKEN ? "live" : "mock",
     store: {
       slug: site.slug, store_name: config.store_name || "", logo: config.logo || "",
       theme_primary: config.theme_primary || "", menu_url: `https://${site.host}/`,
