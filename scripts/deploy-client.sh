@@ -48,6 +48,8 @@ check RATELIMIT_NAMESPACE_ID '^[0-9]+$' 'id numérico de rate limit namespace'
 
 export ENGINE_ORIGIN="${ENGINE_ORIGIN:-/v1}"
 export MENU_PUBLIC_URL="${MENU_PUBLIC_URL:-}"
+export PAYPHONE_MODE="${PAYPHONE_MODE:-disabled}"
+check PAYPHONE_MODE '^(disabled|mock|live)$' 'modo Payphone'
 check ENGINE_ORIGIN '^(/[A-Za-z0-9._-]+|https://[A-Za-z0-9./_-]+)$' '/v1 o una URL https'
 
 # Los assets del motor se publican desde este Worker; deben coincidir con v1/ (fuente canónica).

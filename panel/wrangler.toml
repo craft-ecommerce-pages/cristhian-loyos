@@ -15,6 +15,7 @@ workers_dev = true
 # Mismo slug que el Worker de menú: resuelve el host (workers.dev o dominio propio) a sus datos.
 CLIENT_SLUG = "${CLIENT_SLUG}"
 MENU_PUBLIC_URL = "${MENU_PUBLIC_URL}"
+PAYPHONE_MODE = "${PAYPHONE_MODE}"
 
 # KV compartido con el Worker de menú: el panel es dueño del catálogo tras "Entregar".
 [[kv_namespaces]]

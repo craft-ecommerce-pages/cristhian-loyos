@@ -1676,7 +1676,7 @@
         const payment=document.getElementById('fieldPayment');
         const card=payment?.querySelector('option[value="payphone"]');
         fetch(ordersEndpoint(checkoutOrders(config),'/api/payment-options'),{cache:'no-store'})
-          .then(r=>r.ok?r.json():null).then(options=>{if(card&&options?.payphone){card.disabled=false;card.textContent='Tarjeta con Payphone';}})
+          .then(r=>r.ok?r.json():null).then(options=>{if(card&&options?.payphone){card.disabled=false;card.textContent='Tarjeta con Payphone (pruebas)';}})
           .catch(()=>{});
         payment?.addEventListener('change',()=>{
           const hint=document.getElementById('paymentHint');if(!hint)return;

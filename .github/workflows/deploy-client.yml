@@ -58,6 +58,7 @@ jobs:
           PAYPHONE_TOKEN: ${{ secrets.PAYPHONE_TOKEN }}
           ENGINE_ORIGIN: ${{ vars.ENGINE_ORIGIN }}
           MENU_PUBLIC_URL: ${{ vars.MENU_PUBLIC_URL }}
+          PAYPHONE_MODE: ${{ vars.PAYPHONE_MODE }}
           PANEL_PUBLIC_URL: ${{ vars.PANEL_PUBLIC_URL }}
           DRY_RUN: ${{ inputs.dry_run }}
         run: |
