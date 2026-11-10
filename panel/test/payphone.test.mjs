@@ -3,6 +3,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import panel from "../src/index.js";
+import { preparePayphone } from "../src/payphone.js";
 import { makeCtx, makeEnv } from "./helpers.mjs";
 
 const host = "pizza.craft-systems.com";
@@ -48,6 +49,26 @@ const paymentOf = (env, orderId, key) => env.DB.raw.prepare(
   "SELECT * FROM pos_payments WHERE order_id = ? AND idempotency_key = ?",
 ).get(orderId, key);
 const comandas = (env, orderId) => env.DB.raw.prepare("SELECT COUNT(*) n FROM pos_comandas WHERE order_id = ?").get(orderId).n;
+
+test("Prepare live envía un importe sin IVA coherente con el contrato de Payphone", async () => {
+  const original = globalThis.fetch;
+  let payload;
+  globalThis.fetch = async (_url, init) => {
+    payload = JSON.parse(init.body);
+    return Response.json({ payWithCard: "https://pay.payphonetodoesposible.com/test" });
+  };
+  try {
+    const payment = { amount_cents: 1700, provider_ref: "CL1234567890123" };
+    const url = await preparePayphone({ PAYPHONE_MODE: "live", PAYPHONE_TOKEN: "test-only" },
+      "https://cliente.example", { id: "order-1", number: 1 }, payment);
+    assert.match(url, /^https:\/\//);
+    assert.equal(payload.amount, 1700);
+    assert.equal(payload.amountWithoutTax, 1700);
+    assert.equal(payload.amountWithTax, 0);
+    assert.equal(payload.tax, 0);
+    assert.equal(payload.responseUrl, "https://cliente.example/api/payphone/return");
+  } finally { globalThis.fetch = original; }
+});
 
 test("Prepare en mock: no toca la red, guarda el intento antes y es idempotente por clave", async () => {
   const env = payEnv(), ctx = makeCtx(), cookie = await ownerCookie(env);

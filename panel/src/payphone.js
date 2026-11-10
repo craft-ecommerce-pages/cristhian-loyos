@@ -43,7 +43,9 @@ export async function preparePayphone(env, origin, order, payment) {
       method: "POST",
       headers: { authorization: `Bearer ${env.PAYPHONE_TOKEN}`, "content-type": "application/json" },
       body: JSON.stringify({
-        amount, amountWithoutTax: 0, amountWithTax: amount, tax: 0,
+        // Payphone rechaza amountWithTax > 0 cuando tax = 0. Hasta contar con
+        // la configuración fiscal validada, el importe completo va sin IVA.
+        amount, amountWithoutTax: amount, amountWithTax: 0, tax: 0,
         clientTransactionId: payment.provider_ref, currency: "USD",
         ...(env.PAYPHONE_STORE_ID ? { storeId: env.PAYPHONE_STORE_ID } : {}),
         responseUrl,
