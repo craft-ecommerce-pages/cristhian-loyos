@@ -701,6 +701,7 @@ async function meData(env, site, user) {
       theme_primary: config.theme_primary || "", menu_url: publicMenuUrl(env.MENU_PUBLIC_URL),
     },
     loyalty_enabled: normalizeConfig(loyaltyConfig).enabled,
+    loyalty_available: Boolean(env.LOYALTY),
     // Función "tarjeta" por plan: la UI bloquea Fidelidad si está apagada.
     features: { loyalty: features.loyalty },
     loyalty_pay_url: loyaltyPayUrl(env, site.slug),

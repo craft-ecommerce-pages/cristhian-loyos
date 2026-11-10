@@ -774,7 +774,7 @@ function runtime() {
       ["stats", "Resultados", statsScreen, "Ventas"],
       ["reports", "Reportes", reportsScreen, "Ventas"],
       ["store", "Mi negocio", storeScreen, "Negocio"],
-      ["loyalty", "Fidelidad", loyaltyScreen, "Negocio"],
+      ...(me.loyalty_available ? [["loyalty", "Fidelidad", loyaltyScreen, "Negocio"]] : []),
     ];
     const buttons = [];
     let navGroup = "";
