@@ -47,6 +47,7 @@ check RATELIMIT_NAMESPACE_ID '^[0-9]+$' 'id numérico de rate limit namespace'
 [[ "$MENU_WORKER_NAME" != "$PANEL_WORKER_NAME" ]] || die "MENU_WORKER_NAME y PANEL_WORKER_NAME deben ser distintos"
 
 export ENGINE_ORIGIN="${ENGINE_ORIGIN:-/v1}"
+export MENU_PUBLIC_URL="${MENU_PUBLIC_URL:-}"
 check ENGINE_ORIGIN '^(/[A-Za-z0-9._-]+|https://[A-Za-z0-9./_-]+)$' '/v1 o una URL https'
 
 # Los assets del motor se publican desde este Worker; deben coincidir con v1/ (fuente canónica).

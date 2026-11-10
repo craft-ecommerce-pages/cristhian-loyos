@@ -14,6 +14,7 @@ workers_dev = true
 [vars]
 # Mismo slug que el Worker de menú: resuelve el host (workers.dev o dominio propio) a sus datos.
 CLIENT_SLUG = "${CLIENT_SLUG}"
+MENU_PUBLIC_URL = "${MENU_PUBLIC_URL}"
 
 # KV compartido con el Worker de menú: el panel es dueño del catálogo tras "Entregar".
 [[kv_namespaces]]

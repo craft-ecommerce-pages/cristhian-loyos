@@ -49,7 +49,7 @@ export async function preparePayphone(env, origin, order, payment) {
         clientTransactionId: payment.provider_ref, currency: "USD",
         ...(env.PAYPHONE_STORE_ID ? { storeId: env.PAYPHONE_STORE_ID } : {}),
         responseUrl,
-        cancellationUrl: `${origin}/?pago=cancelado`,
+        cancellationUrl: `${origin}/panel?pago=cancelado`,
         timeZone: -5,
         reference: `Pedido ${order.number == null ? order.id : order.number}`,
       }),
@@ -195,7 +195,7 @@ function finish(request, url, site, order, status, httpStatus = 200) {
     url.searchParams.get("format") === "json";
   if (wantsJson) return json({ status, order_id: order.id, order_status: order.status }, httpStatus);
   const state = STATUS_PATH[status] || "pendiente";
-  const token = `${url.origin}/?pago=${state}&pedido=${encodeURIComponent(order.id)}`;
+  const token = `${url.origin}/panel?pago=${state}&pedido=${encodeURIComponent(order.id)}`;
   return new Response(null, { status: 302, headers: { location: token, "cache-control": "no-store" } });
 }
 

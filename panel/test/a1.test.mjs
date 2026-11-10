@@ -35,6 +35,15 @@ test("login correcto, incorrecto y limitado", async () => {
   assert.deepEqual(await response.json(), { error: "demasiados_intentos" });
 });
 
+test("el panel enlaza la carta del Worker de menú configurado", async () => {
+  const env = makeEnv({ "pizza:config": { store_name: "Pizza" } });
+  env.MENU_PUBLIC_URL = "https://menu.cliente.example";
+  const credentials = await owner(env), cookie = cookieOf(await login(env, credentials));
+  const response = await panel.fetch(withCookie("/panel/api/me", cookie), env, {});
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).store.menu_url, "https://menu.cliente.example/");
+});
+
 test("la sesión está ligada al slug y una contraseña nueva revoca la cookie previa", async () => {
   const env = makeEnv({ "pizza:config": {}, "other:config": {} });
   const credentials = await owner(env);

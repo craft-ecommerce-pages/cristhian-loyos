@@ -698,13 +698,20 @@ async function meData(env, site, user) {
     payment_mode: env.PAYPHONE_MODE === "live" && typeof env.PAYPHONE_TOKEN === "string" && env.PAYPHONE_TOKEN ? "live" : "mock",
     store: {
       slug: site.slug, store_name: config.store_name || "", logo: config.logo || "",
-      theme_primary: config.theme_primary || "", menu_url: `https://${site.host}/`,
+      theme_primary: config.theme_primary || "", menu_url: publicMenuUrl(env.MENU_PUBLIC_URL),
     },
     loyalty_enabled: normalizeConfig(loyaltyConfig).enabled,
     // Función "tarjeta" por plan: la UI bloquea Fidelidad si está apagada.
     features: { loyalty: features.loyalty },
     loyalty_pay_url: loyaltyPayUrl(env, site.slug),
   };
+}
+function publicMenuUrl(raw) {
+  if (typeof raw !== "string" || !raw.trim()) return "";
+  try {
+    const url = new URL(raw.trim());
+    return url.protocol === "https:" && !url.username && !url.password ? url.origin + "/" : "";
+  } catch { return ""; }
 }
 // Enlace del addon de fidelidad (USD 5/mes). `CRM_PAY_URL` es var de wrangler;
 // sin ella no se inventa un cobro externo (el panel oculta el botón).

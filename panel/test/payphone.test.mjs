@@ -67,6 +67,7 @@ test("Prepare live envía un importe sin IVA coherente con el contrato de Paypho
     assert.equal(payload.amountWithTax, 0);
     assert.equal(payload.tax, 0);
     assert.equal(payload.responseUrl, "https://cliente.example/api/payphone/return");
+    assert.equal(payload.cancellationUrl, "https://cliente.example/panel?pago=cancelado");
   } finally { globalThis.fetch = original; }
 });
 
@@ -124,10 +125,10 @@ test("retorno aprobado: orden pagada, pago conciliado y una sola comanda", async
   assert.equal(comandas(env, order.id), 1);
   assert.equal(env.DB.raw.prepare("SELECT COUNT(*) n FROM pos_payments WHERE order_id = ?").get(order.id).n, 1);
 
-  // El comprador vuelve al menú con el estado en la URL.
+  // El operador vuelve al panel con el estado en la URL.
   response = await panel.fetch(request(`/api/payphone/return?id=${id}&clientTransactionId=${started.payment_id}`), env, ctx);
   assert.equal(response.status, 302);
-  assert.equal(response.headers.get("location"), `https://${host}/?pago=aprobado&pedido=${order.id}`);
+  assert.equal(response.headers.get("location"), `https://${host}/panel?pago=aprobado&pedido=${order.id}`);
 
   // Repetir Prepare después de pagar devuelve el estado pagado sin nueva URL.
   response = await start(env, ctx, order.id, "pay-0002", cookie);
@@ -178,7 +179,7 @@ test("timeout de confirmación: nunca se asume rechazo; queda unknown para conci
 
   // El navegador ve "pendiente", no "rechazado".
   const browser = await panel.fetch(request(`/api/payphone/return?id=timeout&clientTransactionId=${started.payment_id}`), env, ctx);
-  assert.equal(browser.headers.get("location"), `https://${host}/?pago=pendiente&pedido=${order.id}`);
+  assert.equal(browser.headers.get("location"), `https://${host}/panel?pago=pendiente&pedido=${order.id}`);
 });
 
 test("referencia desconocida y moneda no soportada", async () => {
