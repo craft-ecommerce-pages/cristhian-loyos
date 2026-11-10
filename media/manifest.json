@@ -1,0 +1,1146 @@
+{
+  "generated_at": "2026-11-10T18:22:42.533Z",
+  "origin": "",
+  "key_prefix": "panel/cristhian-loyos",
+  "files": {
+    "products/majado.webp": {
+      "source": "docx:word/media/image1.jpeg",
+      "products": [
+        "tradicional-majado-camaron",
+        "tradicional-majado-huevo",
+        "tradicional-majado-queso",
+        "tradicional-majado-chicharron",
+        "tradicional-majado-ceviche"
+      ],
+      "width": 480,
+      "height": 640,
+      "bytes": 70658,
+      "sha256": "aaea1448eafa6e2f3c89c9ee5eb9e82c184e56ca679e254761e39f00e87eb70b",
+      "note": "Majado/revuelto de verde con huevo."
+    },
+    "products/bolon.webp": {
+      "source": "docx:word/media/image2.jpeg",
+      "products": [
+        "tradicional-bolon-camaron",
+        "tradicional-bolon-chicharron",
+        "tradicional-bolon-queso",
+        "tradicional-bolon-mixto"
+      ],
+      "width": 370,
+      "height": 370,
+      "bytes": 24766,
+      "sha256": "829956ef060627f1242534e2c008a2966ddc25d8a996aae1aa14228a29aed987",
+      "note": "Bolones de verde."
+    },
+    "products/tortillas.webp": {
+      "source": "docx:word/media/image3.jpeg",
+      "products": [
+        "tradicional-tortillas-camaron",
+        "tradicional-tortillas-carne",
+        "tradicional-tortillas-arroz-estofado",
+        "tradicional-tortillas-mixta"
+      ],
+      "width": 335,
+      "height": 597,
+      "bytes": 19600,
+      "sha256": "782e14bb98ac91ab6d0a5995ce64317d03ee44814c443d87932e23d0432e9f36",
+      "note": "Tortilla de verde; la foto trae el rótulo 'Tortillas Verde'."
+    },
+    "products/almuerzo-ejecutivo.webp": {
+      "source": "docx:word/media/image4.jpeg",
+      "products": [
+        "tradicional-almuerzo-ejecutivo"
+      ],
+      "width": 415,
+      "height": 739,
+      "bytes": 48944,
+      "sha256": "a592d2c8f5e0d123bf3cd377730ee3cc9742fb4814d95379c97d4d16f588b17b",
+      "note": "Arroz, carne y ensalada."
+    },
+    "products/carne-parrilla-platano.webp": {
+      "source": "docx:word/media/image5.jpeg",
+      "products": [
+        "tradicional-carne-parrilla-platano"
+      ],
+      "width": 900,
+      "height": 1200,
+      "bytes": 225770,
+      "sha256": "9f83dbe230faf53ff1a9592dcf910ea8039c77391e314634a1adb312a4f66e0d"
+    },
+    "products/pollo-asado-papas.webp": {
+      "source": "docx:word/media/image6.jpeg",
+      "products": [
+        "tradicional-pollo-asado-papas"
+      ],
+      "width": 393,
+      "height": 260,
+      "bytes": 25168,
+      "sha256": "65bec40c8e7e53750459cb1e57dcac7f2d06d2395d52ed5e68b6b16fcaa0c05a"
+    },
+    "products/papas-queso-salchicha.webp": {
+      "source": "docx:word/media/image7.jpeg",
+      "products": [
+        "tradicional-papas-queso-salchicha"
+      ],
+      "width": 335,
+      "height": 597,
+      "bytes": 31340,
+      "sha256": "4010c477614949f7bf029a2754eec6d904bf9fba48390a21fce82c43adbf23c2"
+    },
+    "products/patacones.webp": {
+      "source": "docx:word/media/image8.jpeg",
+      "products": [
+        "tradicional-patacones-solos-ensalada"
+      ],
+      "width": 461,
+      "height": 665,
+      "bytes": 42328,
+      "sha256": "bd60c78a734f75033ca2ef0c3272bddb7672c4382acf65bbf7938882fd574f68",
+      "note": "Patacones con salsa; el producto incluye ensalada que no aparece en la foto."
+    },
+    "products/papa-rellena.webp": {
+      "source": "docx:word/media/image9.png",
+      "products": [
+        "tradicional-papa-rellena-camaron",
+        "tradicional-papa-rellena-carne",
+        "tradicional-papa-mixta"
+      ],
+      "width": 1080,
+      "height": 1166,
+      "bytes": 149612,
+      "sha256": "cdc5ef7ae5bab2fc34d61eff64b00b8af1735859314c877e66aafe3b49935c1f",
+      "note": "Papas rellenas gratinadas."
+    },
+    "products/arroz-moro.webp": {
+      "source": "docx:word/media/image10.png",
+      "products": [
+        "tradicional-arroz-moro-ceviche-camaron",
+        "tradicional-arroz-moro-ceviche-pescado",
+        "tradicional-arroz-moro-ceviche-mixto",
+        "tradicional-arroz-moro-huevo"
+      ],
+      "width": 899,
+      "height": 1107,
+      "bytes": 62096,
+      "sha256": "0465dc673f4e34e4b930d6f6340468585ba865dbdde510ee2e607f123be58011",
+      "note": "Arroz con queso; referencia para arroz moro."
+    },
+    "products/cheese-burger.webp": {
+      "source": "bank:cheese-burger-1.webp",
+      "products": [
+        "fastfood-arizona-classic-burger"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 114006,
+      "sha256": "1de9dc701119178bc21e40cd9c9508f4d0ab2dac005531d9569b92bb29557a0e",
+      "note": "Hamburguesa clásica con papas."
+    },
+    "products/cheese-bacon-burger.webp": {
+      "source": "bank:cheese-bacon-burger-1.webp",
+      "products": [
+        "fastfood-bbq-bacon-burger"
+      ],
+      "width": 1024,
+      "height": 1024,
+      "bytes": 79702,
+      "sha256": "50c2885c0e8393d4d421aa0a16de582e5a176716ec09d4e9e7852be8685933d7",
+      "note": "Hamburguesa con tocino; aproximada a BBQ Bacon."
+    },
+    "products/salchipapa.webp": {
+      "source": "bank:salchipapa-1.webp",
+      "products": [
+        "fastfood-salchi-papas"
+      ],
+      "width": 1080,
+      "height": 1080,
+      "bytes": 85046,
+      "sha256": "88024a773df6d741b3cc064d867bb8d3cdf80d0975a35d5e2f685ecd8f84ca47"
+    },
+    "products/papas-cheese-bacon.webp": {
+      "source": "bank:papas-cheese-bacon-1.webp",
+      "products": [
+        "fastfood-papa-loca-carne"
+      ],
+      "width": 1024,
+      "height": 1024,
+      "bytes": 139850,
+      "sha256": "03c0242b0a2fff617471cae11a995508eafef5d1fdafe71b6e8c87b2a25e2f26",
+      "note": "Papas con queso y tocino; aproximada a Papa Loca con Carne."
+    },
+    "products/alitas-bbq-6.webp": {
+      "source": "bank:alitasbbq-6-piezas-1.webp",
+      "products": [
+        "fastfood-alitas-bbq-6"
+      ],
+      "width": 1024,
+      "height": 1024,
+      "bytes": 88334,
+      "sha256": "f858efc8392faebe33460fcf8e12ab2670d442f57a6334ef765fd05ef711427b"
+    },
+    "products/alitas-honey-6.webp": {
+      "source": "bank:alitashoneymustard-6-piezas-3.webp",
+      "products": [
+        "fastfood-alitas-miel-mostaza-6"
+      ],
+      "width": 1024,
+      "height": 1024,
+      "bytes": 96272,
+      "sha256": "98bef7ae0f4cd6a26477f8007dbe5abe6093cdbc2bc6ced335033b7286b1a171",
+      "note": "Alitas con miel y mostaza."
+    },
+    "products/alitas-mix-12.webp": {
+      "source": "bank:brutal-wings-12-piezas-2.webp",
+      "products": [
+        "fastfood-alitas-mix-12"
+      ],
+      "width": 1024,
+      "height": 1024,
+      "bytes": 86182,
+      "sha256": "ba4d8ddfc723e0a2bd00f90222dc48b6be9a7099630e68944b8059b447f7d380",
+      "note": "Bandeja de 12 alitas; sabores surtidos aproximados."
+    },
+    "products/torta-chocolate.webp": {
+      "source": "bank:torta-de-chocolate-mojada-1.webp",
+      "products": [
+        "fastfood-torta-chocolate-belga"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 125908,
+      "sha256": "6a83221bddf73040df2456870b8c4108d80caf4feaf550c718badda5d3c8615d"
+    },
+    "products/selva-negra.webp": {
+      "source": "bank:selva-negra-1.webp",
+      "products": [
+        "fastfood-torta-selva-negra"
+      ],
+      "width": 1024,
+      "height": 1024,
+      "bytes": 96246,
+      "sha256": "de1215b35749897dc6c6facc0c67ae957d596e14af819ab8be6ef085abe789d1"
+    },
+    "products/combo-burger.webp": {
+      "source": "bank:cheese-burger-1.webp",
+      "products": [
+        "fastfood-combo-burger"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 114006,
+      "sha256": "1de9dc701119178bc21e40cd9c9508f4d0ab2dac005531d9569b92bb29557a0e",
+      "note": "Misma foto que Arizona Classic Burger; el combo incluye papas, sin bebida visible."
+    },
+    "products/combo-alitas-12.webp": {
+      "source": "bank:alitasbbq-12piezas.webp",
+      "products": [
+        "fastfood-combo-alitas-12"
+      ],
+      "width": 1024,
+      "height": 1024,
+      "bytes": 88508,
+      "sha256": "359415e439939c487d1a632d6449ec9f899c7f2cad861b4d516f7f2e16ec3d87",
+      "note": "12 alitas; el combo incluye papas que no aparecen."
+    },
+    "products/papipollo.webp": {
+      "source": "bank:papipollo-3.webp",
+      "products": [
+        "tradicional-papas-queso-pollo"
+      ],
+      "width": 1080,
+      "height": 1080,
+      "bytes": 79948,
+      "sha256": "069993834d1801f54c2369323864743266b3ec00fdd3abde75fd52c47abca9f7",
+      "note": "Pollo frito con papas; el producto lleva queso."
+    },
+    "products/sushi-gyozas-6.webp": {
+      "source": "generated:media/generated/sushi-gyozas.webp",
+      "products": [
+        "sushi-gyozas-6"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 175240,
+      "sha256": "5c8ca18c3e2c5ad44bd4982ea1e7e8358824a71d589f2a3a96fba122b7577356",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-nigiris-1.webp": {
+      "source": "generated:media/generated/sushi-nigiri-salmon.webp",
+      "products": [
+        "sushi-nigiris-1"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 94610,
+      "sha256": "0dba3c268d64fae8a7df8b9aef0abd151a333f752db7fe9720b8ef03fbf85210",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-sashimi-salmon-5.webp": {
+      "source": "generated:media/generated/sushi-sashimi-salmon.webp",
+      "products": [
+        "sushi-sashimi-salmon-5"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 187470,
+      "sha256": "9cccaafdd66d5bfbe29eaea8fe85cd3cedbec1946fbb6b8160a1d3a82d2e4520",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-sashimi-atun-5.webp": {
+      "source": "generated:media/generated/sushi-sashimi-atun.webp",
+      "products": [
+        "sushi-sashimi-atun-5"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 221612,
+      "sha256": "aef4280f4e929266ee05fca9cb6c24a0d4f9f270085ce46e2f5d967d3a283e66",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-camarones-tempura-5.webp": {
+      "source": "generated:media/generated/sushi-camarones-tempura.webp",
+      "products": [
+        "sushi-camarones-tempura-5"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 180488,
+      "sha256": "c14b3be9aff53f1851c931f9086dc92f45780f7c26a6eee116581a3947c5c08f",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-arroz-frito-especial.webp": {
+      "source": "generated:media/generated/sushi-arroz-frito-especial.webp",
+      "products": [
+        "sushi-arroz-frito-especial"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 166288,
+      "sha256": "7e3e133bb98f17ae92532c3f7b924a66cb5cc1f66e1a934caad6566cefb60173",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-california-5.webp": {
+      "source": "generated:media/generated/sushi-california.webp",
+      "products": [
+        "sushi-california-5"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 163116,
+      "sha256": "5c976c40a251b6e03db9303442bd123d8b6b817d1092445918fda07b48ccdb0e",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-california-10.webp": {
+      "source": "generated:media/generated/sushi-california.webp",
+      "products": [
+        "sushi-california-10"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 163116,
+      "sha256": "5c976c40a251b6e03db9303442bd123d8b6b817d1092445918fda07b48ccdb0e",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-avocado-5.webp": {
+      "source": "generated:media/generated/sushi-avocado.webp",
+      "products": [
+        "sushi-avocado-5"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 175548,
+      "sha256": "f373c5fe76a611814b675821df470603d160a05c933479795fa8248104468365",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-avocado-10.webp": {
+      "source": "generated:media/generated/sushi-avocado.webp",
+      "products": [
+        "sushi-avocado-10"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 175548,
+      "sha256": "f373c5fe76a611814b675821df470603d160a05c933479795fa8248104468365",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-filadelfia-5.webp": {
+      "source": "generated:media/generated/sushi-filadelfia.webp",
+      "products": [
+        "sushi-filadelfia-5"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 143766,
+      "sha256": "7f0aa5c00a5acd6706f086d5bbfeeef9e467809da998753312ee6655bf94af6b",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-filadelfia-10.webp": {
+      "source": "generated:media/generated/sushi-filadelfia.webp",
+      "products": [
+        "sushi-filadelfia-10"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 143766,
+      "sha256": "7f0aa5c00a5acd6706f086d5bbfeeef9e467809da998753312ee6655bf94af6b",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-poke.webp": {
+      "source": "generated:media/generated/sushi-poke.webp",
+      "products": [
+        "sushi-poke"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 215278,
+      "sha256": "5b84560c1475d6b864cb23a8380e61bbd827ad934beb1831a701349fd05e72fd",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-ramen-mariscos.webp": {
+      "source": "generated:media/generated/sushi-ramen-mariscos.webp",
+      "products": [
+        "sushi-ramen-mariscos"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 192288,
+      "sha256": "a732ba5fca5eda076c42517739a1a4089fafc6e1339144273b8ad4987e725993",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/fastfood-doble-carne-burger.webp": {
+      "source": "generated:media/generated/doble-carne-burger.webp",
+      "products": [
+        "fastfood-doble-carne-burger"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 170934,
+      "sha256": "a019a3c40851829f4686a352b992317f28493ed2c83e291e300467e497ec93f5",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/fastfood-alitas-picantes-6.webp": {
+      "source": "generated:media/generated/alitas-picantes-6.webp",
+      "products": [
+        "fastfood-alitas-picantes-6"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 215396,
+      "sha256": "090af62e516fa9c1de0469e7b4822aa48cb83ba06940f23305bdb09e4632b0d6",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/fastfood-tiramisu.webp": {
+      "source": "generated:media/generated/tiramisu.webp",
+      "products": [
+        "fastfood-tiramisu"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 208824,
+      "sha256": "bc918babd348fb3a449f25382812dab45e5e842e84d2d3874213ba254365b7ab",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/fastfood-cheesecake-frances.webp": {
+      "source": "generated:media/generated/cheesecake-frances.webp",
+      "products": [
+        "fastfood-cheesecake-frances"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 135316,
+      "sha256": "4a624cbba7a258059d3614ccccede86c96149196c2d723dac13fc1cafd8df806",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/fastfood-fondant-chocolate.webp": {
+      "source": "generated:media/generated/fondant-chocolate.webp",
+      "products": [
+        "fastfood-fondant-chocolate"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 158532,
+      "sha256": "a01d51b93e5fc25bb454bec12efa55bd39952d19245c25179131090f1954a4e3",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/fastfood-creme-brulee.webp": {
+      "source": "generated:media/generated/creme-brulee.webp",
+      "products": [
+        "fastfood-creme-brulee"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 119846,
+      "sha256": "29dbcf254c65093461abd0283ff0446af33634dc8511086217d0c31fccec4e0b",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/tradicional-patacones-ceviche-mixto.webp": {
+      "source": "generated:media/generated/patacones-ceviche-mixto.webp",
+      "products": [
+        "tradicional-patacones-ceviche-mixto"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 157560,
+      "sha256": "eb0975648ed5167d522993fdc8a6fd13c596e7cdbf9d2ddffdc898c8f9553470",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-cubitos-fried-8.webp": {
+      "source": "generated:media/generated/sushi-cubitos-fried.webp",
+      "products": [
+        "sushi-cubitos-fried-8"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 219356,
+      "sha256": "d36702b174902af324cd536d869503dc48469f4f86c037f0afa1e418cd27d4b6",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-wontones-3.webp": {
+      "source": "generated:media/generated/sushi-wontones.webp",
+      "products": [
+        "sushi-wontones-3"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 154352,
+      "sha256": "954608369c270916b60c159fe8b47fdab3c54961359c5c088b02b6bc169d8a47",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-rollos-primavera-3.webp": {
+      "source": "generated:media/generated/sushi-rollos-primavera.webp",
+      "products": [
+        "sushi-rollos-primavera-3"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 182808,
+      "sha256": "dd3ee09ea0474872f98ae7bc4345910fb8584f29b58b3520a0c66651a0752772",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-gunkan-cangrejo-1.webp": {
+      "source": "generated:media/generated/sushi-gunkan-cangrejo.webp",
+      "products": [
+        "sushi-gunkan-cangrejo-1"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 133898,
+      "sha256": "d4255896e369911763be395cd1c3862017d7bcb4f754b5cc25172eb51e2d202d",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-gunkan-salmon-1.webp": {
+      "source": "generated:media/generated/sushi-gunkan-salmon-sellado.webp",
+      "products": [
+        "sushi-gunkan-salmon-1"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 122736,
+      "sha256": "a076d8bbb65a00bcc834232766196d18980f07c3524ec2a9cbfb69c721c15cc5",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-oshiisake-5.webp": {
+      "source": "generated:media/generated/sushi-oshiisake.webp",
+      "products": [
+        "sushi-oshiisake-5"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 156990,
+      "sha256": "172f9df813b4e57ce365ded33894f8f442de248be66f25839e5771bafc75c41e",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-oshiisake-10.webp": {
+      "source": "generated:media/generated/sushi-oshiisake.webp",
+      "products": [
+        "sushi-oshiisake-10"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 156990,
+      "sha256": "172f9df813b4e57ce365ded33894f8f442de248be66f25839e5771bafc75c41e",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-maguro-roll-5.webp": {
+      "source": "generated:media/generated/sushi-maguro.webp",
+      "products": [
+        "sushi-maguro-roll-5"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 163206,
+      "sha256": "d3893cca33f0cc5506f701abc2cc08836ce8ac0d43608d088a58727190af7219",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-maguro-roll-10.webp": {
+      "source": "generated:media/generated/sushi-maguro.webp",
+      "products": [
+        "sushi-maguro-roll-10"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 163206,
+      "sha256": "d3893cca33f0cc5506f701abc2cc08836ce8ac0d43608d088a58727190af7219",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-kaniroll-5.webp": {
+      "source": "generated:media/generated/sushi-kaniroll.webp",
+      "products": [
+        "sushi-kaniroll-5"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 179978,
+      "sha256": "059427ab185aac60beef286124d4fd2adcc5479da999e5dcf3f4b4a5460f1e7d",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-kaniroll-10.webp": {
+      "source": "generated:media/generated/sushi-kaniroll.webp",
+      "products": [
+        "sushi-kaniroll-10"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 179978,
+      "sha256": "059427ab185aac60beef286124d4fd2adcc5479da999e5dcf3f4b4a5460f1e7d",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-sweetsuri-5.webp": {
+      "source": "generated:media/generated/sushi-sweetsuri.webp",
+      "products": [
+        "sushi-sweetsuri-5"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 165354,
+      "sha256": "8ddc3b47e17d0d5da05b5898edac29072ded246f80ccc0965204fcf121893141",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-sweetsuri-10.webp": {
+      "source": "generated:media/generated/sushi-sweetsuri.webp",
+      "products": [
+        "sushi-sweetsuri-10"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 165354,
+      "sha256": "8ddc3b47e17d0d5da05b5898edac29072ded246f80ccc0965204fcf121893141",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-roll-acevichado-5.webp": {
+      "source": "generated:media/generated/sushi-roll-acevichado.webp",
+      "products": [
+        "sushi-roll-acevichado-5"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 224904,
+      "sha256": "1ae985c53d3c358e69b0f50b4e93a8744f103eda6930ec9b15bb22c50d1cad4f",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-roll-acevichado-10.webp": {
+      "source": "generated:media/generated/sushi-roll-acevichado.webp",
+      "products": [
+        "sushi-roll-acevichado-10"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 224904,
+      "sha256": "1ae985c53d3c358e69b0f50b4e93a8744f103eda6930ec9b15bb22c50d1cad4f",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-champilover-5.webp": {
+      "source": "generated:media/generated/sushi-champilover.webp",
+      "products": [
+        "sushi-champilover-5"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 169232,
+      "sha256": "7d51b1bec37b50cc9e2f1dc13179358e004a93530b64f21e4cbcee85735b40fc",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-champilover-10.webp": {
+      "source": "generated:media/generated/sushi-champilover.webp",
+      "products": [
+        "sushi-champilover-10"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 169232,
+      "sha256": "7d51b1bec37b50cc9e2f1dc13179358e004a93530b64f21e4cbcee85735b40fc",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-roll-parrillero-5.webp": {
+      "source": "generated:media/generated/sushi-roll-parrillero.webp",
+      "products": [
+        "sushi-roll-parrillero-5"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 212842,
+      "sha256": "ea15749158233f5b676d910dbfe8c4b464522a516c2eadfa46a6cfe959bde19a",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-roll-parrillero-10.webp": {
+      "source": "generated:media/generated/sushi-roll-parrillero.webp",
+      "products": [
+        "sushi-roll-parrillero-10"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 212842,
+      "sha256": "ea15749158233f5b676d910dbfe8c4b464522a516c2eadfa46a6cfe959bde19a",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-maki-suri-5.webp": {
+      "source": "generated:media/generated/sushi-maki-suri.webp",
+      "products": [
+        "sushi-maki-suri-5"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 156036,
+      "sha256": "4ec989248915499380a3354c9fce1697303c23a5b8789ae418e731956e27aefd",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-maki-suri-10.webp": {
+      "source": "generated:media/generated/sushi-maki-suri.webp",
+      "products": [
+        "sushi-maki-suri-10"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 156036,
+      "sha256": "4ec989248915499380a3354c9fce1697303c23a5b8789ae418e731956e27aefd",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-kani-maki-5.webp": {
+      "source": "generated:media/generated/sushi-kani-maki.webp",
+      "products": [
+        "sushi-kani-maki-5"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 189698,
+      "sha256": "ce833151e2b4523ab12322a9094039504a75bef6b53930c2035eaf8477809b1c",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-kani-maki-10.webp": {
+      "source": "generated:media/generated/sushi-kani-maki.webp",
+      "products": [
+        "sushi-kani-maki-10"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 189698,
+      "sha256": "ce833151e2b4523ab12322a9094039504a75bef6b53930c2035eaf8477809b1c",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-coco-roll-5.webp": {
+      "source": "generated:media/generated/sushi-coco-roll.webp",
+      "products": [
+        "sushi-coco-roll-5"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 202568,
+      "sha256": "11f4178cbadce7ba4c203781996ccabc5a6f7acd390f20279c9480ffe9963943",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-coco-roll-10.webp": {
+      "source": "generated:media/generated/sushi-coco-roll.webp",
+      "products": [
+        "sushi-coco-roll-10"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 202568,
+      "sha256": "11f4178cbadce7ba4c203781996ccabc5a6f7acd390f20279c9480ffe9963943",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-surimaque-5.webp": {
+      "source": "generated:media/generated/sushi-surimaque.webp",
+      "products": [
+        "sushi-surimaque-5"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 179604,
+      "sha256": "5d1956821b7ebeaad4a937ccda8f2134b08be03dae2af404a4f6d46dc2611493",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-surimaque-10.webp": {
+      "source": "generated:media/generated/sushi-surimaque.webp",
+      "products": [
+        "sushi-surimaque-10"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 179604,
+      "sha256": "5d1956821b7ebeaad4a937ccda8f2134b08be03dae2af404a4f6d46dc2611493",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-ebyoshii-5.webp": {
+      "source": "generated:media/generated/sushi-ebyoshii.webp",
+      "products": [
+        "sushi-ebyoshii-5"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 187652,
+      "sha256": "6b8afe0dd7329d08b461fee108268ba2cba287a5802269ffe9e3d1989dcf1b28",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-ebyoshii-10.webp": {
+      "source": "generated:media/generated/sushi-ebyoshii.webp",
+      "products": [
+        "sushi-ebyoshii-10"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 187652,
+      "sha256": "6b8afe0dd7329d08b461fee108268ba2cba287a5802269ffe9e3d1989dcf1b28",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-sakeroll-5.webp": {
+      "source": "generated:media/generated/sushi-sakeroll.webp",
+      "products": [
+        "sushi-sakeroll-5"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 203216,
+      "sha256": "5807079b8c367f36b51ea111a9f8720301e584f1ca318d70401390a703a0c0d8",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-sakeroll-10.webp": {
+      "source": "generated:media/generated/sushi-sakeroll.webp",
+      "products": [
+        "sushi-sakeroll-10"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 203216,
+      "sha256": "5807079b8c367f36b51ea111a9f8720301e584f1ca318d70401390a703a0c0d8",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-crocante-5.webp": {
+      "source": "generated:media/generated/sushi-crocante.webp",
+      "products": [
+        "sushi-crocante-5"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 176088,
+      "sha256": "d7a34f69daf4dc45e9bf6016696d640a1308cfc4221dd520a242d1311e8565a7",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-crocante-10.webp": {
+      "source": "generated:media/generated/sushi-crocante.webp",
+      "products": [
+        "sushi-crocante-10"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 176088,
+      "sha256": "d7a34f69daf4dc45e9bf6016696d640a1308cfc4221dd520a242d1311e8565a7",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-dragon-5.webp": {
+      "source": "generated:media/generated/sushi-dragon.webp",
+      "products": [
+        "sushi-dragon-5"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 178064,
+      "sha256": "2c09242936a51c10739442b2df37a7a74ccb4c4e0b901bc72ccbf44f6eecf025",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-ramen-toki.webp": {
+      "source": "generated:media/generated/sushi-ramen-toki.webp",
+      "products": [
+        "sushi-ramen-toki"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 191702,
+      "sha256": "2eae4e3b6aa395a3ac86e28aa139feffa7ef6321361a55ef11f1672a5c6d5396",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-sopa-oriental-pollo.webp": {
+      "source": "generated:media/generated/sushi-sopa-oriental-pollo.webp",
+      "products": [
+        "sushi-sopa-oriental-pollo"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 154718,
+      "sha256": "d3cbde129e3c2c509cf11a83dabb36db4302b4b28a8bf828a72ad13260cf60a4",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-combo-10.webp": {
+      "source": "generated:media/generated/sushi-combo-estudiante.webp",
+      "products": [
+        "sushi-combo-10"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 195992,
+      "sha256": "22d04022adde2f97c7ca332a10d98e73b0ce945fa755e42ab592da9abd77b8e8",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-combo-15.webp": {
+      "source": "generated:media/generated/sushi-combo-estudiante.webp",
+      "products": [
+        "sushi-combo-15"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 195992,
+      "sha256": "22d04022adde2f97c7ca332a10d98e73b0ce945fa755e42ab592da9abd77b8e8",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-combo-20.webp": {
+      "source": "generated:media/generated/sushi-combo-estudiante.webp",
+      "products": [
+        "sushi-combo-20"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 195992,
+      "sha256": "22d04022adde2f97c7ca332a10d98e73b0ce945fa755e42ab592da9abd77b8e8",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-combo-30.webp": {
+      "source": "generated:media/generated/sushi-combo-estudiante.webp",
+      "products": [
+        "sushi-combo-30"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 195992,
+      "sha256": "22d04022adde2f97c7ca332a10d98e73b0ce945fa755e42ab592da9abd77b8e8",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-combo-40.webp": {
+      "source": "generated:media/generated/sushi-combo-estudiante.webp",
+      "products": [
+        "sushi-combo-40"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 195992,
+      "sha256": "22d04022adde2f97c7ca332a10d98e73b0ce945fa755e42ab592da9abd77b8e8",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-combo-50.webp": {
+      "source": "generated:media/generated/sushi-combo-estudiante.webp",
+      "products": [
+        "sushi-combo-50"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 195992,
+      "sha256": "22d04022adde2f97c7ca332a10d98e73b0ce945fa755e42ab592da9abd77b8e8",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-extra-salsas.webp": {
+      "source": "generated:media/generated/sushi-extra-salsas.webp",
+      "products": [
+        "sushi-extra-salsas"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 134740,
+      "sha256": "4b56c94098b44b5a33d42f53750848ac8053f7abfe8396533746c7b3c67ddd42",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/sushi-extra-wasabi-gari.webp": {
+      "source": "generated:media/generated/sushi-extra-wasabi-gari.webp",
+      "products": [
+        "sushi-extra-wasabi-gari"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 143054,
+      "sha256": "0944a0b8e7bdbaf3205ac57451557cfda0d106cf7feca24a55ad951e1840f613",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/fastfood-carne-parrilla-papas.webp": {
+      "source": "generated:media/generated/carne-parrilla-papas.webp",
+      "products": [
+        "fastfood-carne-parrilla-papas"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 221114,
+      "sha256": "50f37ff48d99b78d7591ec5448c0e08b938769f2b816d2fa6ac80932f5d788b1",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/fastfood-eclair.webp": {
+      "source": "generated:media/generated/eclair-chocolate.webp",
+      "products": [
+        "fastfood-eclair"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 88448,
+      "sha256": "5d2a9acd9842e0c79316a8e7fd03705ac4a679ad05b8c1479ab5efde070b540c",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/fastfood-macarons-6.webp": {
+      "source": "generated:media/generated/macarons.webp",
+      "products": [
+        "fastfood-macarons-6"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 132178,
+      "sha256": "a0361c041b3f9639425d74fc162b5421d4ef955f8f0b3fddbf7456896a309fe8",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/fastfood-tarte-tatin.webp": {
+      "source": "generated:media/generated/tarte-tatin.webp",
+      "products": [
+        "fastfood-tarte-tatin"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 180344,
+      "sha256": "e73333ad70b69a84691756b53e0df34bef65d9a739ebc00663dac4988077de0b",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/fastfood-profiteroles.webp": {
+      "source": "generated:media/generated/profiteroles.webp",
+      "products": [
+        "fastfood-profiteroles"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 140030,
+      "sha256": "cdc520dece0fc3e2523ad353fa45189ecfd87a3f91580660a27e32bc0580f224",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/fastfood-mille-feuille.webp": {
+      "source": "generated:media/generated/mille-feuille.webp",
+      "products": [
+        "fastfood-mille-feuille"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 158716,
+      "sha256": "5ab29123b1cd8d7484af59698840bcecc38958358c02f9a0cee0dfed4f0114a0",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/fastfood-souffle.webp": {
+      "source": "generated:media/generated/souffle-chocolate.webp",
+      "products": [
+        "fastfood-souffle"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 160856,
+      "sha256": "e1f9d0c8f4df047255b8c651051c7a5329dcc242ba6031b23a407b0641c11661",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/tradicional-papas-mixta.webp": {
+      "source": "generated:media/generated/papas-mixta.webp",
+      "products": [
+        "tradicional-papas-mixta"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 187920,
+      "sha256": "1b595eff30e9e029860367999aac08f1643d01d2cb8bb3197ce263cc403b9c93",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/tradicional-patacones-ceviche-camaron.webp": {
+      "source": "generated:media/generated/patacones-ceviche-camaron.webp",
+      "products": [
+        "tradicional-patacones-ceviche-camaron"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 193526,
+      "sha256": "6b1e080ea3325eb3a58b5633f25fefda93e5f27fcff23a098735ab5318847558",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/tradicional-patacones-ceviche-pollo.webp": {
+      "source": "generated:media/generated/patacones-ceviche-pollo.webp",
+      "products": [
+        "tradicional-patacones-ceviche-pollo"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 178112,
+      "sha256": "1047937d21cfa7341a4fb909c3ae225272c5f524728bc584e41ff0f5323b903a",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/fastfood-arizona-classic-burger.webp": {
+      "source": "generated:media/generated/fastfood-arizona-classic-burger.webp",
+      "products": [
+        "fastfood-arizona-classic-burger"
+      ],
+      "width": 1200,
+      "height": 900,
+      "bytes": 142684,
+      "sha256": "b3608d175a3be5ca5ec0fa093c79a9ea3f36758a57305c318d402275d7a730ff",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/fastfood-papa-loca-carne.webp": {
+      "source": "generated:media/generated/fastfood-papa-loca-carne.webp",
+      "products": [
+        "fastfood-papa-loca-carne"
+      ],
+      "width": 1200,
+      "height": 900,
+      "bytes": 125582,
+      "sha256": "a91b16aeef0619437048ffc55a60333c6058842e852e381d7f11416ec46ca684",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/fastfood-combo-burger.webp": {
+      "source": "generated:media/generated/fastfood-combo-burger.webp",
+      "products": [
+        "fastfood-combo-burger"
+      ],
+      "width": 1200,
+      "height": 900,
+      "bytes": 133206,
+      "sha256": "bd27ca36f3850c57bbd34f966e32c76720c5d3e2697abce0671438d863cfafc5",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/fastfood-combo-alitas-12.webp": {
+      "source": "generated:media/generated/fastfood-combo-alitas-12.webp",
+      "products": [
+        "fastfood-combo-alitas-12"
+      ],
+      "width": 1200,
+      "height": 900,
+      "bytes": 169064,
+      "sha256": "0a167358c76313a989d748b14cfba7b2cedb99693a31d669b076f6ad178b0026",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/fastfood-torta-chocolate-belga.webp": {
+      "source": "generated:media/generated/fastfood-torta-chocolate-belga.webp",
+      "products": [
+        "fastfood-torta-chocolate-belga"
+      ],
+      "width": 1200,
+      "height": 900,
+      "bytes": 151144,
+      "sha256": "b6d1bfa85b201a5a26da77791a4ff1fbe1b6c212bc3a8b4071ec38ced240528a",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "brand/food-truck.webp": {
+      "source": "cliente:17_20261110-093506_image_wa_1794321306422.jpg",
+      "products": [],
+      "width": 1599,
+      "height": 1200,
+      "bytes": 157778,
+      "sha256": "835052c3ab4172b5acddb03e7be7f7dd0256028c3bf076e3660cd5bc0f9315aa",
+      "note": "Food truck real del cliente; usado como imagen de marca/OG."
+    }
+  }
+}

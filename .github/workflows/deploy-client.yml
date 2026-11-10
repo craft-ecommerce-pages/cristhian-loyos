@@ -1,0 +1,80 @@
+name: Desplegar cliente en Cloudflare
+
+# Solo despliegue: tests y sincronización de assets se ejecutan en craft-dev/local.
+# Requiere los secrets de la cuenta Cloudflare del cliente (nunca los de Craft).
+# Despliega panel (con migraciones D1) y luego menú (con Workers Assets /v1).
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Validar configuración y empaquetado sin desplegar"
+        type: boolean
+        default: false
+      seed_if_empty:
+        description: "Sembrar KV/D1/R2 sólo si el cliente aún no tiene datos"
+        type: boolean
+        default: true
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-client
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Confirmar Wrangler 4
+        run: npx --yes wrangler@4.160.0 --version
+
+      - name: Desplegar (panel + migraciones D1 + menú)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLIENT_SLUG: ${{ secrets.CLIENT_SLUG }}
+          MENU_WORKER_NAME: ${{ secrets.MENU_WORKER_NAME }}
+          PANEL_WORKER_NAME: ${{ secrets.PANEL_WORKER_NAME }}
+          KV_MENUS_ID: ${{ secrets.KV_MENUS_ID }}
+          D1_DATABASE_NAME: ${{ secrets.D1_DATABASE_NAME }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+          RATELIMIT_NAMESPACE_ID: ${{ secrets.RATELIMIT_NAMESPACE_ID }}
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+          ENGINE_ORIGIN: ${{ vars.ENGINE_ORIGIN }}
+          MENU_PUBLIC_URL: ${{ vars.MENU_PUBLIC_URL }}
+          PANEL_PUBLIC_URL: ${{ vars.PANEL_PUBLIC_URL }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            ./scripts/deploy-client.sh --dry-run
+          else
+            ./scripts/deploy-client.sh
+          fi
+
+      # Carga inicial no destructiva: el script sale sin escribir si KV ya tiene
+      # `<slug>:config` o `<slug>:productos`. En deploys sucesivos no pisa al cliente.
+      - name: Sembrar datos iniciales (sólo si KV está vacío)
+        if: ${{ inputs.dry_run != true && inputs.seed_if_empty != false }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLIENT_SLUG: ${{ secrets.CLIENT_SLUG }}
+          KV_MENUS_ID: ${{ secrets.KV_MENUS_ID }}
+          D1_DATABASE_NAME: ${{ secrets.D1_DATABASE_NAME }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+        run: node scripts/seed-client.mjs

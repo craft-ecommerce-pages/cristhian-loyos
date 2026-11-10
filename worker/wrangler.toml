@@ -1,0 +1,46 @@
+# PLANTILLA del Worker de menú — cuenta Cloudflare del cliente.
+# NO desplegar este archivo directamente: `scripts/deploy-client.sh` sustituye los marcadores
+# ${...} con variables/secrets y escribe la configuración real en worker/.wrangler/client.toml.
+#
+# Aislamiento: sin IDs de Craft, sin KV/D1/R2 de Craft y sin rutas *.craft-systems.com.
+# Los IDs de KV y el nombre del Worker se inyectan por entorno (nunca se versionan).
+# Los assets del motor (/v1/*) se publican desde este mismo Worker (Workers Assets):
+# worker/assets/v1/ es una copia fijada de v1/catalog.js, catalog.css y geo.js.
+
+name = "${MENU_WORKER_NAME}"
+main = "../src/index.js"
+compatibility_date = "2026-01-01"
+workers_dev = true
+
+# Sin `routes`: el workers.dev y los dominios propios se administran fuera de este archivo.
+# NUNCA declarar wildcard (`*.dominio/*`): rutearía otros servicios (media, panel) por el Worker.
+
+[vars]
+# Slug del menú en KV ({slug}:config, {slug}:productos, {slug}:theme). Obligatorio.
+CLIENT_SLUG = "${CLIENT_SLUG}"
+# Origen de los assets del motor. Vacío/omitido = "/v1" (Workers Assets locales).
+ENGINE_ORIGIN = "${ENGINE_ORIGIN}"
+
+# KV de la cuenta del cliente con los datos de sus menús.
+[[kv_namespaces]]
+binding = "MENUS"
+id = "${KV_MENUS_ID}"
+
+# Panel del cliente vía service binding (conserva host, método, cuerpo y cookie).
+# Se despliega antes que este Worker; el binding debe existir al desplegar.
+[[services]]
+binding = "PANEL"
+service = "${PANEL_WORKER_NAME}"
+
+# Permite importar template.html como string (SSR del shell).
+[[rules]]
+type = "Text"
+globs = ["**/*.html"]
+fallthrough = true
+
+# Assets estáticos del motor: /v1/catalog.js, /v1/catalog.css, /v1/geo.js.
+# Workers Assets responde primero; las rutas dinámicas (/, /config.json, /productos.json)
+# siguen llegando al Worker.
+[assets]
+directory = "../assets"
+binding = "ASSETS"

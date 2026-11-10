@@ -1,0 +1,12 @@
+.env
+.dev.vars
+.dev.vars.*
+.ops/
+node_modules/
+.wrangler/
+dist/
+.tmp/
+graphify-out/
+HANDOFF-*.md
+media/generated/luna_fastfood/
+media/generated/luna_tradicional/

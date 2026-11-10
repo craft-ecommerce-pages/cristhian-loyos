@@ -1,0 +1,2711 @@
+{
+  "categories": [
+    {
+      "slug": "sushi-entradas",
+      "name": "🍣 Sushi · Entradas"
+    },
+    {
+      "slug": "sushi-rollos-frios",
+      "name": "🍣 Sushi · Rollos fríos"
+    },
+    {
+      "slug": "sushi-rollos-especiales",
+      "name": "🍣 Sushi · Rollos especiales"
+    },
+    {
+      "slug": "sushi-makis",
+      "name": "🍣 Sushi · Makis"
+    },
+    {
+      "slug": "sushi-tempurizados",
+      "name": "🍣 Sushi · Rollos tempurizados"
+    },
+    {
+      "slug": "sushi-sashimi",
+      "name": "🍣 Sushi · Sashimi"
+    },
+    {
+      "slug": "sushi-arroces",
+      "name": "🍣 Sushi · Arroces"
+    },
+    {
+      "slug": "sushi-sopas",
+      "name": "🍣 Sushi · Sopas y ramen"
+    },
+    {
+      "slug": "sushi-combos",
+      "name": "🍣 Sushi · Combos estudiantes"
+    },
+    {
+      "slug": "sushi-extras",
+      "name": "🍣 Sushi · Extras"
+    },
+    {
+      "slug": "fastfood-hamburguesas",
+      "name": "🍔 Fast food · Hamburguesas"
+    },
+    {
+      "slug": "fastfood-papas-carnes",
+      "name": "🍔 Fast food · Papas y carnes"
+    },
+    {
+      "slug": "fastfood-alitas",
+      "name": "🍔 Fast food · Alitas"
+    },
+    {
+      "slug": "fastfood-combos",
+      "name": "🍔 Fast food · Combos"
+    },
+    {
+      "slug": "fastfood-postres",
+      "name": "🍔 Fast food · Postres"
+    },
+    {
+      "slug": "tradicional-desayunos",
+      "name": "🍲 Tradicional · Desayunos"
+    },
+    {
+      "slug": "tradicional-almuerzos",
+      "name": "🍲 Tradicional · Almuerzos"
+    },
+    {
+      "slug": "tradicional-papas-patacones",
+      "name": "🍲 Tradicional · Papas y patacones"
+    },
+    {
+      "slug": "tradicional-arroces",
+      "name": "🍲 Tradicional · Arroces"
+    }
+  ],
+  "packagings": [],
+  "variant_groups": [],
+  "products": [
+    {
+      "id": "sushi-gyozas-6",
+      "name": "Gyozas (6 unidades)",
+      "type": "producto",
+      "price": "3.69",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Empanaditas japonesas al vapor y a la plancha. Sabores: cerdo, res o camarón.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-gyozas-6.webp"
+      ],
+      "categories": [
+        "sushi-entradas"
+      ],
+      "variants": [
+        {
+          "name": "Sabor",
+          "type": "option",
+          "options": [
+            "Cerdo",
+            "Res",
+            "Camarón"
+          ],
+          "optional": false
+        }
+      ],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-camarones-tempura-5",
+      "name": "Camarones tempura (5 unidades)",
+      "type": "producto",
+      "price": "4.69",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Camarones tempurizados crocantes con salsa togarashi.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-camarones-tempura-5.webp"
+      ],
+      "categories": [
+        "sushi-entradas"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-cubitos-fried-8",
+      "name": "Cubitos fried (8 unidades)",
+      "type": "producto",
+      "price": "2.25",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Cubitos de mozzarella pankonizados.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-cubitos-fried-8.webp"
+      ],
+      "categories": [
+        "sushi-entradas"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-nigiris-1",
+      "name": "Nigiris (1 unidad)",
+      "type": "producto",
+      "price": "2.49",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Nigiri de salmón o de cangrejo.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-nigiris-1.webp"
+      ],
+      "categories": [
+        "sushi-entradas"
+      ],
+      "variants": [
+        {
+          "name": "Sabor",
+          "type": "option",
+          "options": [
+            "Salmón",
+            "Cangrejo"
+          ],
+          "optional": false
+        }
+      ],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-wontones-3",
+      "name": "Wontones rellenos (3 unidades)",
+      "type": "producto",
+      "price": "3.49",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Wontones de pollo y camarón con salsa agridulce.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-wontones-3.webp"
+      ],
+      "categories": [
+        "sushi-entradas"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-rollos-primavera-3",
+      "name": "Rollos primavera (3 unidades)",
+      "type": "producto",
+      "price": "3.69",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Rollos de pollo y vegetales con salsa japonesa.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-rollos-primavera-3.webp"
+      ],
+      "categories": [
+        "sushi-entradas"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-gunkan-cangrejo-1",
+      "name": "Gunkán de cangrejo (1 unidad)",
+      "type": "producto",
+      "price": "2.49",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Gunkán de cangrejo.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-gunkan-cangrejo-1.webp"
+      ],
+      "categories": [
+        "sushi-entradas"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-gunkan-salmon-1",
+      "name": "Gunkán de salmón sellado (1 unidad)",
+      "type": "producto",
+      "price": "2.49",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Gunkán de salmón sellado.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-gunkan-salmon-1.webp"
+      ],
+      "categories": [
+        "sushi-entradas"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-oshiisake-5",
+      "name": "Oshiisake 5 bocados",
+      "type": "producto",
+      "price": "6.35",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Cobertura de salmón, relleno de queso crema, aguacate y mix de cangrejo.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-oshiisake-5.webp"
+      ],
+      "categories": [
+        "sushi-rollos-frios"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-oshiisake-10",
+      "name": "Oshiisake 10 bocados",
+      "type": "producto",
+      "price": "10.99",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Cobertura de salmón, relleno de queso crema, aguacate y mix de cangrejo.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-oshiisake-10.webp"
+      ],
+      "categories": [
+        "sushi-rollos-frios"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-maguro-roll-5",
+      "name": "Maguro Roll 5 bocados",
+      "type": "producto",
+      "price": "7.50",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Cobertura de atún, relleno de queso crema, pimiento morrón y camarón tempurizado.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-maguro-roll-5.webp"
+      ],
+      "categories": [
+        "sushi-rollos-frios"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-maguro-roll-10",
+      "name": "Maguro Roll 10 bocados",
+      "type": "producto",
+      "price": "13.25",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Cobertura de atún, relleno de queso crema, pimiento morrón y camarón tempurizado.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-maguro-roll-10.webp"
+      ],
+      "categories": [
+        "sushi-rollos-frios"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-california-5",
+      "name": "California 5 bocados",
+      "type": "producto",
+      "price": "4.85",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Cobertura de masago, relleno de cangrejo y pepinillo.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-california-5.webp"
+      ],
+      "categories": [
+        "sushi-rollos-frios"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-california-10",
+      "name": "California 10 bocados",
+      "type": "producto",
+      "price": "7.69",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Cobertura de masago, relleno de cangrejo y pepinillo.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-california-10.webp"
+      ],
+      "categories": [
+        "sushi-rollos-frios"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-avocado-5",
+      "name": "Avocado 5 bocados",
+      "type": "producto",
+      "price": "5.60",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Cobertura de aguacate, relleno de camarón tempura y queso crema.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-avocado-5.webp"
+      ],
+      "categories": [
+        "sushi-rollos-frios"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-avocado-10",
+      "name": "Avocado 10 bocados",
+      "type": "producto",
+      "price": "7.69",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Cobertura de aguacate, relleno de camarón tempura y queso crema.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-avocado-10.webp"
+      ],
+      "categories": [
+        "sushi-rollos-frios"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-filadelfia-5",
+      "name": "Filadelfia 5 bocados",
+      "type": "producto",
+      "price": "5.45",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Relleno de queso crema, aguacate y salmón fresco.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-filadelfia-5.webp"
+      ],
+      "categories": [
+        "sushi-rollos-frios"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-filadelfia-10",
+      "name": "Filadelfia 10 bocados",
+      "type": "producto",
+      "price": "7.69",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Relleno de queso crema, aguacate y salmón fresco.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-filadelfia-10.webp"
+      ],
+      "categories": [
+        "sushi-rollos-frios"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-kaniroll-5",
+      "name": "Kaniroll 5 bocados",
+      "type": "producto",
+      "price": "4.75",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Cobertura de kani (cangrejo), relleno de queso crema y camarón tempura.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-kaniroll-5.webp"
+      ],
+      "categories": [
+        "sushi-rollos-frios"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-kaniroll-10",
+      "name": "Kaniroll 10 bocados",
+      "type": "producto",
+      "price": "7.69",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Cobertura de kani (cangrejo), relleno de queso crema y camarón tempura.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-kaniroll-10.webp"
+      ],
+      "categories": [
+        "sushi-rollos-frios"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-sweetsuri-5",
+      "name": "Sweetsuri 5 bocados",
+      "type": "producto",
+      "price": "4.70",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Cobertura de maqueño y queso crema, relleno de cangrejo, aguacate y queso.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-sweetsuri-5.webp"
+      ],
+      "categories": [
+        "sushi-rollos-frios"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-sweetsuri-10",
+      "name": "Sweetsuri 10 bocados",
+      "type": "producto",
+      "price": "7.69",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Cobertura de maqueño y queso crema, relleno de cangrejo, aguacate y queso.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-sweetsuri-10.webp"
+      ],
+      "categories": [
+        "sushi-rollos-frios"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-roll-acevichado-5",
+      "name": "Roll Acevichado 5 bocados",
+      "type": "producto",
+      "price": "5.25",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Queso crema, aguacate y pescado tempurizado con topping de wahoo acevichado y salsa de ají amarillo.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-roll-acevichado-5.webp"
+      ],
+      "categories": [
+        "sushi-rollos-especiales"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-roll-acevichado-10",
+      "name": "Roll Acevichado 10 bocados",
+      "type": "producto",
+      "price": "8.49",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Queso crema, aguacate y pescado tempurizado con topping de wahoo acevichado y salsa de ají amarillo.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-roll-acevichado-10.webp"
+      ],
+      "categories": [
+        "sushi-rollos-especiales"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-champilover-5",
+      "name": "Champilover 5 bocados",
+      "type": "producto",
+      "price": "5.25",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Relleno de salmón marinado y queso crema con topping de champiñón salteado y cebollín.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-champilover-5.webp"
+      ],
+      "categories": [
+        "sushi-rollos-especiales"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-champilover-10",
+      "name": "Champilover 10 bocados",
+      "type": "producto",
+      "price": "8.49",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Relleno de salmón marinado y queso crema con topping de champiñón salteado y cebollín.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-champilover-10.webp"
+      ],
+      "categories": [
+        "sushi-rollos-especiales"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-roll-parrillero-5",
+      "name": "Roll Parrillero 5 bocados",
+      "type": "producto",
+      "price": "5.50",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Cobertura de lomo fino sellado a la plancha, chimichurri japonés, relleno de pimiento morrón, camarón tempura y queso crema.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-roll-parrillero-5.webp"
+      ],
+      "categories": [
+        "sushi-rollos-especiales"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-roll-parrillero-10",
+      "name": "Roll Parrillero 10 bocados",
+      "type": "producto",
+      "price": "8.69",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Cobertura de lomo fino sellado a la plancha, chimichurri japonés, relleno de pimiento morrón, camarón tempura y queso crema.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-roll-parrillero-10.webp"
+      ],
+      "categories": [
+        "sushi-rollos-especiales"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-maki-suri-5",
+      "name": "Maki Suri 5 bocados",
+      "type": "producto",
+      "price": "4.85",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Aguacate, salmón fresco mixsurimi y masago, cobertura de alga nori.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-maki-suri-5.webp"
+      ],
+      "categories": [
+        "sushi-makis"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-maki-suri-10",
+      "name": "Maki Suri 10 bocados",
+      "type": "producto",
+      "price": "7.69",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Aguacate, salmón fresco mixsurimi y masago, cobertura de alga nori.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-maki-suri-10.webp"
+      ],
+      "categories": [
+        "sushi-makis"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-kani-maki-5",
+      "name": "Kani Maki 5 bocados",
+      "type": "producto",
+      "price": "4.70",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Queso crema, aguacate, kanikama y masago, cobertura de wontón.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-kani-maki-5.webp"
+      ],
+      "categories": [
+        "sushi-makis"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-kani-maki-10",
+      "name": "Kani Maki 10 bocados",
+      "type": "producto",
+      "price": "7.69",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Queso crema, aguacate, kanikama y masago, cobertura de wontón.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-kani-maki-10.webp"
+      ],
+      "categories": [
+        "sushi-makis"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-coco-roll-5",
+      "name": "Coco Roll 5 bocados",
+      "type": "producto",
+      "price": "5.10",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Cobertura tempurizada de coco con relleno de camarón pankonizado, queso crema y aguacate.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-coco-roll-5.webp"
+      ],
+      "categories": [
+        "sushi-tempurizados"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-coco-roll-10",
+      "name": "Coco Roll 10 bocados",
+      "type": "producto",
+      "price": "7.69",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Cobertura tempurizada de coco con relleno de camarón pankonizado, queso crema y aguacate.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-coco-roll-10.webp"
+      ],
+      "categories": [
+        "sushi-tempurizados"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-surimaque-5",
+      "name": "Surimaque 5 bocados",
+      "type": "producto",
+      "price": "4.85",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Cobertura tempurizada, relleno de cangrejo, maqueño y queso crema.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-surimaque-5.webp"
+      ],
+      "categories": [
+        "sushi-tempurizados"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-surimaque-10",
+      "name": "Surimaque 10 bocados",
+      "type": "producto",
+      "price": "7.49",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Cobertura tempurizada, relleno de cangrejo, maqueño y queso crema.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-surimaque-10.webp"
+      ],
+      "categories": [
+        "sushi-tempurizados"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-ebyoshii-5",
+      "name": "Ebyoshii 5 bocados",
+      "type": "producto",
+      "price": "4.85",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Cobertura tempurizada, relleno Eby mix (camarón mix).",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-ebyoshii-5.webp"
+      ],
+      "categories": [
+        "sushi-tempurizados"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-ebyoshii-10",
+      "name": "Ebyoshii 10 bocados",
+      "type": "producto",
+      "price": "7.49",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Cobertura tempurizada, relleno Eby mix (camarón mix).",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-ebyoshii-10.webp"
+      ],
+      "categories": [
+        "sushi-tempurizados"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-sakeroll-5",
+      "name": "Sakeroll 5 bocados",
+      "type": "producto",
+      "price": "5.10",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Cobertura pankonizada, relleno de sake mix (salmón mix) y salsa de la casa.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-sakeroll-5.webp"
+      ],
+      "categories": [
+        "sushi-tempurizados"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-sakeroll-10",
+      "name": "Sakeroll 10 bocados",
+      "type": "producto",
+      "price": "7.69",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Cobertura pankonizada, relleno de sake mix (salmón mix) y salsa de la casa.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-sakeroll-10.webp"
+      ],
+      "categories": [
+        "sushi-tempurizados"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-crocante-5",
+      "name": "Crocante 5 bocados",
+      "type": "producto",
+      "price": "5.10",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Cobertura pankonizada, relleno de cangrejo, aguacate y queso crema.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-crocante-5.webp"
+      ],
+      "categories": [
+        "sushi-tempurizados"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-crocante-10",
+      "name": "Crocante 10 bocados",
+      "type": "producto",
+      "price": "7.69",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Cobertura pankonizada, relleno de cangrejo, aguacate y queso crema.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-crocante-10.webp"
+      ],
+      "categories": [
+        "sushi-tempurizados"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-dragon-5",
+      "name": "Dragón 5 bocados",
+      "type": "producto",
+      "price": "5.10",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Cobertura pankonizada, relleno de camarón tempura y queso crema. (La carta no lista porción de 10 bocados para este rollo.)",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-dragon-5.webp"
+      ],
+      "categories": [
+        "sushi-tempurizados"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-sashimi-salmon-5",
+      "name": "Sashimi de salmón (5 unidades)",
+      "type": "producto",
+      "price": "5.25",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Cinco cortes de salmón fresco.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-sashimi-salmon-5.webp"
+      ],
+      "categories": [
+        "sushi-sashimi"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-sashimi-atun-5",
+      "name": "Sashimi de atún (5 unidades)",
+      "type": "producto",
+      "price": "5.50",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Cinco cortes de atún fresco.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-sashimi-atun-5.webp"
+      ],
+      "categories": [
+        "sushi-sashimi"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-arroz-frito-especial",
+      "name": "Arroz frito especial",
+      "type": "producto",
+      "price": "6.49",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Arroz frito salteado al wok con pollo, camarón y res.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-arroz-frito-especial.webp"
+      ],
+      "categories": [
+        "sushi-arroces"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-poke",
+      "name": "Poke",
+      "type": "producto",
+      "price": "6.49",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Base de arroz gohan, camarón tempurizado, salmón y kanikama; topping de alga nori y semillas de sésamo.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-poke.webp"
+      ],
+      "categories": [
+        "sushi-arroces"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-ramen-toki",
+      "name": "Ramen Toki",
+      "type": "producto",
+      "price": "4.99",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Sopa a base de cerdo con panceta, huevo, naruto y fideo ramen.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-ramen-toki.webp"
+      ],
+      "categories": [
+        "sushi-sopas"
+      ],
+      "variants": [
+        {
+          "name": "Picante",
+          "type": "option",
+          "options": [
+            "Sin picante",
+            "Picante"
+          ],
+          "optional": false
+        }
+      ],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-sopa-oriental-pollo",
+      "name": "Sopa oriental de pollo",
+      "type": "producto",
+      "price": "4.49",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Sopa con piezas de pollo, vegetales y fideo.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-sopa-oriental-pollo.webp"
+      ],
+      "categories": [
+        "sushi-sopas"
+      ],
+      "variants": [
+        {
+          "name": "Picante",
+          "type": "option",
+          "options": [
+            "Sin picante",
+            "Picante"
+          ],
+          "optional": false
+        }
+      ],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-ramen-mariscos",
+      "name": "Ramen de mariscos",
+      "type": "producto",
+      "price": "4.99",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Sopa de mariscos con fideo ramen, camarón, huevo, naruto y cebollín.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-ramen-mariscos.webp"
+      ],
+      "categories": [
+        "sushi-sopas"
+      ],
+      "variants": [
+        {
+          "name": "Picante",
+          "type": "option",
+          "options": [
+            "Sin picante",
+            "Picante"
+          ],
+          "optional": false
+        }
+      ],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-combo-10",
+      "name": "Combo estudiante 10 bocados",
+      "type": "producto",
+      "price": "8.99",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Surtido de bocados de sushi. Precio con carnet estudiantil.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-combo-10.webp"
+      ],
+      "categories": [
+        "sushi-combos"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-combo-15",
+      "name": "Combo estudiante 15 bocados",
+      "type": "producto",
+      "price": "10.99",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Surtido de bocados de sushi. Precio con carnet estudiantil.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-combo-15.webp"
+      ],
+      "categories": [
+        "sushi-combos"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-combo-20",
+      "name": "Combo estudiante 20 bocados",
+      "type": "producto",
+      "price": "13.99",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Surtido de bocados de sushi. Precio con carnet estudiantil.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-combo-20.webp"
+      ],
+      "categories": [
+        "sushi-combos"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-combo-30",
+      "name": "Combo estudiante 30 bocados",
+      "type": "producto",
+      "price": "19.99",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Surtido de bocados de sushi. Precio con carnet estudiantil.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-combo-30.webp"
+      ],
+      "categories": [
+        "sushi-combos"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-combo-40",
+      "name": "Combo estudiante 40 bocados",
+      "type": "producto",
+      "price": "24.99",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Surtido de bocados de sushi. Precio con carnet estudiantil.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-combo-40.webp"
+      ],
+      "categories": [
+        "sushi-combos"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-combo-50",
+      "name": "Combo estudiante 50 bocados",
+      "type": "producto",
+      "price": "28.99",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Surtido de bocados de sushi. Precio con carnet estudiantil.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-combo-50.webp"
+      ],
+      "categories": [
+        "sushi-combos"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-extra-salsas",
+      "name": "Porción de salsas",
+      "type": "producto",
+      "price": "0.50",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Porción adicional de salsa.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-extra-salsas.webp"
+      ],
+      "categories": [
+        "sushi-extras"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "sushi-extra-wasabi-gari",
+      "name": "Wasabi y gari",
+      "type": "producto",
+      "price": "0.75",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Wasabi y jengibre encurtido (gari).",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/sushi-extra-wasabi-gari.webp"
+      ],
+      "categories": [
+        "sushi-extras"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "sushi"
+    },
+    {
+      "id": "fastfood-arizona-classic-burger",
+      "name": "Arizona Classic Burger",
+      "type": "producto",
+      "price": "5.99",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Hamburguesa clásica Arizona.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/fastfood-arizona-classic-burger.webp"
+      ],
+      "categories": [
+        "fastfood-hamburguesas"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "fastfood"
+    },
+    {
+      "id": "fastfood-doble-carne-burger",
+      "name": "Doble Carne Burger",
+      "type": "producto",
+      "price": "7.49",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Hamburguesa con doble carne.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/fastfood-doble-carne-burger.webp"
+      ],
+      "categories": [
+        "fastfood-hamburguesas"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "fastfood"
+    },
+    {
+      "id": "fastfood-bbq-bacon-burger",
+      "name": "BBQ Bacon Burger",
+      "type": "producto",
+      "price": "6.99",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Hamburguesa BBQ con tocino.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/cheese-bacon-burger.webp"
+      ],
+      "categories": [
+        "fastfood-hamburguesas"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "fastfood"
+    },
+    {
+      "id": "fastfood-salchi-papas",
+      "name": "Salchi Papas",
+      "type": "producto",
+      "price": "4.99",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Papas fritas con salchicha.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/salchipapa.webp"
+      ],
+      "categories": [
+        "fastfood-papas-carnes"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "fastfood"
+    },
+    {
+      "id": "fastfood-papa-loca-carne",
+      "name": "Papa Loca con Carne",
+      "type": "producto",
+      "price": "6.49",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Papas cargadas con carne.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/fastfood-papa-loca-carne.webp"
+      ],
+      "categories": [
+        "fastfood-papas-carnes"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "fastfood"
+    },
+    {
+      "id": "fastfood-carne-parrilla-papas",
+      "name": "Carne a la Parrilla con Papas",
+      "type": "producto",
+      "price": "8.99",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Carne a la parrilla acompañada de papas.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/fastfood-carne-parrilla-papas.webp"
+      ],
+      "categories": [
+        "fastfood-papas-carnes"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "fastfood"
+    },
+    {
+      "id": "fastfood-alitas-bbq-6",
+      "name": "6 Alitas BBQ",
+      "type": "producto",
+      "price": "5.99",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Seis alitas con salsa BBQ.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/alitas-bbq-6.webp"
+      ],
+      "categories": [
+        "fastfood-alitas"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "fastfood"
+    },
+    {
+      "id": "fastfood-alitas-picantes-6",
+      "name": "6 Alitas Picantes",
+      "type": "producto",
+      "price": "5.99",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Seis alitas con salsa picante.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/fastfood-alitas-picantes-6.webp"
+      ],
+      "categories": [
+        "fastfood-alitas"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "fastfood"
+    },
+    {
+      "id": "fastfood-alitas-miel-mostaza-6",
+      "name": "6 Alitas Miel Mostaza",
+      "type": "producto",
+      "price": "6.49",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Seis alitas con salsa de miel y mostaza.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/alitas-honey-6.webp"
+      ],
+      "categories": [
+        "fastfood-alitas"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "fastfood"
+    },
+    {
+      "id": "fastfood-alitas-mix-12",
+      "name": "12 Alitas Mix Sabores",
+      "type": "producto",
+      "price": "10.99",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Doce alitas en surtido de sabores.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/alitas-mix-12.webp"
+      ],
+      "categories": [
+        "fastfood-alitas"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "fastfood"
+    },
+    {
+      "id": "fastfood-combo-burger",
+      "name": "Combo Burger + Papas + Bebida",
+      "type": "producto",
+      "price": "7.99",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Hamburguesa con papas y bebida.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/fastfood-combo-burger.webp"
+      ],
+      "categories": [
+        "fastfood-combos"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "fastfood"
+    },
+    {
+      "id": "fastfood-combo-alitas-12",
+      "name": "Combo Alitas 12 + Papas",
+      "type": "producto",
+      "price": "12.99",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Doce alitas con papas.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/fastfood-combo-alitas-12.webp"
+      ],
+      "categories": [
+        "fastfood-combos"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "fastfood"
+    },
+    {
+      "id": "fastfood-tiramisu",
+      "name": "Tiramisú Tradicional",
+      "type": "producto",
+      "price": "5.49",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Postre francés clásico.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/fastfood-tiramisu.webp"
+      ],
+      "categories": [
+        "fastfood-postres"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "postres"
+    },
+    {
+      "id": "fastfood-torta-chocolate-belga",
+      "name": "Torta de Chocolate Belga",
+      "type": "producto",
+      "price": "6.99",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Torta de chocolate belga.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/fastfood-torta-chocolate-belga.webp"
+      ],
+      "categories": [
+        "fastfood-postres"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "postres"
+    },
+    {
+      "id": "fastfood-torta-selva-negra",
+      "name": "Torta Selva Negra",
+      "type": "producto",
+      "price": "6.49",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Torta Selva Negra.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/selva-negra.webp"
+      ],
+      "categories": [
+        "fastfood-postres"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "postres"
+    },
+    {
+      "id": "fastfood-cheesecake-frances",
+      "name": "Cheesecake Francés",
+      "type": "producto",
+      "price": "5.99",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Cheesecake estilo francés.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/fastfood-cheesecake-frances.webp"
+      ],
+      "categories": [
+        "fastfood-postres"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "postres"
+    },
+    {
+      "id": "fastfood-fondant-chocolate",
+      "name": "Fondant au Chocolat con Helado",
+      "type": "producto",
+      "price": "6.49",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Fondant de chocolate acompañado de helado.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/fastfood-fondant-chocolate.webp"
+      ],
+      "categories": [
+        "fastfood-postres"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "postres"
+    },
+    {
+      "id": "fastfood-creme-brulee",
+      "name": "Crème Brûlée",
+      "type": "producto",
+      "price": "4.99",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Crema catalana francesa.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/fastfood-creme-brulee.webp"
+      ],
+      "categories": [
+        "fastfood-postres"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "postres"
+    },
+    {
+      "id": "fastfood-eclair",
+      "name": "Éclair de Chocolate",
+      "type": "producto",
+      "price": "3.99",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Éclair relleno con crema y cobertura de chocolate.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/fastfood-eclair.webp"
+      ],
+      "categories": [
+        "fastfood-postres"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "postres"
+    },
+    {
+      "id": "fastfood-macarons-6",
+      "name": "Macarons (6 unidades)",
+      "type": "producto",
+      "price": "5.99",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Seis macarons surtidos.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/fastfood-macarons-6.webp"
+      ],
+      "categories": [
+        "fastfood-postres"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "postres"
+    },
+    {
+      "id": "fastfood-tarte-tatin",
+      "name": "Tarte Tatin de Manzana",
+      "type": "producto",
+      "price": "5.49",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Tarta invertida de manzana.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/fastfood-tarte-tatin.webp"
+      ],
+      "categories": [
+        "fastfood-postres"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "postres"
+    },
+    {
+      "id": "fastfood-profiteroles",
+      "name": "Profiteroles con Chocolate",
+      "type": "producto",
+      "price": "4.49",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Profiteroles con salsa de chocolate.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/fastfood-profiteroles.webp"
+      ],
+      "categories": [
+        "fastfood-postres"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "postres"
+    },
+    {
+      "id": "fastfood-mille-feuille",
+      "name": "Mille-Feuille de Vainilla",
+      "type": "producto",
+      "price": "5.99",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Milhojas de crema de vainilla.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/fastfood-mille-feuille.webp"
+      ],
+      "categories": [
+        "fastfood-postres"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "postres"
+    },
+    {
+      "id": "fastfood-souffle",
+      "name": "Soufflé de Chocolate",
+      "type": "producto",
+      "price": "6.99",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Soufflé de chocolate.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/fastfood-souffle.webp"
+      ],
+      "categories": [
+        "fastfood-postres"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "postres"
+    },
+    {
+      "id": "tradicional-majado-camaron",
+      "name": "Majado con camarón y huevo frito + café",
+      "type": "producto",
+      "price": "3.75",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Majado de verde con camarón, huevo frito y café.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/majado.webp"
+      ],
+      "categories": [
+        "tradicional-desayunos"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "tradicional"
+    },
+    {
+      "id": "tradicional-majado-huevo",
+      "name": "Majado con huevo frito + café",
+      "type": "producto",
+      "price": "3.75",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Majado de verde con huevo frito y café.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/majado.webp"
+      ],
+      "categories": [
+        "tradicional-desayunos"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "tradicional"
+    },
+    {
+      "id": "tradicional-majado-queso",
+      "name": "Majado con queso y huevo frito",
+      "type": "producto",
+      "price": "3.50",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Majado de verde con queso y huevo frito.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/majado.webp"
+      ],
+      "categories": [
+        "tradicional-desayunos"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "tradicional"
+    },
+    {
+      "id": "tradicional-majado-chicharron",
+      "name": "Majado con chicharrón y huevo frito + café",
+      "type": "producto",
+      "price": "3.50",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Majado de verde con chicharrón, huevo frito y café.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/majado.webp"
+      ],
+      "categories": [
+        "tradicional-desayunos"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "tradicional"
+    },
+    {
+      "id": "tradicional-majado-ceviche",
+      "name": "Majado con ceviche y huevo frito + café",
+      "type": "producto",
+      "price": "4.00",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Majado de verde con ceviche, huevo frito y café.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/majado.webp"
+      ],
+      "categories": [
+        "tradicional-desayunos"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "tradicional"
+    },
+    {
+      "id": "tradicional-bolon-camaron",
+      "name": "Bolón con camarón y huevo frito + café",
+      "type": "producto",
+      "price": "4.00",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Bolón de verde con camarón, huevo frito y café.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/bolon.webp"
+      ],
+      "categories": [
+        "tradicional-desayunos"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "tradicional"
+    },
+    {
+      "id": "tradicional-bolon-chicharron",
+      "name": "Bolón con chicharrón y huevo frito + café",
+      "type": "producto",
+      "price": "3.75",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Bolón de verde con chicharrón, huevo frito y café.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/bolon.webp"
+      ],
+      "categories": [
+        "tradicional-desayunos"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "tradicional"
+    },
+    {
+      "id": "tradicional-bolon-queso",
+      "name": "Bolón con queso y huevo frito + café",
+      "type": "producto",
+      "price": "3.75",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Bolón de verde con queso, huevo frito y café.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/bolon.webp"
+      ],
+      "categories": [
+        "tradicional-desayunos"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "tradicional"
+    },
+    {
+      "id": "tradicional-bolon-mixto",
+      "name": "Bolón mixto y huevo frito + café",
+      "type": "producto",
+      "price": "4.00",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Bolón mixto con huevo frito y café.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/bolon.webp"
+      ],
+      "categories": [
+        "tradicional-desayunos"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "tradicional"
+    },
+    {
+      "id": "tradicional-tortillas-camaron",
+      "name": "2 tortillas con camarón y huevo frito",
+      "type": "producto",
+      "price": "4.50",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Dos tortillas de verde con porción de camarón y huevo frito.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/tortillas.webp"
+      ],
+      "categories": [
+        "tradicional-desayunos"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "tradicional"
+    },
+    {
+      "id": "tradicional-tortillas-carne",
+      "name": "2 tortillas con carne (pollo o res) y huevo frito",
+      "type": "producto",
+      "price": "4.50",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Dos tortillas de verde con porción de carne de pollo o res y huevo frito.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/tortillas.webp"
+      ],
+      "categories": [
+        "tradicional-desayunos"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "tradicional"
+    },
+    {
+      "id": "tradicional-tortillas-arroz-estofado",
+      "name": "2 tortillas con arroz, estofado y huevo frito",
+      "type": "producto",
+      "price": "5.00",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Dos tortillas de verde con arroz, estofado y huevo frito.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/tortillas.webp"
+      ],
+      "categories": [
+        "tradicional-desayunos"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "tradicional"
+    },
+    {
+      "id": "tradicional-tortillas-mixta",
+      "name": "2 tortillas mixta",
+      "type": "producto",
+      "price": "5.00",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Dos tortillas de verde en versión mixta.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/tortillas.webp"
+      ],
+      "categories": [
+        "tradicional-desayunos"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "tradicional"
+    },
+    {
+      "id": "tradicional-almuerzo-ejecutivo",
+      "name": "Almuerzo ejecutivo",
+      "type": "producto",
+      "price": "4.75",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Almuerzo ejecutivo del día. Composición sujeta a disponibilidad.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/almuerzo-ejecutivo.webp"
+      ],
+      "categories": [
+        "tradicional-almuerzos"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "tradicional"
+    },
+    {
+      "id": "tradicional-carne-parrilla-platano",
+      "name": "Carne a la parrilla con plátano y ensalada",
+      "type": "producto",
+      "price": "4.75",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Carne a la parrilla con plátano maduro y porción de ensalada.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/carne-parrilla-platano.webp"
+      ],
+      "categories": [
+        "tradicional-almuerzos"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "tradicional"
+    },
+    {
+      "id": "tradicional-pollo-asado-papas",
+      "name": "Pollo asado con papas y ensalada",
+      "type": "producto",
+      "price": "4.75",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Pollo asado con papas y porción de ensalada.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/pollo-asado-papas.webp"
+      ],
+      "categories": [
+        "tradicional-almuerzos"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "tradicional"
+    },
+    {
+      "id": "tradicional-papas-queso-salchicha",
+      "name": "Papas fritas con queso y salchicha",
+      "type": "producto",
+      "price": "3.50",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Papas fritas con queso y salchicha.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/papas-queso-salchicha.webp"
+      ],
+      "categories": [
+        "tradicional-papas-patacones"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "tradicional"
+    },
+    {
+      "id": "tradicional-papas-queso-pollo",
+      "name": "Papas fritas con queso y pollo asado",
+      "type": "producto",
+      "price": "4.00",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Papas fritas con queso y pollo asado.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/papipollo.webp"
+      ],
+      "categories": [
+        "tradicional-papas-patacones"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "tradicional"
+    },
+    {
+      "id": "tradicional-papas-mixta",
+      "name": "Papas fritas mixta",
+      "type": "producto",
+      "price": "4.50",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Papas fritas en versión mixta.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/tradicional-papas-mixta.webp"
+      ],
+      "categories": [
+        "tradicional-papas-patacones"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "tradicional"
+    },
+    {
+      "id": "tradicional-patacones-ceviche-camaron",
+      "name": "Patacones con ceviche de camarón",
+      "type": "producto",
+      "price": "3.75",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Patacones con ceviche de camarón.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/tradicional-patacones-ceviche-camaron.webp"
+      ],
+      "categories": [
+        "tradicional-papas-patacones"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "tradicional"
+    },
+    {
+      "id": "tradicional-patacones-ceviche-pollo",
+      "name": "Patacones con ceviche de pollo",
+      "type": "producto",
+      "price": "3.75",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Patacones con ceviche de pollo.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/tradicional-patacones-ceviche-pollo.webp"
+      ],
+      "categories": [
+        "tradicional-papas-patacones"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "tradicional"
+    },
+    {
+      "id": "tradicional-patacones-ceviche-mixto",
+      "name": "Patacones con ceviche mixto",
+      "type": "producto",
+      "price": "4.00",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Patacones con ceviche mixto.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/tradicional-patacones-ceviche-mixto.webp"
+      ],
+      "categories": [
+        "tradicional-papas-patacones"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "tradicional"
+    },
+    {
+      "id": "tradicional-patacones-solos-ensalada",
+      "name": "Patacones solos con ensalada",
+      "type": "producto",
+      "price": "3.00",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Patacones acompañados de porción de ensalada.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/patacones.webp"
+      ],
+      "categories": [
+        "tradicional-papas-patacones"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "tradicional"
+    },
+    {
+      "id": "tradicional-papa-rellena-camaron",
+      "name": "Papa con relleno de camarón y queso + ensalada",
+      "type": "producto",
+      "price": "4.50",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Papa rellena de camarón y queso con porción de ensalada.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/papa-rellena.webp"
+      ],
+      "categories": [
+        "tradicional-papas-patacones"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "tradicional"
+    },
+    {
+      "id": "tradicional-papa-rellena-carne",
+      "name": "Papa con relleno de carne y queso + ensalada",
+      "type": "producto",
+      "price": "4.50",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Papa rellena de carne y queso con porción de ensalada.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/papa-rellena.webp"
+      ],
+      "categories": [
+        "tradicional-papas-patacones"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "tradicional"
+    },
+    {
+      "id": "tradicional-papa-mixta",
+      "name": "Papa mixta + ensalada",
+      "type": "producto",
+      "price": "5.00",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Papa rellena mixta con porción de ensalada.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/papa-rellena.webp"
+      ],
+      "categories": [
+        "tradicional-papas-patacones"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "tradicional"
+    },
+    {
+      "id": "tradicional-arroz-moro-ceviche-camaron",
+      "name": "Arroz moro con ceviche de camarón",
+      "type": "producto",
+      "price": "4.75",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Arroz moro con ceviche de camarón.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/arroz-moro.webp"
+      ],
+      "categories": [
+        "tradicional-arroces"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "tradicional"
+    },
+    {
+      "id": "tradicional-arroz-moro-ceviche-pescado",
+      "name": "Arroz moro con ceviche de pescado",
+      "type": "producto",
+      "price": "4.75",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Arroz moro con ceviche de pescado.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/arroz-moro.webp"
+      ],
+      "categories": [
+        "tradicional-arroces"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "tradicional"
+    },
+    {
+      "id": "tradicional-arroz-moro-ceviche-mixto",
+      "name": "Arroz moro con ceviche mixto",
+      "type": "producto",
+      "price": "5.00",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Arroz moro con ceviche mixto.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/arroz-moro.webp"
+      ],
+      "categories": [
+        "tradicional-arroces"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "tradicional"
+    },
+    {
+      "id": "tradicional-arroz-moro-huevo",
+      "name": "Arroz moro con huevo frito",
+      "type": "producto",
+      "price": "3.50",
+      "promo_price": "",
+      "packaging_id": null,
+      "packaging_cost": 0,
+      "sku": "",
+      "description": "Arroz moro con huevo frito.",
+      "stock": null,
+      "active": true,
+      "catalog_visible": true,
+      "images": [
+        "/media/panel/cristhian-loyos/products/arroz-moro.webp"
+      ],
+      "categories": [
+        "tradicional-arroces"
+      ],
+      "variants": [],
+      "groups": [],
+      "report_category": "tradicional"
+    }
+  ]
+}

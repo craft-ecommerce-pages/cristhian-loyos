@@ -1,0 +1,121 @@
+{
+  "store_name": "Carta de Food Trucks",
+  "site_title": "Carta · Food Trucks",
+  "brand_sub": "Sushi · Fast food · Tradicional",
+  "hero_kicker": "Una carta, seis food trucks",
+  "hero_title": "Pide en tu food truck",
+  "hero_divider": true,
+  "search_placeholder": "Busca tu antojo...",
+  "currency": "USD",
+  "price_locale": true,
+  "theme": {
+    "primary": "#C81E1E",
+    "accent": "#E0A526",
+    "bg": "#0B0B0B",
+    "surface": "#161616",
+    "surface2": "#1F1F1F",
+    "text": "#F5F0E6",
+    "text2": "#C9C2B6",
+    "border": "#2E2E2E"
+  },
+  "og_image": "/media/panel/cristhian-loyos/brand/food-truck.webp",
+  "categories": {
+    "sushi-entradas": "🍣 Sushi · Entradas",
+    "sushi-rollos-frios": "🍣 Sushi · Rollos fríos",
+    "sushi-rollos-especiales": "🍣 Sushi · Rollos especiales",
+    "sushi-makis": "🍣 Sushi · Makis",
+    "sushi-tempurizados": "🍣 Sushi · Rollos tempurizados",
+    "sushi-sashimi": "🍣 Sushi · Sashimi",
+    "sushi-arroces": "🍣 Sushi · Arroces",
+    "sushi-sopas": "🍣 Sushi · Sopas y ramen",
+    "sushi-combos": "🍣 Sushi · Combos estudiantes",
+    "sushi-extras": "🍣 Sushi · Extras",
+    "fastfood-hamburguesas": "🍔 Fast food · Hamburguesas",
+    "fastfood-papas-carnes": "🍔 Fast food · Papas y carnes",
+    "fastfood-alitas": "🍔 Fast food · Alitas",
+    "fastfood-combos": "🍔 Fast food · Combos",
+    "fastfood-postres": "🍔 Fast food · Postres",
+    "tradicional-desayunos": "🍲 Tradicional · Desayunos",
+    "tradicional-almuerzos": "🍲 Tradicional · Almuerzos",
+    "tradicional-papas-patacones": "🍲 Tradicional · Papas y patacones",
+    "tradicional-arroces": "🍲 Tradicional · Arroces"
+  },
+  "category_order": [
+    "sushi-entradas",
+    "sushi-rollos-frios",
+    "sushi-rollos-especiales",
+    "sushi-makis",
+    "sushi-tempurizados",
+    "sushi-sashimi",
+    "sushi-arroces",
+    "sushi-sopas",
+    "sushi-combos",
+    "sushi-extras",
+    "fastfood-hamburguesas",
+    "fastfood-papas-carnes",
+    "fastfood-alitas",
+    "fastfood-combos",
+    "fastfood-postres",
+    "tradicional-desayunos",
+    "tradicional-almuerzos",
+    "tradicional-papas-patacones",
+    "tradicional-arroces"
+  ],
+  "packaging": {
+    "enabled": true,
+    "mode": "per_product",
+    "label": "Empaque"
+  },
+  "location": {
+    "sedes": [
+      {
+        "id": "sede-01",
+        "nombre": "Food truck 1",
+        "direccion": "Por confirmar",
+        "universidad": "",
+        "activa": true
+      },
+      {
+        "id": "sede-02",
+        "nombre": "Food truck 2",
+        "direccion": "Por confirmar",
+        "universidad": "",
+        "activa": true
+      },
+      {
+        "id": "sede-03",
+        "nombre": "Food truck 3",
+        "direccion": "Por confirmar",
+        "universidad": "",
+        "activa": true
+      },
+      {
+        "id": "sede-04",
+        "nombre": "Food truck 4",
+        "direccion": "Por confirmar",
+        "universidad": "",
+        "activa": true
+      },
+      {
+        "id": "sede-05",
+        "nombre": "Food truck 5",
+        "direccion": "Por confirmar",
+        "universidad": "",
+        "activa": true
+      },
+      {
+        "id": "sede-06",
+        "nombre": "Food truck 6",
+        "direccion": "Por confirmar",
+        "universidad": "",
+        "activa": true
+      }
+    ],
+    "out_of_coverage_message": "Selecciona tu food truck para confirmar el pedido."
+  },
+  "checkout_orders": {
+    "enabled": true,
+    "api_base": "",
+    "poll_ms": 5000
+  }
+}

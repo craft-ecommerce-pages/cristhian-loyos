@@ -1,0 +1,51 @@
+{
+  "slug": "cristhian-loyos",
+  "sedes": [
+    {
+      "id": "sede-01",
+      "nombre": "Food truck 1",
+      "direccion": "Por confirmar",
+      "universidad": "",
+      "activa": true
+    },
+    {
+      "id": "sede-02",
+      "nombre": "Food truck 2",
+      "direccion": "Por confirmar",
+      "universidad": "",
+      "activa": true
+    },
+    {
+      "id": "sede-03",
+      "nombre": "Food truck 3",
+      "direccion": "Por confirmar",
+      "universidad": "",
+      "activa": true
+    },
+    {
+      "id": "sede-04",
+      "nombre": "Food truck 4",
+      "direccion": "Por confirmar",
+      "universidad": "",
+      "activa": true
+    },
+    {
+      "id": "sede-05",
+      "nombre": "Food truck 5",
+      "direccion": "Por confirmar",
+      "universidad": "",
+      "activa": true
+    },
+    {
+      "id": "sede-06",
+      "nombre": "Food truck 6",
+      "direccion": "Por confirmar",
+      "universidad": "",
+      "activa": true
+    }
+  ],
+  "qr": {
+    "parametro": "sede",
+    "ejemplo": "/?sede=sede-01"
+  }
+}

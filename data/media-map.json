@@ -1,0 +1,408 @@
+{
+  "media_origin": "/media/panel/cristhian-loyos/products",
+  "files": {
+    "majado.webp": [
+      "tradicional-majado-camaron",
+      "tradicional-majado-huevo",
+      "tradicional-majado-queso",
+      "tradicional-majado-chicharron",
+      "tradicional-majado-ceviche"
+    ],
+    "bolon.webp": [
+      "tradicional-bolon-camaron",
+      "tradicional-bolon-chicharron",
+      "tradicional-bolon-queso",
+      "tradicional-bolon-mixto"
+    ],
+    "tortillas.webp": [
+      "tradicional-tortillas-camaron",
+      "tradicional-tortillas-carne",
+      "tradicional-tortillas-arroz-estofado",
+      "tradicional-tortillas-mixta"
+    ],
+    "almuerzo-ejecutivo.webp": [
+      "tradicional-almuerzo-ejecutivo"
+    ],
+    "carne-parrilla-platano.webp": [
+      "tradicional-carne-parrilla-platano"
+    ],
+    "pollo-asado-papas.webp": [
+      "tradicional-pollo-asado-papas"
+    ],
+    "papas-queso-salchicha.webp": [
+      "tradicional-papas-queso-salchicha"
+    ],
+    "papipollo.webp": [
+      "tradicional-papas-queso-pollo"
+    ],
+    "patacones.webp": [
+      "tradicional-patacones-solos-ensalada"
+    ],
+    "papa-rellena.webp": [
+      "tradicional-papa-rellena-camaron",
+      "tradicional-papa-rellena-carne",
+      "tradicional-papa-mixta"
+    ],
+    "arroz-moro.webp": [
+      "tradicional-arroz-moro-ceviche-camaron",
+      "tradicional-arroz-moro-ceviche-pescado",
+      "tradicional-arroz-moro-ceviche-mixto",
+      "tradicional-arroz-moro-huevo"
+    ],
+    "cheese-burger.webp": [
+      "fastfood-arizona-classic-burger"
+    ],
+    "cheese-bacon-burger.webp": [
+      "fastfood-bbq-bacon-burger"
+    ],
+    "salchipapa.webp": [
+      "fastfood-salchi-papas"
+    ],
+    "papas-cheese-bacon.webp": [
+      "fastfood-papa-loca-carne"
+    ],
+    "alitas-bbq-6.webp": [
+      "fastfood-alitas-bbq-6"
+    ],
+    "alitas-honey-6.webp": [
+      "fastfood-alitas-miel-mostaza-6"
+    ],
+    "alitas-mix-12.webp": [
+      "fastfood-alitas-mix-12"
+    ],
+    "torta-chocolate.webp": [
+      "fastfood-torta-chocolate-belga"
+    ],
+    "selva-negra.webp": [
+      "fastfood-torta-selva-negra"
+    ],
+    "combo-burger.webp": [
+      "fastfood-combo-burger"
+    ],
+    "combo-alitas-12.webp": [
+      "fastfood-combo-alitas-12"
+    ],
+    "sushi-gyozas-6.webp": [
+      "sushi-gyozas-6"
+    ],
+    "sushi-nigiris-1.webp": [
+      "sushi-nigiris-1"
+    ],
+    "sushi-sashimi-salmon-5.webp": [
+      "sushi-sashimi-salmon-5"
+    ],
+    "sushi-sashimi-atun-5.webp": [
+      "sushi-sashimi-atun-5"
+    ],
+    "sushi-camarones-tempura-5.webp": [
+      "sushi-camarones-tempura-5"
+    ],
+    "sushi-arroz-frito-especial.webp": [
+      "sushi-arroz-frito-especial"
+    ],
+    "sushi-california-5.webp": [
+      "sushi-california-5"
+    ],
+    "sushi-california-10.webp": [
+      "sushi-california-10"
+    ],
+    "sushi-avocado-5.webp": [
+      "sushi-avocado-5"
+    ],
+    "sushi-avocado-10.webp": [
+      "sushi-avocado-10"
+    ],
+    "sushi-filadelfia-5.webp": [
+      "sushi-filadelfia-5"
+    ],
+    "sushi-filadelfia-10.webp": [
+      "sushi-filadelfia-10"
+    ],
+    "sushi-poke.webp": [
+      "sushi-poke"
+    ],
+    "sushi-ramen-mariscos.webp": [
+      "sushi-ramen-mariscos"
+    ],
+    "fastfood-doble-carne-burger.webp": [
+      "fastfood-doble-carne-burger"
+    ],
+    "fastfood-alitas-picantes-6.webp": [
+      "fastfood-alitas-picantes-6"
+    ],
+    "fastfood-tiramisu.webp": [
+      "fastfood-tiramisu"
+    ],
+    "fastfood-cheesecake-frances.webp": [
+      "fastfood-cheesecake-frances"
+    ],
+    "fastfood-fondant-chocolate.webp": [
+      "fastfood-fondant-chocolate"
+    ],
+    "fastfood-creme-brulee.webp": [
+      "fastfood-creme-brulee"
+    ],
+    "tradicional-patacones-ceviche-mixto.webp": [
+      "tradicional-patacones-ceviche-mixto"
+    ],
+    "sushi-cubitos-fried-8.webp": [
+      "sushi-cubitos-fried-8"
+    ],
+    "sushi-wontones-3.webp": [
+      "sushi-wontones-3"
+    ],
+    "sushi-rollos-primavera-3.webp": [
+      "sushi-rollos-primavera-3"
+    ],
+    "sushi-gunkan-cangrejo-1.webp": [
+      "sushi-gunkan-cangrejo-1"
+    ],
+    "sushi-gunkan-salmon-1.webp": [
+      "sushi-gunkan-salmon-1"
+    ],
+    "sushi-oshiisake-5.webp": [
+      "sushi-oshiisake-5"
+    ],
+    "sushi-oshiisake-10.webp": [
+      "sushi-oshiisake-10"
+    ],
+    "sushi-maguro-roll-5.webp": [
+      "sushi-maguro-roll-5"
+    ],
+    "sushi-maguro-roll-10.webp": [
+      "sushi-maguro-roll-10"
+    ],
+    "sushi-kaniroll-5.webp": [
+      "sushi-kaniroll-5"
+    ],
+    "sushi-kaniroll-10.webp": [
+      "sushi-kaniroll-10"
+    ],
+    "sushi-sweetsuri-5.webp": [
+      "sushi-sweetsuri-5"
+    ],
+    "sushi-sweetsuri-10.webp": [
+      "sushi-sweetsuri-10"
+    ],
+    "sushi-roll-acevichado-5.webp": [
+      "sushi-roll-acevichado-5"
+    ],
+    "sushi-roll-acevichado-10.webp": [
+      "sushi-roll-acevichado-10"
+    ],
+    "sushi-champilover-5.webp": [
+      "sushi-champilover-5"
+    ],
+    "sushi-champilover-10.webp": [
+      "sushi-champilover-10"
+    ],
+    "sushi-roll-parrillero-5.webp": [
+      "sushi-roll-parrillero-5"
+    ],
+    "sushi-roll-parrillero-10.webp": [
+      "sushi-roll-parrillero-10"
+    ],
+    "sushi-maki-suri-5.webp": [
+      "sushi-maki-suri-5"
+    ],
+    "sushi-maki-suri-10.webp": [
+      "sushi-maki-suri-10"
+    ],
+    "sushi-kani-maki-5.webp": [
+      "sushi-kani-maki-5"
+    ],
+    "sushi-kani-maki-10.webp": [
+      "sushi-kani-maki-10"
+    ],
+    "sushi-coco-roll-5.webp": [
+      "sushi-coco-roll-5"
+    ],
+    "sushi-coco-roll-10.webp": [
+      "sushi-coco-roll-10"
+    ],
+    "sushi-surimaque-5.webp": [
+      "sushi-surimaque-5"
+    ],
+    "sushi-surimaque-10.webp": [
+      "sushi-surimaque-10"
+    ],
+    "sushi-ebyoshii-5.webp": [
+      "sushi-ebyoshii-5"
+    ],
+    "sushi-ebyoshii-10.webp": [
+      "sushi-ebyoshii-10"
+    ],
+    "sushi-sakeroll-5.webp": [
+      "sushi-sakeroll-5"
+    ],
+    "sushi-sakeroll-10.webp": [
+      "sushi-sakeroll-10"
+    ],
+    "sushi-crocante-5.webp": [
+      "sushi-crocante-5"
+    ],
+    "sushi-crocante-10.webp": [
+      "sushi-crocante-10"
+    ],
+    "sushi-dragon-5.webp": [
+      "sushi-dragon-5"
+    ],
+    "sushi-ramen-toki.webp": [
+      "sushi-ramen-toki"
+    ],
+    "sushi-sopa-oriental-pollo.webp": [
+      "sushi-sopa-oriental-pollo"
+    ],
+    "sushi-combo-10.webp": [
+      "sushi-combo-10"
+    ],
+    "sushi-combo-15.webp": [
+      "sushi-combo-15"
+    ],
+    "sushi-combo-20.webp": [
+      "sushi-combo-20"
+    ],
+    "sushi-combo-30.webp": [
+      "sushi-combo-30"
+    ],
+    "sushi-combo-40.webp": [
+      "sushi-combo-40"
+    ],
+    "sushi-combo-50.webp": [
+      "sushi-combo-50"
+    ],
+    "sushi-extra-salsas.webp": [
+      "sushi-extra-salsas"
+    ],
+    "sushi-extra-wasabi-gari.webp": [
+      "sushi-extra-wasabi-gari"
+    ],
+    "fastfood-carne-parrilla-papas.webp": [
+      "fastfood-carne-parrilla-papas"
+    ],
+    "fastfood-eclair.webp": [
+      "fastfood-eclair"
+    ],
+    "fastfood-macarons-6.webp": [
+      "fastfood-macarons-6"
+    ],
+    "fastfood-tarte-tatin.webp": [
+      "fastfood-tarte-tatin"
+    ],
+    "fastfood-profiteroles.webp": [
+      "fastfood-profiteroles"
+    ],
+    "fastfood-mille-feuille.webp": [
+      "fastfood-mille-feuille"
+    ],
+    "fastfood-souffle.webp": [
+      "fastfood-souffle"
+    ],
+    "tradicional-papas-mixta.webp": [
+      "tradicional-papas-mixta"
+    ],
+    "tradicional-patacones-ceviche-camaron.webp": [
+      "tradicional-patacones-ceviche-camaron"
+    ],
+    "tradicional-patacones-ceviche-pollo.webp": [
+      "tradicional-patacones-ceviche-pollo"
+    ],
+    "fastfood-arizona-classic-burger.webp": [
+      "fastfood-arizona-classic-burger"
+    ],
+    "fastfood-papa-loca-carne.webp": [
+      "fastfood-papa-loca-carne"
+    ],
+    "fastfood-combo-burger.webp": [
+      "fastfood-combo-burger"
+    ],
+    "fastfood-combo-alitas-12.webp": [
+      "fastfood-combo-alitas-12"
+    ],
+    "fastfood-torta-chocolate-belga.webp": [
+      "fastfood-torta-chocolate-belga"
+    ]
+  },
+  "auto_products": {
+    "fastfood-arizona-classic-burger": "fastfood-arizona-classic-burger.webp",
+    "fastfood-papa-loca-carne": "fastfood-papa-loca-carne.webp",
+    "fastfood-torta-chocolate-belga": "fastfood-torta-chocolate-belga.webp",
+    "fastfood-combo-burger": "fastfood-combo-burger.webp",
+    "fastfood-combo-alitas-12": "fastfood-combo-alitas-12.webp",
+    "sushi-gyozas-6": "sushi-gyozas-6.webp",
+    "sushi-nigiris-1": "sushi-nigiris-1.webp",
+    "sushi-sashimi-salmon-5": "sushi-sashimi-salmon-5.webp",
+    "sushi-sashimi-atun-5": "sushi-sashimi-atun-5.webp",
+    "sushi-camarones-tempura-5": "sushi-camarones-tempura-5.webp",
+    "sushi-arroz-frito-especial": "sushi-arroz-frito-especial.webp",
+    "sushi-california-5": "sushi-california-5.webp",
+    "sushi-california-10": "sushi-california-10.webp",
+    "sushi-avocado-5": "sushi-avocado-5.webp",
+    "sushi-avocado-10": "sushi-avocado-10.webp",
+    "sushi-filadelfia-5": "sushi-filadelfia-5.webp",
+    "sushi-filadelfia-10": "sushi-filadelfia-10.webp",
+    "sushi-poke": "sushi-poke.webp",
+    "sushi-ramen-mariscos": "sushi-ramen-mariscos.webp",
+    "fastfood-doble-carne-burger": "fastfood-doble-carne-burger.webp",
+    "fastfood-alitas-picantes-6": "fastfood-alitas-picantes-6.webp",
+    "fastfood-tiramisu": "fastfood-tiramisu.webp",
+    "fastfood-cheesecake-frances": "fastfood-cheesecake-frances.webp",
+    "fastfood-fondant-chocolate": "fastfood-fondant-chocolate.webp",
+    "fastfood-creme-brulee": "fastfood-creme-brulee.webp",
+    "tradicional-patacones-ceviche-mixto": "tradicional-patacones-ceviche-mixto.webp",
+    "sushi-cubitos-fried-8": "sushi-cubitos-fried-8.webp",
+    "sushi-wontones-3": "sushi-wontones-3.webp",
+    "sushi-rollos-primavera-3": "sushi-rollos-primavera-3.webp",
+    "sushi-gunkan-cangrejo-1": "sushi-gunkan-cangrejo-1.webp",
+    "sushi-gunkan-salmon-1": "sushi-gunkan-salmon-1.webp",
+    "sushi-oshiisake-5": "sushi-oshiisake-5.webp",
+    "sushi-oshiisake-10": "sushi-oshiisake-10.webp",
+    "sushi-maguro-roll-5": "sushi-maguro-roll-5.webp",
+    "sushi-maguro-roll-10": "sushi-maguro-roll-10.webp",
+    "sushi-kaniroll-5": "sushi-kaniroll-5.webp",
+    "sushi-kaniroll-10": "sushi-kaniroll-10.webp",
+    "sushi-sweetsuri-5": "sushi-sweetsuri-5.webp",
+    "sushi-sweetsuri-10": "sushi-sweetsuri-10.webp",
+    "sushi-roll-acevichado-5": "sushi-roll-acevichado-5.webp",
+    "sushi-roll-acevichado-10": "sushi-roll-acevichado-10.webp",
+    "sushi-champilover-5": "sushi-champilover-5.webp",
+    "sushi-champilover-10": "sushi-champilover-10.webp",
+    "sushi-roll-parrillero-5": "sushi-roll-parrillero-5.webp",
+    "sushi-roll-parrillero-10": "sushi-roll-parrillero-10.webp",
+    "sushi-maki-suri-5": "sushi-maki-suri-5.webp",
+    "sushi-maki-suri-10": "sushi-maki-suri-10.webp",
+    "sushi-kani-maki-5": "sushi-kani-maki-5.webp",
+    "sushi-kani-maki-10": "sushi-kani-maki-10.webp",
+    "sushi-coco-roll-5": "sushi-coco-roll-5.webp",
+    "sushi-coco-roll-10": "sushi-coco-roll-10.webp",
+    "sushi-surimaque-5": "sushi-surimaque-5.webp",
+    "sushi-surimaque-10": "sushi-surimaque-10.webp",
+    "sushi-ebyoshii-5": "sushi-ebyoshii-5.webp",
+    "sushi-ebyoshii-10": "sushi-ebyoshii-10.webp",
+    "sushi-sakeroll-5": "sushi-sakeroll-5.webp",
+    "sushi-sakeroll-10": "sushi-sakeroll-10.webp",
+    "sushi-crocante-5": "sushi-crocante-5.webp",
+    "sushi-crocante-10": "sushi-crocante-10.webp",
+    "sushi-dragon-5": "sushi-dragon-5.webp",
+    "sushi-ramen-toki": "sushi-ramen-toki.webp",
+    "sushi-sopa-oriental-pollo": "sushi-sopa-oriental-pollo.webp",
+    "sushi-combo-10": "sushi-combo-10.webp",
+    "sushi-combo-15": "sushi-combo-15.webp",
+    "sushi-combo-20": "sushi-combo-20.webp",
+    "sushi-combo-30": "sushi-combo-30.webp",
+    "sushi-combo-40": "sushi-combo-40.webp",
+    "sushi-combo-50": "sushi-combo-50.webp",
+    "sushi-extra-salsas": "sushi-extra-salsas.webp",
+    "sushi-extra-wasabi-gari": "sushi-extra-wasabi-gari.webp",
+    "fastfood-carne-parrilla-papas": "fastfood-carne-parrilla-papas.webp",
+    "fastfood-eclair": "fastfood-eclair.webp",
+    "fastfood-macarons-6": "fastfood-macarons-6.webp",
+    "fastfood-tarte-tatin": "fastfood-tarte-tatin.webp",
+    "fastfood-profiteroles": "fastfood-profiteroles.webp",
+    "fastfood-mille-feuille": "fastfood-mille-feuille.webp",
+    "fastfood-souffle": "fastfood-souffle.webp",
+    "tradicional-papas-mixta": "tradicional-papas-mixta.webp",
+    "tradicional-patacones-ceviche-camaron": "tradicional-patacones-ceviche-camaron.webp",
+    "tradicional-patacones-ceviche-pollo": "tradicional-patacones-ceviche-pollo.webp"
+  }
+}

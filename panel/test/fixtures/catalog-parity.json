@@ -1,0 +1,16 @@
+{
+  "doc": {
+    "categories": [{"slug":"combos","name":"Combos"},{"slug":"extras","name":"Extras"}],
+    "packagings": [{"id":"pack","name":"Caja","price":0.35}],
+    "variant_groups": [{"id":"salsas","name":"Salsas","type":"distribute","options":[{"name":"BBQ"},{"name":"Picante","image":"https://media.craft-systems.com/panel/demo/p.webp"}],"pick":2,"optional":false,"item":"Salsa"}],
+    "products": [
+      {"id":"a","name":"Combo Ñandú","type":"promocion","price":"10.00","promo_price":"8.00","packaging_id":"pack","packaging_cost":0,"sku":"1,5","description":"Oferta","stock":null,"active":true,"catalog_visible":true,"images":["https://media.craft-systems.com/panel/demo/p.webp"],"categories":["combos"],"variants":[{"name":"Tamaño","type":"price_select","options":[{"name":"Normal","price":0},{"name":"Grande","price":12},{"name":"Delta","price_delta":3,"salsas":2}]},{"name":"Salsa repetida","options":[{"name":"BBQ"}],"repeat":"salsa"},{"name":"2x1","options":[{"name":"A"},{"name":"B"}],"pick":2,"free":1,"item":"Bebida"},{"name":"Extra","type":"option","options":[{"name":"Queso","image":"https://media.craft-systems.com/panel/demo/p.webp"}],"optional":true}],"groups":[{"group_id":"salsas","pick_override":3}]},
+      {"id":"b","name":"Legacy","type":"producto","price":"3.00","promo_price":"","packaging_id":null,"packaging_cost":0.2,"sku":"","description":"","stock":0,"active":true,"catalog_visible":true,"images":[],"categories":["extras"],"variants":[],"groups":[]},
+      {"id":"off","name":"Oculto","type":"producto","price":"1","promo_price":"","packaging_id":null,"packaging_cost":0,"sku":"","description":"","stock":null,"active":false,"catalog_visible":true,"images":[],"categories":[],"variants":[],"groups":[]}
+    ]
+  },
+  "products": [
+    {"id":"a","slug":"combo-nandu","nombre":"Combo Ñandú","precio":"10.00","precio_promo":"8.00","categorias":["combos"],"descripcion":"Oferta","stock":null,"imagenes":["https://media.craft-systems.com/panel/demo/p.webp"],"variantes":[{"name":"Tamaño","options":[{"label":"Normal ($10.00)","price":10},{"label":"Grande ($12.00)","price":12},{"label":"Delta ($13.00)","price":13,"salsas":2}]},{"name":"Salsa repetida","options":["BBQ"],"repeat":"salsa"},{"name":"2x1","options":["A","B"],"pick":2,"free":1,"item":"Bebida"},{"name":"Extra","options":[{"label":"Queso","image":"https://media.craft-systems.com/panel/demo/p.webp"}],"optional":true,"type":"option"},{"name":"Salsas","options":["BBQ",{"label":"Picante","image":"https://media.craft-systems.com/panel/demo/p.webp"}],"pick":3,"item":"Salsa","type":"distribute"}],"sku":"1,5","tipo":"promocion","costo_empaque":0.35},
+    {"id":"b","slug":"legacy","nombre":"Legacy","precio":"3.00","precio_promo":"","categorias":["extras"],"descripcion":"","stock":0,"imagenes":null,"variantes":[],"sku":"","costo_empaque":0.2}
+  ]
+}

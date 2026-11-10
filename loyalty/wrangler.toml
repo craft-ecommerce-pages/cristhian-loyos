@@ -1,0 +1,28 @@
+name = "craft-loyalty"
+main = "src/index.js"
+compatibility_date = "2026-01-01"
+workers_dev = true   # /admin/* para craft-crm. El club público entra por service binding desde craft-menus (sin routes propias).
+
+[vars]
+GW_ISSUER_ID = "3388000000023226869"
+
+# Secrets (wrangler secret put): SESSION_SECRET, ADMIN_TOKEN, GW_SA_JSON (JSON completo de la service account).
+
+[[kv_namespaces]]
+binding = "MENUS"
+id = "5d6c441b24004512a8d29c1261608f6e"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "craft-loyalty"
+database_id = "81e047bc-df88-4c9f-a1f7-4868ad73f85a"
+migrations_dir = "migrations"
+
+# Tope de intentos de PIN (presencia y canje) por slug + IP. namespace_id: entero único en la cuenta.
+[[ratelimits]]
+name = "PIN_LIMITER"
+namespace_id = "7301"
+simple = { limit = 10, period = 60 }
+
+[triggers]
+crons = ["0 14 * * *"]

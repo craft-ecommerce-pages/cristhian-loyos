@@ -1,0 +1,47 @@
+# PLANTILLA del Worker del panel — cuenta Cloudflare del cliente.
+# NO desplegar este archivo directamente: `scripts/deploy-client.sh` sustituye los marcadores
+# ${...} con variables/secrets y escribe la configuración real en panel/.wrangler/client.toml.
+#
+# Aislamiento: KV, D1 y R2 son de la cuenta del cliente. Sin IDs de Craft, sin service binding
+# LOYALTY (no existe en esta cuenta) y sin URLs del CRM de Craft.
+# `workers_dev = true` para el panel y el menú; no se declaran rutas ni wildcards.
+
+name = "${PANEL_WORKER_NAME}"
+main = "../src/index.js"
+compatibility_date = "2026-01-01"
+workers_dev = true
+
+[vars]
+# Mismo slug que el Worker de menú: resuelve el host (workers.dev o dominio propio) a sus datos.
+CLIENT_SLUG = "${CLIENT_SLUG}"
+
+# KV compartido con el Worker de menú: el panel es dueño del catálogo tras "Entregar".
+[[kv_namespaces]]
+binding = "MENUS"
+id = "${KV_MENUS_ID}"
+
+# D1 propio del panel en la cuenta del cliente. Migraciones en panel/migrations (se aplican en orden).
+[[d1_databases]]
+binding = "DB"
+database_name = "${D1_DATABASE_NAME}"
+database_id = "${D1_DATABASE_ID}"
+migrations_dir = "../migrations"
+
+# R2 de la cuenta del cliente para media del catálogo (bucket privado; se publica por dominio propio).
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "${R2_BUCKET_NAME}"
+
+# Rate limit del login. El namespace es un ID numérico de la cuenta del cliente.
+[[ratelimits]]
+name = "LOGIN_LIMITER"
+namespace_id = "${RATELIMIT_NAMESPACE_ID}"
+simple = { limit = 10, period = 60 }
+
+# Cron cada minuto: concilia pagos Payphone `unknown` dentro de la ventana de 5 minutos
+# (reconsulta V2/Confirm sin recobrar). El handler `scheduled` vive en src/index.js.
+[triggers]
+crons = ["* * * * *"]
+
+# Secrets (wrangler secret put; los aplica el workflow con SESSION_SECRET y ADMIN_TOKEN):
+# SESSION_SECRET, ADMIN_TOKEN. LOYALTY_ADMIN_TOKEN solo si algún día se despliega el club.
