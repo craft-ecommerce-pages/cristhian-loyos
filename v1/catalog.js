@@ -1355,7 +1355,7 @@
         if(paymentMethod==='payphone'){
           const pay=await fetch(ordersEndpoint(checkout,`/api/orders/${encodeURIComponent(receipt.id)}/payphone`),{
             method:'POST',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({order_token:receipt.order_token,idempotency_key:crypto.randomUUID()}),
+            body:JSON.stringify({order_token:receipt.order_token,idempotency_key:'web-'+receipt.id}),
           });
           const started=await pay.json().catch(()=>null);
           if(!pay.ok||!started?.payment_url)throw new Error('Pedido recibido, pero Payphone no pudo abrirse. Muestra el número en caja.');
