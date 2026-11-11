@@ -1,0 +1,92 @@
+{
+ "images": {
+  "tradicional-majado-camaron": [
+   "/media/panel/cristhian-loyos/products/tradicional-majado-camaron.webp"
+  ],
+  "tradicional-majado-huevo": [
+   "/media/panel/cristhian-loyos/products/tradicional-majado-huevo.webp"
+  ],
+  "tradicional-majado-queso": [
+   "/media/panel/cristhian-loyos/products/tradicional-majado-queso.webp"
+  ],
+  "tradicional-majado-chicharron": [
+   "/media/panel/cristhian-loyos/products/tradicional-majado-chicharron.webp"
+  ],
+  "tradicional-majado-ceviche": [
+   "/media/panel/cristhian-loyos/products/tradicional-majado-ceviche.webp"
+  ],
+  "tradicional-bolon-camaron": [
+   "/media/panel/cristhian-loyos/products/tradicional-bolon-camaron.webp"
+  ],
+  "tradicional-bolon-chicharron": [
+   "/media/panel/cristhian-loyos/products/tradicional-bolon-chicharron.webp"
+  ],
+  "tradicional-bolon-queso": [
+   "/media/panel/cristhian-loyos/products/tradicional-bolon-queso.webp"
+  ],
+  "tradicional-bolon-mixto": [
+   "/media/panel/cristhian-loyos/products/tradicional-bolon-mixto.webp"
+  ],
+  "tradicional-tortillas-camaron": [
+   "/media/panel/cristhian-loyos/products/tradicional-tortillas-camaron.webp"
+  ],
+  "tradicional-tortillas-carne": [
+   "/media/panel/cristhian-loyos/products/tradicional-tortillas-carne.webp"
+  ],
+  "tradicional-tortillas-arroz-estofado": [
+   "/media/panel/cristhian-loyos/products/tradicional-tortillas-arroz-estofado.webp"
+  ],
+  "tradicional-papas-queso-pollo": [
+   "/media/panel/cristhian-loyos/products/tradicional-papas-queso-pollo.webp"
+  ],
+  "tradicional-patacones-solos-ensalada": [
+   "/media/panel/cristhian-loyos/products/tradicional-patacones-solos-ensalada.webp"
+  ],
+  "tradicional-papa-rellena-camaron": [
+   "/media/panel/cristhian-loyos/products/tradicional-papa-rellena-camaron.webp"
+  ],
+  "tradicional-papa-rellena-carne": [
+   "/media/panel/cristhian-loyos/products/tradicional-papa-rellena-carne.webp"
+  ],
+  "tradicional-arroz-moro-ceviche-camaron": [
+   "/media/panel/cristhian-loyos/products/tradicional-arroz-moro-ceviche-camaron.webp"
+  ],
+  "tradicional-arroz-moro-ceviche-pescado": [
+   "/media/panel/cristhian-loyos/products/tradicional-arroz-moro-ceviche-pescado.webp"
+  ],
+  "tradicional-arroz-moro-ceviche-mixto": [
+   "/media/panel/cristhian-loyos/products/tradicional-arroz-moro-ceviche-mixto.webp"
+  ],
+  "tradicional-arroz-moro-huevo": [
+   "/media/panel/cristhian-loyos/products/tradicional-arroz-moro-huevo.webp"
+  ]
+ },
+ "files": [
+  "sushi-combo-10.webp",
+  "sushi-combo-15.webp",
+  "sushi-combo-20.webp",
+  "sushi-combo-30.webp",
+  "sushi-combo-40.webp",
+  "sushi-combo-50.webp",
+  "tradicional-arroz-moro-ceviche-camaron.webp",
+  "tradicional-arroz-moro-ceviche-mixto.webp",
+  "tradicional-arroz-moro-ceviche-pescado.webp",
+  "tradicional-arroz-moro-huevo.webp",
+  "tradicional-bolon-camaron.webp",
+  "tradicional-bolon-chicharron.webp",
+  "tradicional-bolon-mixto.webp",
+  "tradicional-bolon-queso.webp",
+  "tradicional-majado-camaron.webp",
+  "tradicional-majado-ceviche.webp",
+  "tradicional-majado-chicharron.webp",
+  "tradicional-majado-huevo.webp",
+  "tradicional-majado-queso.webp",
+  "tradicional-papa-rellena-camaron.webp",
+  "tradicional-papa-rellena-carne.webp",
+  "tradicional-papas-queso-pollo.webp",
+  "tradicional-patacones-solos-ensalada.webp",
+  "tradicional-tortillas-arroz-estofado.webp",
+  "tradicional-tortillas-camaron.webp",
+  "tradicional-tortillas-carne.webp"
+ ]
+}

@@ -15,6 +15,10 @@ on:
         description: "Sembrar KV/D1/R2 sólo si el cliente aún no tiene datos"
         type: boolean
         default: true
+      sync_media:
+        description: "Publicar las fotos de data/media-sync.json (R2 + KV + D1, con respaldo)"
+        type: boolean
+        default: false
   push:
     branches: [main]
 
@@ -40,6 +44,18 @@ jobs:
 
       - name: Confirmar Wrangler 4
         run: npx --yes wrangler@4.160.0 --version
+
+      # Punto de restauración D1 (bookmark de Time Travel, sin datos) antes de migrar.
+      - name: Marcar punto de restauración D1
+        if: ${{ inputs.dry_run != true }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLIENT_SLUG: ${{ secrets.CLIENT_SLUG }}
+          KV_MENUS_ID: ${{ secrets.KV_MENUS_ID }}
+          D1_DATABASE_NAME: ${{ secrets.D1_DATABASE_NAME }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+        run: npx --yes wrangler@4.160.0 d1 time-travel info "$D1_DATABASE_NAME"
 
       - name: Desplegar (panel + migraciones D1 + menú)
         env:
@@ -80,3 +96,23 @@ jobs:
           D1_DATABASE_NAME: ${{ secrets.D1_DATABASE_NAME }}
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
         run: node scripts/seed-client.mjs
+
+      # Manual: respaldo (artifact privado 30 días) + fotos corregidas. Nunca en push.
+      - name: Publicar fotos corregidas (R2 + KV + D1)
+        if: ${{ inputs.sync_media == true && inputs.dry_run != true }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLIENT_SLUG: ${{ secrets.CLIENT_SLUG }}
+          KV_MENUS_ID: ${{ secrets.KV_MENUS_ID }}
+          D1_DATABASE_NAME: ${{ secrets.D1_DATABASE_NAME }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+        run: node scripts/sync-media.mjs
+
+      - name: Guardar respaldo
+        if: ${{ always() && inputs.sync_media == true && inputs.dry_run != true }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: respaldo-munch
+          path: .backup/
+          retention-days: 30
