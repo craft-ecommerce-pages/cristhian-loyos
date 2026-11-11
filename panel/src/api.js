@@ -13,9 +13,9 @@ import {
 import { handleCatalog, load } from "./catalog.js";
 import {
   confirmPosOrder, createManualOrder, createPosOrder, createPublicPosOrder, editMeseroOrder, editPosOrder,
-  getPosOrderStatus, listKitchenOrders, listMeseroOrders, listOrders, listPosOrders, meseroOrders, payCash,
-  posOrderRow, printKitchenOrder, printMeseroOrder, publicSedes, rejectPosOrder, sedesAllowed, sedesFor,
-  setMeseroOrderStatus, setOrderStatus, upsertSedes,
+  getPosOrderStatus, listKitchenOrders, listMeseroOrders, listOrders, listPosOrders, markOrderReady, meseroOrders,
+  payCash, payTransfer, posOrderRow, printKitchenOrder, printMeseroOrder, publicSedes, rejectPosOrder,
+  sedesAllowed, sedesFor, setMeseroOrderStatus, setOrderStatus, transferInfo, upsertSedes,
 } from "./orders.js";
 import { handleGetInvoice, handleRetryInvoice } from "./invoices.js";
 import { handlePayphoneMock, handlePayphoneReturn, reconcilePayphone, startPayphone, startPublicPayphone } from "./payphone.js";
@@ -32,7 +32,15 @@ export async function handlePublicApi(request, env, ctx, site) {
   const path = url.pathname.replace(/^\/api\/?/, "");
   if (!path) return error("ruta_no_encontrada", 404);
   if (request.method === "GET" && path === "sedes") return publicSedes(env, site.slug);
-  if (request.method === "GET" && path === "payment-options") return json({ cash: true, transfer: true, payphone: env.PAYPHONE_MODE === "live" && Boolean(env.PAYPHONE_TOKEN) });
+  if (request.method === "GET" && path === "payment-options") {
+    // Transferencia solo si hay datos bancarios oficiales en config; nunca se
+    // inventan cuentas. Los detalles son los únicos datos bancarios públicos.
+    const transfer = await transferInfo(env, site.slug);
+    return json({
+      cash: true, transfer: Boolean(transfer), transfer_details: transfer,
+      payphone: env.PAYPHONE_MODE === "live" && Boolean(env.PAYPHONE_TOKEN),
+    });
+  }
   if (path === "orders" && request.method === "POST") return createPublicPosOrder(request, env, ctx, site);
   const publicPayment = /^orders\/([^/]+)\/payphone$/.exec(path);
   if (publicPayment && request.method === "POST" && isJson(request))
@@ -55,9 +63,9 @@ export async function handleApi(request, env, ctx, site) {
   if (request.method === "POST" && path === "reset") return reset(request, env, site);
   // Modo caja: sesión propia (cookie caja_s) o la del dueño, nunca la del panel para el resto de rutas.
   if (path === "caja" || path.startsWith("caja/")) return handleCajaApi(request, env, site, path);
-  // POS: acciones de pedido (confirmar/rechazar/cobrar) y pantallas de caja/cocina.
+  // POS: acciones de pedido (confirmar/rechazar/cobrar/listo) y pantallas de caja/cocina.
   if (path === "pos/orders" || path === "kitchen" || path.startsWith("kitchen/") ||
-    /^orders\/[^/]+\/(confirm|reject|pay-cash|payphone)$/.test(path)) return handlePosApi(request, env, ctx, site, path);
+    /^orders\/[^/]+\/(confirm|reject|pay-cash|pay-transfer|payphone|ready)$/.test(path)) return handlePosApi(request, env, ctx, site, path);
 
   const session = await readSession(request, env, site.slug);
   if (!session) return error("sin_sesion", 401);
@@ -115,7 +123,7 @@ async function handlePosApi(request, env, ctx, site, path) {
   if (request.method === "GET" && path === "kitchen/orders") return listKitchenOrders(env, site, session, request);
   const print = /^kitchen\/orders\/([^/]+)\/print$/.exec(path);
   if (print && request.method === "POST") return printKitchenOrder(env, site, session, print[1], await readJson(request));
-  const action = /^orders\/([^/]+)\/(confirm|reject|pay-cash|payphone)$/.exec(path);
+  const action = /^orders\/([^/]+)\/(confirm|reject|pay-cash|pay-transfer|payphone|ready)$/.exec(path);
   if (!action) return error("ruta_no_encontrada", 404);
   if (request.method !== "POST") return error("ruta_no_encontrada", 404);
   const [, encodedId, name] = action;
@@ -125,10 +133,12 @@ async function handlePosApi(request, env, ctx, site, path) {
     if (name === "confirm") return confirmPosOrder(env, site, session, encodedId);
     if (name === "reject") return rejectPosOrder(env, site, session, encodedId);
     if (name === "pay-cash") return payCash(env, site, session, encodedId, await readJson(request));
+    if (name === "pay-transfer") return payTransfer(env, site, session, encodedId, await readJson(request));
+    if (name === "ready") return markOrderReady(env, site, session, encodedId);
     return startPayphone(request, env, site, session, encodedId, await readJson(request));
   }
   if (!panel) return error("sin_sesion", 401);
-  if (name === "pay-cash" || name === "payphone") return error("pedido_no_existe", 404);
+  if (name === "pay-cash" || name === "pay-transfer" || name === "payphone" || name === "ready") return error("pedido_no_existe", 404);
   return setOrderStatus(env, ctx, site, encodedId, name);
 }
 

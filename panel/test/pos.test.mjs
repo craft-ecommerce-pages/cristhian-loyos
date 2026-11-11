@@ -45,7 +45,13 @@ const webOrder = (overrides = {}) => ({
   sede_id: "centro",
   idempotency_key: "11111111-1111-4111-8111-111111111111",
   items: [{ product_id: "margarita", qty: 2, note: "sin cebolla" }, { product_id: "bebida", qty: 1 }],
-  customer: { name: "Ana", phone: "0991234567" },
+  customer: {
+    name: "Ana", phone: "0991234567",
+    billing: {
+      document_type: "cedula", document_number: "1712345678",
+      email: "ana@example.com", address: "Av. Siempre Viva 123",
+    },
+  },
   delivery_mode: "pickup",
   // El navegador puede mentir: el servidor debe ignorarlo.
   total: 1, total_cents: 1,
@@ -128,15 +134,30 @@ test("idempotencia de orden: misma clave mismo resultado, cuerpo distinto 409", 
   assert.deepEqual(await changed.json(), { error: "idempotencia_conflicto" });
 });
 
-test("estado público mínimo: exige token y no filtra PII", async () => {
+test("estado público con token: líneas, sede, método y sin PII", async () => {
   const env = posEnv(), ctx = makeCtx();
   const created = await (await panel.fetch(body("/api/orders", webOrder()), env, ctx)).json();
   let response = await panel.fetch(request(`/api/orders/${created.id}?token=${created.order_token}`), env, ctx);
   assert.equal(response.status, 200);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.equal(response.headers.get("referrer-policy"), "no-referrer");
   const status = await response.json();
-  assert.deepEqual(Object.keys(status).sort(), ["created_at", "currency", "id", "number", "sede_id", "status", "total_cents"]);
+  assert.deepEqual(Object.keys(status).sort(), [
+    "created_at", "currency", "id", "items", "number", "paid_at", "payment_method", "ready_at",
+    "sede", "sede_id", "status", "total_cents",
+  ]);
   assert.equal(status.status, "pending");
+  assert.equal(status.payment_method, "cash");
   assert.equal(status.total_cents, 1950);
+  assert.deepEqual(status.sede, { id: "centro", nombre: "Centro", direccion: "Calle 1" });
+  assert.deepEqual(status.items.map(line => [line.name, line.qty, line.unit_cents, line.subtotal_cents]), [
+    ["Margarita", 2, 850, 1700], ["Cola", 1, 250, 250],
+  ]);
+  // Ningún dato fiscal ni de contacto del comprador en la respuesta pública.
+  const serialized = JSON.stringify(status);
+  for (const secret of ["1712345678", "ana@example.com", "Av. Siempre Viva", "0991234567", "Ana"]) {
+    assert.equal(serialized.includes(secret), false, `no debe filtrar ${secret}`);
+  }
 
   response = await panel.fetch(request(`/api/orders/${created.id}`), env, ctx);
   assert.equal(response.status, 404);

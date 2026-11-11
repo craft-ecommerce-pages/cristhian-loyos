@@ -215,11 +215,17 @@ async function finish(request, url, env, site, order, status, httpStatus = 200) 
   if (wantsJson) return json({ status, order_id: order.id, order_status: order.status }, httpStatus);
   const state = STATUS_PATH[status] || "pendiente";
   const menu = typeof env.MENU_PUBLIC_URL === "string" && /^https:\/\/[a-z0-9.-]+$/i.test(env.MENU_PUBLIC_URL)
-    ? env.MENU_PUBLIC_URL : "";
+    ? env.MENU_PUBLIC_URL.replace(/\/+$/, "") : "";
+  // El comprador vuelve a /gracias SOLO con el resultado ya conciliado en
+  // servidor (esto se llama después de V2/Confirm). La URL lleva únicamente el
+  // id opaco y el token del pedido: nunca datos fiscales ni de contacto.
   const target = order.source === "web" && menu
-    ? `${menu}/?pago=${state}&pedido=${encodeURIComponent(order.id)}&token=${encodeURIComponent(await orderToken(env, site.slug, order.id))}`
+    ? `${menu}/gracias?pago=${state}&pedido=${encodeURIComponent(order.id)}&token=${encodeURIComponent(await orderToken(env, site.slug, order.id))}`
     : `${url.origin}/panel?pago=${state}&pedido=${encodeURIComponent(order.id)}`;
-  return new Response(null, { status: 302, headers: { location: target, "cache-control": "no-store" } });
+  return new Response(null, {
+    status: 302,
+    headers: { location: target, "cache-control": "no-store", "referrer-policy": "no-referrer" },
+  });
 }
 
 /* ── Conciliación autenticada de un pago `unknown` ───────────────────────── */

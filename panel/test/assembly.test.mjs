@@ -45,7 +45,11 @@ test("flujo completo: web → efectivo → KDS → reporte → factura manual", 
   const created = await panel.fetch(body("/api/orders", {
     sede_id: "centro", idempotency_key: "assembly-order-0001",
     items: [{ product_id: "roll", qty: 2 }, { product_id: "torta", qty: 1 }],
-    customer: { name: "Ana", phone: "0991234567" }, delivery_mode: "pickup",
+    customer: {
+      name: "Ana", phone: "0991234567",
+      billing: { document_type: "cedula", document_number: "1712345678", email: "ana@example.com", address: "Av. 1" },
+    },
+    delivery_mode: "pickup",
     total: 1, total_cents: 1,
   }), env, ctx);
   assert.equal(created.status, 201);
@@ -121,7 +125,12 @@ test("idempotencia: repetir el cobro no duplica comanda ni líneas", async () =>
   const env = envWithCatalog(), ctx = makeCtx(), cookie = await ownerCookie(env);
   const created = await (await panel.fetch(body("/api/orders", {
     sede_id: "centro", idempotency_key: "assembly-order-0002",
-    items: [{ product_id: "roll", qty: 1 }], customer: { name: "Luis", phone: "099" }, delivery_mode: "pickup",
+    items: [{ product_id: "roll", qty: 1 }],
+    customer: {
+      name: "Luis", phone: "0991234567",
+      billing: { document_type: "ruc", document_number: "1790012345001", email: "luis@example.com", address: "Av. 2" },
+    },
+    delivery_mode: "pickup",
   }), env, ctx)).json();
   const pay = () => panel.fetch(body(`/panel/api/orders/${created.id}/pay-cash`, { idempotency_key: "cash-0002" }, { headers: { cookie } }), env, ctx);
   assert.equal((await pay()).status, 200);

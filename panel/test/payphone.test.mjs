@@ -38,7 +38,11 @@ async function newOrder(env, ctx, key = "web-pay-0001") {
   const response = await panel.fetch(body("/api/orders", {
     sede_id: "centro", idempotency_key: key,
     items: [{ product_id: "margarita", qty: 2 }],
-    customer: { name: "Ana", phone: "099" }, delivery_mode: "pickup",
+    customer: {
+      name: "Ana", phone: "0991234567",
+      billing: { document_type: "cedula", document_number: "1712345678", email: "ana@example.com", address: "Av. 1" },
+    },
+    delivery_mode: "pickup",
   }), env, ctx);
   assert.equal(response.status, 201);
   return response.json();
