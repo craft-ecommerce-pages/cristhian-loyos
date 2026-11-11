@@ -1,0 +1,17 @@
+{
+  "fecha": "2026-11-10",
+  "rama": "agent/munch-media-pendiente-b-20261110",
+  "fuente_descripciones": "data/catalog.json",
+  "sin_cambios": ["data", "fuentes", "manifiestos", "categorias_ajenas"],
+  "items": {
+    "tradicional-papas-queso-pollo": {"foto": "media/generated/tradicional-papas-queso-pollo-v3.webp", "estado": "OK-generada", "sha256": "a21474d2a31f41c6a50422ea2fe9577ee5a617bc73aeb5c4e950befb55cc4d20"},
+    "tradicional-patacones-solos-ensalada": {"foto": "media/generated/tradicional-patacones-solos-ensalada-v3.webp", "estado": "OK-generada", "sha256": "a529172de84bdfdf4fa8a84a521d0e01db4ae3f1ddbb73c416094dbc212f6a7e"},
+    "tradicional-papa-rellena-camaron": {"foto": "media/generated/tradicional-papa-rellena-camaron-v3.webp", "estado": "OK-generada", "sha256": "4c153cab9bf2bee278671eaf6357659f45856b1f0fb78af798a057a6f35aff25"},
+    "tradicional-papa-rellena-carne": {"foto": "media/generated/tradicional-papa-rellena-carne-v3.webp", "estado": "OK-generada", "sha256": "bcd533af17e4434576705b005f5f97867ca3a0fa6d1a63db33631e80b2d4e722"},
+    "tradicional-papa-mixta": {"foto": null, "estado": "BLOQUEO", "motivo": "La descripción no define los rellenos de mixta; falta composición oficial."},
+    "tradicional-arroz-moro-ceviche-camaron": {"foto": "media/generated/tradicional-arroz-moro-ceviche-camaron-v3.webp", "estado": "OK-generada", "sha256": "4e1605bf42a9be5412c7cbf141cd92eb88d53ae6ab5e1f627d86f0d028c87831"},
+    "tradicional-arroz-moro-ceviche-pescado": {"foto": "media/generated/tradicional-arroz-moro-ceviche-pescado-v3.webp", "estado": "OK-generada", "sha256": "20d48a48d35486810cbbfa6d335da1ab0fea5e868fc6ba5321482424a7ed4cde"},
+    "tradicional-arroz-moro-huevo": {"foto": "media/generated/tradicional-arroz-moro-huevo-v3.webp", "estado": "OK-generada", "sha256": "40e17400b0c005afd1b997b688f3abd5ed0af341e794850048f95aba5d4acc1c"}
+  },
+  "excluido": {"id": "tradicional-arroz-moro-ceviche-mixto", "foto": "media/generated/tradicional-arroz-moro-ceviche-mixto-v2.webp", "motivo": "Ya generado; no sobrescribir ni regenerar."}
+}
