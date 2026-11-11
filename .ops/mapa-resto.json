@@ -1,0 +1,14 @@
+{
+  "version": "2026-11-10",
+  "scope": ["fastfood-*", "tradicional-*"],
+  "live_base_url": "https://munch.cristhian-loyos.workers.dev",
+  "r2_public_prefix": "/media/panel/cristhian-loyos/products/",
+  "overrides": {
+    "tradicional-majado-camaron": "media/generated/tradicional-majado-camaron-v2.webp",
+    "tradicional-bolon-mixto": "media/generated/tradicional-bolon-mixto-v2.webp",
+    "tradicional-tortillas-camaron": "media/generated/tradicional-tortillas-camaron-v2.webp",
+    "tradicional-arroz-moro-ceviche-mixto": "media/generated/tradicional-arroz-moro-ceviche-mixto-v2.webp"
+  },
+  "unchanged_catalog_mappings": "Conservar las URLs actuales de data/catalog.json para el resto; este archivo no publica ni modifica data/*.",
+  "publication": "pendiente de integración y subida posterior a R2 del cliente"
+}
