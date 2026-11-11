@@ -1,0 +1,75 @@
+{
+  "schema": "munch-media-map-proposal/v1",
+  "generated_at": "2026-11-10",
+  "source": "media/generated",
+  "live_base_url": "https://munch.cristhian-loyos.workers.dev",
+  "note": "Propuesta para integración posterior; no modifica data/*, manifest.json ni R2.",
+  "entries": {
+    "sushi-combo-10": {
+      "current_url": "/media/panel/cristhian-loyos/products/sushi-combo-10.webp",
+      "proposed_asset": "media/generated/sushi-combo-10-v2.webp",
+      "proposed_filename": "sushi-combo-10-v2.webp",
+      "origin": "image_gen_integrated",
+      "format": "image/webp",
+      "dimensions": "1200x1200",
+      "sha256": "4303ef3d4cffb7bff945c2b151c3dcdf7aa2254d7790f6b311c04486642ee822",
+      "visual_note": "Combo de 10 bocados; piezas separadas y contables.",
+      "status": "propuesto_pendiente_integracion"
+    },
+    "sushi-combo-15": {
+      "current_url": "/media/panel/cristhian-loyos/products/sushi-combo-15.webp",
+      "proposed_asset": "media/generated/sushi-combo-15-v2.webp",
+      "proposed_filename": "sushi-combo-15-v2.webp",
+      "origin": "image_gen_integrated",
+      "format": "image/webp",
+      "dimensions": "1200x1200",
+      "sha256": "42ee4178c4acb1c9cb480935d75eeca2c7893c3d041fc8e0c088449bb060f63a",
+      "visual_note": "Combo de 15 bocados; piezas separadas y contables.",
+      "status": "propuesto_pendiente_integracion"
+    },
+    "sushi-combo-20": {
+      "current_url": "/media/panel/cristhian-loyos/products/sushi-combo-20.webp",
+      "proposed_asset": "media/generated/sushi-combo-20-v2.webp",
+      "proposed_filename": "sushi-combo-20-v2.webp",
+      "origin": "image_gen_integrated",
+      "format": "image/webp",
+      "dimensions": "1200x1200",
+      "sha256": "f6103c42eac38c6a845f64a62a8540e47fa64ad7d40bc9e9e4bba90f2ea4b698",
+      "visual_note": "Combo de 20 bocados; piezas separadas y contables.",
+      "status": "propuesto_pendiente_integracion"
+    },
+    "sushi-combo-30": {
+      "current_url": "/media/panel/cristhian-loyos/products/sushi-combo-30.webp",
+      "proposed_asset": "media/generated/sushi-combo-30-v2.webp",
+      "proposed_filename": "sushi-combo-30-v2.webp",
+      "origin": "image_gen_integrated",
+      "format": "image/webp",
+      "dimensions": "1200x1200",
+      "sha256": "bde5a1adf7d4c885e2da53de5c80a07966f374be88b3dcff79a09b6f77a59b08",
+      "visual_note": "Combo de 30 bocados; piezas separadas y contables.",
+      "status": "propuesto_pendiente_integracion"
+    },
+    "sushi-combo-40": {
+      "current_url": "/media/panel/cristhian-loyos/products/sushi-combo-40.webp",
+      "proposed_asset": "media/generated/sushi-combo-40-v2.webp",
+      "proposed_filename": "sushi-combo-40-v2.webp",
+      "origin": "image_gen_integrated",
+      "format": "image/webp",
+      "dimensions": "1200x1200",
+      "sha256": "26d5bf40eeb2d3f50bb5884771b3096b0744e00c7b727e74d8de74772233814a",
+      "visual_note": "Combo de 40 bocados; piezas separadas y contables.",
+      "status": "propuesto_pendiente_integracion"
+    },
+    "sushi-combo-50": {
+      "current_url": "/media/panel/cristhian-loyos/products/sushi-combo-50.webp",
+      "proposed_asset": "media/generated/sushi-combo-50-v2.webp",
+      "proposed_filename": "sushi-combo-50-v2.webp",
+      "origin": "image_gen_integrated",
+      "format": "image/webp",
+      "dimensions": "1200x1200",
+      "sha256": "fdb9c1f0d54b718a12f663cde79368f285e0eddcfc2e01bd5af3ed31cfde8df5",
+      "visual_note": "Combo de 50 bocados; piezas separadas y contables.",
+      "status": "propuesto_pendiente_integracion"
+    }
+  }
+}
