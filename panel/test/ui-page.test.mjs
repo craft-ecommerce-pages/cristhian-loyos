@@ -109,7 +109,7 @@ const DEFAULT_POS_ORDERS = [
     created_at: 0, customer_name: "Luis", items: [{ name: "Jugo natural", qty: 1, unit_cents: 225 }] },
 ];
 
-function startPanel({ posOrders = DEFAULT_POS_ORDERS } = {}) {
+function startPanel({ posOrders = DEFAULT_POS_ORDERS, transferMissing = false } = {}) {
   const doc = new Document(), calls = [], events = [];
   let confirmAnswer = true, printThrows = false;
   const fetch = async (url, init = {}) => {
@@ -137,6 +137,7 @@ function startPanel({ posOrders = DEFAULT_POS_ORDERS } = {}) {
     }
     if (/^\/panel\/api\/orders\/[^/]+\/(confirm|reject|pay-cash|pay-transfer|ready|payphone)$/.test(parsed.pathname) && method === "POST") {
       const action = parsed.pathname.split("/").pop();
+      if (transferMissing && action === "pay-transfer") return Response.json({ error: "ruta_no_encontrada" }, { status: 404 });
       const status = action === "confirm" ? "confirmed" : action === "ready" ? "ready" : action === "reject" ? "rejected" : "paid";
       return Response.json({ order: { id: parsed.pathname.split("/")[4], status } });
     }
@@ -266,6 +267,24 @@ test("caja confirma transferencia por pay-transfer y efectivo por pay-cash", asy
   assert.match(call.body.idempotency_key, /^[A-Za-z0-9_.:-]{8,100}$/);
   assert.equal(calls.some(item => item.path === "/panel/api/orders/o3/pay-cash"), false);
   assert.match(doc.body.textContent, /Transferencia confirmada\./);
+});
+
+test("sin pay-transfer la caja muestra error honesto y no cae a pay-cash", async () => {
+  const { doc, calls } = await openNewOrder({
+    transferMissing: true,
+    posOrders: [
+      { id: "o3b", number: 46, status: "confirmed", source: "web", sede_id: "centro", total_cents: 950,
+        currency: "USD", created_at: 0, customer_name: "Ana", payment_method: "transfer",
+        items: [{ name: "Pizza margarita", qty: 1, unit_cents: 950 }] },
+    ],
+  });
+  const transfer = find(doc.body, node => node.tagName === "button" && node.textContent === "Confirmar transferencia");
+  assert.ok(transfer);
+  transfer.trigger("click");
+  await flush();
+  assert.ok(calls.some(item => item.path === "/panel/api/orders/o3b/pay-transfer"), "intenta la ruta real");
+  assert.equal(calls.some(item => item.path === "/panel/api/orders/o3b/pay-cash"), false, "nunca falsea el método");
+  assert.match(doc.body.textContent, /todavía no permite confirmar transferencias/);
 });
 
 test("un pedido listo ofrece wa.me manual con pedido y sede, sin datos fiscales", async () => {

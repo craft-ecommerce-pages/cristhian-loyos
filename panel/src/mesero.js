@@ -1808,16 +1808,18 @@ function meseroRuntime() {
     return act(buttonEl, async () => {
       const key = uuid();
       const path = "orders/" + encodeURIComponent(order.id);
-      let result = await callRoot(
+      const result = await callRoot(
         path + (transfer ? "/pay-transfer" : "/pay-cash"),
         { idempotency_key: key },
       );
-      // Compatibilidad mientras el backend suma pay-transfer: solo si la ruta
-      // todavía no existe se usa la confirmación manual existente.
-      const missingRoute = result.status === 404 || result.status === 405;
-      if (transfer && missingRoute)
-        result = await callRoot(path + "/pay-cash", { idempotency_key: key });
       if (result.status === 401) return sessionExpired();
+      // Sin fallback a /pay-cash: cambiar de ruta falsearía el método real y
+      // la conciliación. Una ruta ausente se informa como error honesto.
+      if (transfer && (result.status === 404 || result.status === 405))
+        return toast(
+          "Esta versión del panel todavía no permite confirmar transferencias. Actualiza el panel.",
+          true,
+        );
       if (result.status === 409) {
         toast("Ese pedido ya cambió de estado. Actualiza la lista.", true);
         await loadOrders();

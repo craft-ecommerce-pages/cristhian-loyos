@@ -321,9 +321,89 @@
     ],
     "fastfood-torta-chocolate-belga.webp": [
       "fastfood-torta-chocolate-belga"
+    ],
+    "tradicional-majado-camaron.webp": [
+      "tradicional-majado-camaron"
+    ],
+    "tradicional-bolon-mixto.webp": [
+      "tradicional-bolon-mixto"
+    ],
+    "tradicional-tortillas-camaron.webp": [
+      "tradicional-tortillas-camaron"
+    ],
+    "tradicional-arroz-moro-ceviche-mixto.webp": [
+      "tradicional-arroz-moro-ceviche-mixto"
+    ],
+    "tradicional-majado-huevo.webp": [
+      "tradicional-majado-huevo"
+    ],
+    "tradicional-majado-queso.webp": [
+      "tradicional-majado-queso"
+    ],
+    "tradicional-majado-chicharron.webp": [
+      "tradicional-majado-chicharron"
+    ],
+    "tradicional-majado-ceviche.webp": [
+      "tradicional-majado-ceviche"
+    ],
+    "tradicional-bolon-camaron.webp": [
+      "tradicional-bolon-camaron"
+    ],
+    "tradicional-bolon-chicharron.webp": [
+      "tradicional-bolon-chicharron"
+    ],
+    "tradicional-bolon-queso.webp": [
+      "tradicional-bolon-queso"
+    ],
+    "tradicional-tortillas-carne.webp": [
+      "tradicional-tortillas-carne"
+    ],
+    "tradicional-tortillas-arroz-estofado.webp": [
+      "tradicional-tortillas-arroz-estofado"
+    ],
+    "tradicional-papas-queso-pollo.webp": [
+      "tradicional-papas-queso-pollo"
+    ],
+    "tradicional-patacones-solos-ensalada.webp": [
+      "tradicional-patacones-solos-ensalada"
+    ],
+    "tradicional-papa-rellena-camaron.webp": [
+      "tradicional-papa-rellena-camaron"
+    ],
+    "tradicional-papa-rellena-carne.webp": [
+      "tradicional-papa-rellena-carne"
+    ],
+    "tradicional-arroz-moro-ceviche-camaron.webp": [
+      "tradicional-arroz-moro-ceviche-camaron"
+    ],
+    "tradicional-arroz-moro-ceviche-pescado.webp": [
+      "tradicional-arroz-moro-ceviche-pescado"
+    ],
+    "tradicional-arroz-moro-huevo.webp": [
+      "tradicional-arroz-moro-huevo"
     ]
   },
   "auto_products": {
+    "tradicional-majado-camaron": "tradicional-majado-camaron.webp",
+    "tradicional-majado-huevo": "tradicional-majado-huevo.webp",
+    "tradicional-majado-queso": "tradicional-majado-queso.webp",
+    "tradicional-majado-chicharron": "tradicional-majado-chicharron.webp",
+    "tradicional-majado-ceviche": "tradicional-majado-ceviche.webp",
+    "tradicional-bolon-camaron": "tradicional-bolon-camaron.webp",
+    "tradicional-bolon-chicharron": "tradicional-bolon-chicharron.webp",
+    "tradicional-bolon-queso": "tradicional-bolon-queso.webp",
+    "tradicional-bolon-mixto": "tradicional-bolon-mixto.webp",
+    "tradicional-tortillas-camaron": "tradicional-tortillas-camaron.webp",
+    "tradicional-tortillas-carne": "tradicional-tortillas-carne.webp",
+    "tradicional-tortillas-arroz-estofado": "tradicional-tortillas-arroz-estofado.webp",
+    "tradicional-papas-queso-pollo": "tradicional-papas-queso-pollo.webp",
+    "tradicional-patacones-solos-ensalada": "tradicional-patacones-solos-ensalada.webp",
+    "tradicional-papa-rellena-camaron": "tradicional-papa-rellena-camaron.webp",
+    "tradicional-papa-rellena-carne": "tradicional-papa-rellena-carne.webp",
+    "tradicional-arroz-moro-ceviche-camaron": "tradicional-arroz-moro-ceviche-camaron.webp",
+    "tradicional-arroz-moro-ceviche-pescado": "tradicional-arroz-moro-ceviche-pescado.webp",
+    "tradicional-arroz-moro-ceviche-mixto": "tradicional-arroz-moro-ceviche-mixto.webp",
+    "tradicional-arroz-moro-huevo": "tradicional-arroz-moro-huevo.webp",
     "fastfood-arizona-classic-burger": "fastfood-arizona-classic-burger.webp",
     "fastfood-papa-loca-carne": "fastfood-papa-loca-carne.webp",
     "fastfood-torta-chocolate-belga": "fastfood-torta-chocolate-belga.webp",

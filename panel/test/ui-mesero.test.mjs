@@ -76,7 +76,7 @@ const confirmedOrder = {
   items: [{ name: "Pizza margarita", qty: 1, unit_cents: 950 }],
 };
 
-async function startMesero({ orders = [] } = {}) {
+async function startMesero({ orders = [], fetchImpl = null } = {}) {
   const env = makeEnv();
   const html = await renderMeseroPage(new Request("https://pizza.craft-systems.com/panel/mesero"), env, site);
   const match = /<script id="meseroMain">([\s\S]*?)<\/script>/.exec(html);
@@ -110,7 +110,7 @@ async function startMesero({ orders = [] } = {}) {
   const localStorage = { getItem: () => "centro", setItem() {}, removeItem() {} };
   const location = { pathname: "/panel/mesero", search: "" };
   new Function("window", "document", "fetch", "localStorage", "location", "confirm", "setTimeout", "clearTimeout", match[1])(
-    window, doc, async () => Response.json({ error: "sin_mock" }, { status: 500 }),
+    window, doc, (fetchImpl || (async () => Response.json({ error: "sin_mock" }, { status: 500 }))),
     localStorage, location, () => true, () => 0, () => {},
   );
   await flush();
@@ -154,6 +154,24 @@ test("una transferencia confirmada y un pedido listo muestran sus acciones hones
   assert.match(message, /pedido #33/);
   assert.match(message, /Centro/);
   assert.doesNotMatch(message, /RUC|cédula|cedula|correo|dirección|direccion/i);
+});
+
+test("sin pay-transfer el mesero muestra error honesto y no cae a pay-cash", async () => {
+  const transfer = { ...confirmedOrder, id: "orden-sin-ruta", number: 34, payment_method: "transfer" };
+  const calls = [];
+  const fetchImpl = async (url, init = {}) => {
+    calls.push({ url: String(url), method: init.method || "GET", body: init.body ? JSON.parse(init.body) : null });
+    if (String(url).endsWith("/pay-transfer")) return Response.json({ error: "ruta_no_encontrada" }, { status: 404 });
+    return Response.json({ orders: [transfer] });
+  };
+  const { root, toast } = await startMesero({ orders: [transfer], fetchImpl });
+  const button = find(root, node => node.tagName === "button" && node.textContent === "Confirmar transferencia");
+  assert.ok(button);
+  button.trigger("click");
+  await flush();
+  assert.ok(calls.some(call => call.url.endsWith("/pay-transfer")));
+  assert.equal(calls.some(call => call.url.endsWith("/pay-cash")), false, "no falsea el método");
+  assert.match(toast.textContent, /todavía no permite confirmar transferencias/);
 });
 
 test("Nuevo pedido pinta tarjetas con imagen y fallback, y agrega al carrito", async () => {

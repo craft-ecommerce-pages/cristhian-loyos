@@ -1451,7 +1451,7 @@
     "descripcion": "Majado de verde con camarón, huevo frito y café.",
     "stock": null,
     "imagenes": [
-      "/media/panel/cristhian-loyos/products/majado.webp"
+      "/media/panel/cristhian-loyos/products/tradicional-majado-camaron.webp"
     ],
     "variantes": [],
     "sku": ""
@@ -1468,7 +1468,7 @@
     "descripcion": "Majado de verde con huevo frito y café.",
     "stock": null,
     "imagenes": [
-      "/media/panel/cristhian-loyos/products/majado.webp"
+      "/media/panel/cristhian-loyos/products/tradicional-majado-huevo.webp"
     ],
     "variantes": [],
     "sku": ""
@@ -1485,7 +1485,7 @@
     "descripcion": "Majado de verde con queso y huevo frito.",
     "stock": null,
     "imagenes": [
-      "/media/panel/cristhian-loyos/products/majado.webp"
+      "/media/panel/cristhian-loyos/products/tradicional-majado-queso.webp"
     ],
     "variantes": [],
     "sku": ""
@@ -1502,7 +1502,7 @@
     "descripcion": "Majado de verde con chicharrón, huevo frito y café.",
     "stock": null,
     "imagenes": [
-      "/media/panel/cristhian-loyos/products/majado.webp"
+      "/media/panel/cristhian-loyos/products/tradicional-majado-chicharron.webp"
     ],
     "variantes": [],
     "sku": ""
@@ -1519,7 +1519,7 @@
     "descripcion": "Majado de verde con ceviche, huevo frito y café.",
     "stock": null,
     "imagenes": [
-      "/media/panel/cristhian-loyos/products/majado.webp"
+      "/media/panel/cristhian-loyos/products/tradicional-majado-ceviche.webp"
     ],
     "variantes": [],
     "sku": ""
@@ -1536,7 +1536,7 @@
     "descripcion": "Bolón de verde con camarón, huevo frito y café.",
     "stock": null,
     "imagenes": [
-      "/media/panel/cristhian-loyos/products/bolon.webp"
+      "/media/panel/cristhian-loyos/products/tradicional-bolon-camaron.webp"
     ],
     "variantes": [],
     "sku": ""
@@ -1553,7 +1553,7 @@
     "descripcion": "Bolón de verde con chicharrón, huevo frito y café.",
     "stock": null,
     "imagenes": [
-      "/media/panel/cristhian-loyos/products/bolon.webp"
+      "/media/panel/cristhian-loyos/products/tradicional-bolon-chicharron.webp"
     ],
     "variantes": [],
     "sku": ""
@@ -1570,7 +1570,7 @@
     "descripcion": "Bolón de verde con queso, huevo frito y café.",
     "stock": null,
     "imagenes": [
-      "/media/panel/cristhian-loyos/products/bolon.webp"
+      "/media/panel/cristhian-loyos/products/tradicional-bolon-queso.webp"
     ],
     "variantes": [],
     "sku": ""
@@ -1587,7 +1587,7 @@
     "descripcion": "Bolón mixto con huevo frito y café.",
     "stock": null,
     "imagenes": [
-      "/media/panel/cristhian-loyos/products/bolon.webp"
+      "/media/panel/cristhian-loyos/products/tradicional-bolon-mixto.webp"
     ],
     "variantes": [],
     "sku": ""
@@ -1604,7 +1604,7 @@
     "descripcion": "Dos tortillas de verde con porción de camarón y huevo frito.",
     "stock": null,
     "imagenes": [
-      "/media/panel/cristhian-loyos/products/tortillas.webp"
+      "/media/panel/cristhian-loyos/products/tradicional-tortillas-camaron.webp"
     ],
     "variantes": [],
     "sku": ""
@@ -1621,7 +1621,7 @@
     "descripcion": "Dos tortillas de verde con porción de carne de pollo o res y huevo frito.",
     "stock": null,
     "imagenes": [
-      "/media/panel/cristhian-loyos/products/tortillas.webp"
+      "/media/panel/cristhian-loyos/products/tradicional-tortillas-carne.webp"
     ],
     "variantes": [],
     "sku": ""
@@ -1638,7 +1638,7 @@
     "descripcion": "Dos tortillas de verde con arroz, estofado y huevo frito.",
     "stock": null,
     "imagenes": [
-      "/media/panel/cristhian-loyos/products/tortillas.webp"
+      "/media/panel/cristhian-loyos/products/tradicional-tortillas-arroz-estofado.webp"
     ],
     "variantes": [],
     "sku": ""
@@ -1740,7 +1740,7 @@
     "descripcion": "Papas fritas con queso y pollo asado.",
     "stock": null,
     "imagenes": [
-      "/media/panel/cristhian-loyos/products/papipollo.webp"
+      "/media/panel/cristhian-loyos/products/tradicional-papas-queso-pollo.webp"
     ],
     "variantes": [],
     "sku": ""
@@ -1825,7 +1825,7 @@
     "descripcion": "Patacones acompañados de porción de ensalada.",
     "stock": null,
     "imagenes": [
-      "/media/panel/cristhian-loyos/products/patacones.webp"
+      "/media/panel/cristhian-loyos/products/tradicional-patacones-solos-ensalada.webp"
     ],
     "variantes": [],
     "sku": ""
@@ -1842,7 +1842,7 @@
     "descripcion": "Papa rellena de camarón y queso con porción de ensalada.",
     "stock": null,
     "imagenes": [
-      "/media/panel/cristhian-loyos/products/papa-rellena.webp"
+      "/media/panel/cristhian-loyos/products/tradicional-papa-rellena-camaron.webp"
     ],
     "variantes": [],
     "sku": ""
@@ -1859,7 +1859,7 @@
     "descripcion": "Papa rellena de carne y queso con porción de ensalada.",
     "stock": null,
     "imagenes": [
-      "/media/panel/cristhian-loyos/products/papa-rellena.webp"
+      "/media/panel/cristhian-loyos/products/tradicional-papa-rellena-carne.webp"
     ],
     "variantes": [],
     "sku": ""
@@ -1893,7 +1893,7 @@
     "descripcion": "Arroz moro con ceviche de camarón.",
     "stock": null,
     "imagenes": [
-      "/media/panel/cristhian-loyos/products/arroz-moro.webp"
+      "/media/panel/cristhian-loyos/products/tradicional-arroz-moro-ceviche-camaron.webp"
     ],
     "variantes": [],
     "sku": ""
@@ -1910,7 +1910,7 @@
     "descripcion": "Arroz moro con ceviche de pescado.",
     "stock": null,
     "imagenes": [
-      "/media/panel/cristhian-loyos/products/arroz-moro.webp"
+      "/media/panel/cristhian-loyos/products/tradicional-arroz-moro-ceviche-pescado.webp"
     ],
     "variantes": [],
     "sku": ""
@@ -1927,7 +1927,7 @@
     "descripcion": "Arroz moro con ceviche mixto.",
     "stock": null,
     "imagenes": [
-      "/media/panel/cristhian-loyos/products/arroz-moro.webp"
+      "/media/panel/cristhian-loyos/products/tradicional-arroz-moro-ceviche-mixto.webp"
     ],
     "variantes": [],
     "sku": ""
@@ -1944,7 +1944,7 @@
     "descripcion": "Arroz moro con huevo frito.",
     "stock": null,
     "imagenes": [
-      "/media/panel/cristhian-loyos/products/arroz-moro.webp"
+      "/media/panel/cristhian-loyos/products/tradicional-arroz-moro-huevo.webp"
     ],
     "variantes": [],
     "sku": ""

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-10T18:22:42.533Z",
+  "generated_at": "2026-11-11T04:48:03.581Z",
   "origin": "",
   "key_prefix": "panel/cristhian-loyos",
   "files": {
@@ -881,69 +881,69 @@
       "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
     },
     "products/sushi-combo-10.webp": {
-      "source": "generated:media/generated/sushi-combo-estudiante.webp",
+      "source": "generated:media/generated/sushi-combo-10-v2.webp",
       "products": [
         "sushi-combo-10"
       ],
       "width": 1200,
       "height": 1200,
-      "bytes": 195992,
-      "sha256": "22d04022adde2f97c7ca332a10d98e73b0ce945fa755e42ab592da9abd77b8e8",
+      "bytes": 195850,
+      "sha256": "cfd70270c7a43eb4cab7c7854bc48e870a88171e04ec6ec9978f76d96ca56b3f",
       "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
     },
     "products/sushi-combo-15.webp": {
-      "source": "generated:media/generated/sushi-combo-estudiante.webp",
+      "source": "generated:media/generated/sushi-combo-15-v2.webp",
       "products": [
         "sushi-combo-15"
       ],
       "width": 1200,
       "height": 1200,
-      "bytes": 195992,
-      "sha256": "22d04022adde2f97c7ca332a10d98e73b0ce945fa755e42ab592da9abd77b8e8",
+      "bytes": 213068,
+      "sha256": "8f7d8170435675782909fc78bad24cdc9af873ffb898495d384a8d778d4c23fb",
       "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
     },
     "products/sushi-combo-20.webp": {
-      "source": "generated:media/generated/sushi-combo-estudiante.webp",
+      "source": "generated:media/generated/sushi-combo-20-v2.webp",
       "products": [
         "sushi-combo-20"
       ],
       "width": 1200,
       "height": 1200,
-      "bytes": 195992,
-      "sha256": "22d04022adde2f97c7ca332a10d98e73b0ce945fa755e42ab592da9abd77b8e8",
+      "bytes": 191526,
+      "sha256": "15f4fe41645918639a2c55282c804ad914b8a024454bf05847bf134ece42a95e",
       "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
     },
     "products/sushi-combo-30.webp": {
-      "source": "generated:media/generated/sushi-combo-estudiante.webp",
+      "source": "generated:media/generated/sushi-combo-30-v2.webp",
       "products": [
         "sushi-combo-30"
       ],
       "width": 1200,
       "height": 1200,
-      "bytes": 195992,
-      "sha256": "22d04022adde2f97c7ca332a10d98e73b0ce945fa755e42ab592da9abd77b8e8",
+      "bytes": 207098,
+      "sha256": "70d420a4b9ea2a86cd840defba1be5996edd3fde664a2a705ab6fa51bbf5b57a",
       "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
     },
     "products/sushi-combo-40.webp": {
-      "source": "generated:media/generated/sushi-combo-estudiante.webp",
+      "source": "generated:media/generated/sushi-combo-40-v2.webp",
       "products": [
         "sushi-combo-40"
       ],
       "width": 1200,
       "height": 1200,
-      "bytes": 195992,
-      "sha256": "22d04022adde2f97c7ca332a10d98e73b0ce945fa755e42ab592da9abd77b8e8",
+      "bytes": 228318,
+      "sha256": "31deb4bad84c853ae1017f71161f3f819ae89278a727e4d6c779718b91df6fee",
       "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
     },
     "products/sushi-combo-50.webp": {
-      "source": "generated:media/generated/sushi-combo-estudiante.webp",
+      "source": "generated:media/generated/sushi-combo-50-v2.webp",
       "products": [
         "sushi-combo-50"
       ],
       "width": 1200,
       "height": 1200,
-      "bytes": 195992,
-      "sha256": "22d04022adde2f97c7ca332a10d98e73b0ce945fa755e42ab592da9abd77b8e8",
+      "bytes": 239262,
+      "sha256": "62912d1887c5f32a313537a1db72570f8a532bc93a4325ac7cbdafb3cb4b3ff2",
       "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
     },
     "products/sushi-extra-salsas.webp": {
@@ -1131,6 +1131,226 @@
       "height": 900,
       "bytes": 151144,
       "sha256": "b6d1bfa85b201a5a26da77791a4ff1fbe1b6c212bc3a8b4071ec38ced240528a",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/tradicional-majado-camaron.webp": {
+      "source": "generated:media/generated/tradicional-majado-camaron-v2.webp",
+      "products": [
+        "tradicional-majado-camaron"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 128160,
+      "sha256": "1e021dbb9e80e8806fbe6aea01870eda54c74d47fa49453e54aa943ea6f151cc",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/tradicional-bolon-mixto.webp": {
+      "source": "generated:media/generated/tradicional-bolon-mixto-v2.webp",
+      "products": [
+        "tradicional-bolon-mixto"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 103426,
+      "sha256": "50d99102ac76952e0f55c7a1dbe6580effdc356cf7feb718ef20e35cf03a9ee3",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/tradicional-tortillas-camaron.webp": {
+      "source": "generated:media/generated/tradicional-tortillas-camaron-v2.webp",
+      "products": [
+        "tradicional-tortillas-camaron"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 97234,
+      "sha256": "97c84e4dd3fc1ba125287a884243675a6c783ec304cd2d78179487a11b81bfb9",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/tradicional-arroz-moro-ceviche-mixto.webp": {
+      "source": "generated:media/generated/tradicional-arroz-moro-ceviche-mixto-v2.webp",
+      "products": [
+        "tradicional-arroz-moro-ceviche-mixto"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 175698,
+      "sha256": "21b975bf8fd0118c440b7a1f09d1f2fb7d3949f40816ec0542d09ecce8ed0c2e",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/tradicional-majado-huevo.webp": {
+      "source": "generated:media/generated/tradicional-majado-huevo-v3.webp",
+      "products": [
+        "tradicional-majado-huevo"
+      ],
+      "width": 1097,
+      "height": 1200,
+      "bytes": 86952,
+      "sha256": "33cc4394ddac9664d20bedd8dd30cd049b2da245f3673d6757936feef8d70420",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/tradicional-majado-queso.webp": {
+      "source": "generated:media/generated/tradicional-majado-queso-v3.webp",
+      "products": [
+        "tradicional-majado-queso"
+      ],
+      "width": 1200,
+      "height": 800,
+      "bytes": 61014,
+      "sha256": "e5976a06ecbd24e6be673135617c171c54b7773644e60dd281a2a821d6833c98",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/tradicional-majado-chicharron.webp": {
+      "source": "generated:media/generated/tradicional-majado-chicharron-v3.webp",
+      "products": [
+        "tradicional-majado-chicharron"
+      ],
+      "width": 1200,
+      "height": 800,
+      "bytes": 105428,
+      "sha256": "5048f475a8249fc1f8f3bdf4a08257491faed1af8ba3da7d896f718218547290",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/tradicional-majado-ceviche.webp": {
+      "source": "generated:media/generated/tradicional-majado-ceviche-v3.webp",
+      "products": [
+        "tradicional-majado-ceviche"
+      ],
+      "width": 1200,
+      "height": 800,
+      "bytes": 116212,
+      "sha256": "05ac43f4faa4427f5ed4156216e9a56c15b70653824afafffbed17ca95c97240",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/tradicional-bolon-camaron.webp": {
+      "source": "generated:media/generated/tradicional-bolon-camaron-v3.webp",
+      "products": [
+        "tradicional-bolon-camaron"
+      ],
+      "width": 1200,
+      "height": 800,
+      "bytes": 77852,
+      "sha256": "a8cb5f4535ab1f4377c28a709ae8d521c2696126c416cc2e8c4b018ebf39caf8",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/tradicional-bolon-chicharron.webp": {
+      "source": "generated:media/generated/tradicional-bolon-chicharron-v3.webp",
+      "products": [
+        "tradicional-bolon-chicharron"
+      ],
+      "width": 1200,
+      "height": 800,
+      "bytes": 101466,
+      "sha256": "5e9bbae1bb33f7ed4733e9074781f46047abf37762add6d8e915b8b2637421c8",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/tradicional-bolon-queso.webp": {
+      "source": "generated:media/generated/tradicional-bolon-queso-v3.webp",
+      "products": [
+        "tradicional-bolon-queso"
+      ],
+      "width": 1200,
+      "height": 800,
+      "bytes": 70502,
+      "sha256": "34287ebd70e48063bed22afca24d8919bcf9ac5b5d5d4643c86a1d82af87359a",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/tradicional-tortillas-carne.webp": {
+      "source": "generated:media/generated/tradicional-tortillas-carne-v3.webp",
+      "products": [
+        "tradicional-tortillas-carne"
+      ],
+      "width": 1200,
+      "height": 800,
+      "bytes": 101742,
+      "sha256": "baf25eeb839e2ab023a9ce20900490fad06a6f6999cab365a1d1dadab887a6ce",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/tradicional-tortillas-arroz-estofado.webp": {
+      "source": "generated:media/generated/tradicional-tortillas-arroz-estofado-v3.webp",
+      "products": [
+        "tradicional-tortillas-arroz-estofado"
+      ],
+      "width": 1200,
+      "height": 800,
+      "bytes": 89386,
+      "sha256": "87a5b8063f9617c145596a53809110387926e6efe5f74ab57f4b9a1a52683c75",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/tradicional-papas-queso-pollo.webp": {
+      "source": "generated:media/generated/tradicional-papas-queso-pollo-v3.webp",
+      "products": [
+        "tradicional-papas-queso-pollo"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 146638,
+      "sha256": "1a7656613e1efeba9ae11fad2d1117ec03373a1b031b632a82d28dd85657e229",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/tradicional-patacones-solos-ensalada.webp": {
+      "source": "generated:media/generated/tradicional-patacones-solos-ensalada-v3.webp",
+      "products": [
+        "tradicional-patacones-solos-ensalada"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 120974,
+      "sha256": "4036adda0effbb5790c0d9f3f9c6d4bcc0c6974758f47603dd72755512985f2c",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/tradicional-papa-rellena-camaron.webp": {
+      "source": "generated:media/generated/tradicional-papa-rellena-camaron-v3.webp",
+      "products": [
+        "tradicional-papa-rellena-camaron"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 129410,
+      "sha256": "60e4cce14e8755929f13f4f4a3d5f5b61fe885e4b4a5c37453ff07663bcc2cc3",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/tradicional-papa-rellena-carne.webp": {
+      "source": "generated:media/generated/tradicional-papa-rellena-carne-v3.webp",
+      "products": [
+        "tradicional-papa-rellena-carne"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 130616,
+      "sha256": "7585c3d437be41d549e67f13e76d44fe1e66b3d180b25a75e9a5f54d7a14fc8e",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/tradicional-arroz-moro-ceviche-camaron.webp": {
+      "source": "generated:media/generated/tradicional-arroz-moro-ceviche-camaron-v3.webp",
+      "products": [
+        "tradicional-arroz-moro-ceviche-camaron"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 164350,
+      "sha256": "0695a6627e11d85c704656c93cc73cb9fcda8ed2efed6d042391c25fb1024390",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/tradicional-arroz-moro-ceviche-pescado.webp": {
+      "source": "generated:media/generated/tradicional-arroz-moro-ceviche-pescado-v3.webp",
+      "products": [
+        "tradicional-arroz-moro-ceviche-pescado"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 125186,
+      "sha256": "8d0b844ac06bce7fa76854d6121bcc17bc0a3dfad317aec3a9fffaeef573f2e2",
+      "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
+    },
+    "products/tradicional-arroz-moro-huevo.webp": {
+      "source": "generated:media/generated/tradicional-arroz-moro-huevo-v3.webp",
+      "products": [
+        "tradicional-arroz-moro-huevo"
+      ],
+      "width": 1200,
+      "height": 1200,
+      "bytes": 135870,
+      "sha256": "ff84b1096768617b03716c91b9544bb56277c572df82e75fff0e571b2f042f76",
       "note": "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real."
     },
     "brand/food-truck.webp": {

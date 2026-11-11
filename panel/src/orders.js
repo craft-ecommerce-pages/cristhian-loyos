@@ -468,8 +468,10 @@ export async function currencyOf(env, slug) {
 
 /* ── Transferencia: datos bancarios solo si están configurados oficialmente ──
    No se inventan cuentas. La fuente es `config.bank_transfer` en KV (la carga
-   el integrador/administrador con valores oficiales del titular). Si falta o
-   está incompleta, la opción queda deshabilitada y no se publica nada. */
+   el integrador/administrador con valores oficiales del titular) y el WhatsApp
+   oficial de comprobantes (`location.telefono_principal` o `whatsapp_number`).
+   Si falta la cuenta o el WhatsApp, la opción queda deshabilitada y no se
+   publica nada. */
 export async function transferInfo(env, slug) {
   const config = await env.MENUS.get(`${slug}:config`, "json").catch(() => null);
   const raw = isObject(config?.bank_transfer) ? config.bank_transfer : null;
@@ -480,7 +482,8 @@ export async function transferInfo(env, slug) {
   const account = typeof raw.account_number === "string" && /^[\dA-Za-z\s-]{4,64}$/.test(raw.account_number.trim())
     ? raw.account_number.trim() : "";
   const holder = text(raw.holder, 120);
-  if (!bank || !account || !holder) return null;
+  const whatsapp = String(config?.location?.telefono_principal || config?.whatsapp_number || "").replace(/\D/g, "");
+  if (!bank || !account || !holder || whatsapp.length < 7 || whatsapp.length > 15) return null;
   const note = text(raw.note, 200);
   return { bank, account_type: accountType, account_number: account, holder, ...(note ? { note } : {}) };
 }
@@ -735,9 +738,41 @@ export async function publicSedes(env, slug) {
   return json({ sedes: await sedesFor(env, slug) });
 }
 
+// Último intento de pago del pedido. El recibo necesita distinguir un cobro
+// rechazado de uno en verificación (`unknown`) sin exponer datos del proveedor.
+async function latestPosPayment(env, slug, orderId) {
+  try {
+    return await env.DB.prepare(
+      "SELECT status, message FROM pos_payments WHERE slug = ? AND order_id = ? " +
+      "ORDER BY updated_at DESC, rowid DESC LIMIT 1",
+    ).bind(slug, orderId).first();
+  } catch { return null; }
+}
+
+// Estado de pago público derivado del pedido y su último intento. `unknown`
+// (timeout Payphone) nunca se degrada a rechazo; un intento fallido antes de
+// cobrar es el único caso reintentable sin riesgo de duplicar el cobro.
+function publicPaymentStatus(row, payment) {
+  if (row.status === "paid") return "paid";
+  if (row.status === "rejected") return "rejected";
+  const status = payment?.status;
+  if (status === "paid") return "paid";
+  if (status === "unknown") return "unknown";
+  if (status === "rejected") return "rejected";
+  if (status === "failed") return "failed";
+  return "pending";
+}
+
+function publicPaymentMessage(paymentStatus, method) {
+  if (paymentStatus === "unknown") return "Estamos verificando el pago con Payphone. No vuelvas a pagar.";
+  if (paymentStatus === "failed") return "No se completó el pago con Payphone.";
+  if (paymentStatus === "rejected") return method === "payphone" ? "El pago no fue aprobado por Payphone." : "El pedido fue rechazado.";
+  return "";
+}
+
 // Estado del comprador autenticado solo por token. Devuelve el resumen que
-// necesita la pantalla de gracias (líneas, sede, total y método) y NUNCA datos
-// fiscales, teléfono, correo, dirección del cliente ni notas internas.
+// necesita la pantalla de gracias (líneas, sede, total, método y estado de pago)
+// y NUNCA datos fiscales, teléfono, correo, dirección del cliente ni notas internas.
 export async function getPosOrderStatus(env, site, encodedId, token) {
   const id = decodedId(encodedId);
   if (!id || typeof token !== "string" || !token) return error("pedido_no_existe", 404);
@@ -746,12 +781,20 @@ export async function getPosOrderStatus(env, site, encodedId, token) {
   const expected = await orderToken(env, site.slug, id);
   if (!timingEqual(token, expected)) return error("pedido_no_existe", 404);
   const sede = await sedeById(env, site.slug, row.sede_id);
+  const payment = row.status === "paid" || row.status === "rejected"
+    ? null : await latestPosPayment(env, site.slug, row.id);
+  const paymentStatus = publicPaymentStatus(row, payment);
+  const retryable = row.payment_method === "payphone" && payment?.status === "failed" &&
+    row.status !== "paid" && row.status !== "rejected";
+  const paymentMessage = publicPaymentMessage(paymentStatus, row.payment_method || "cash");
   return json({
     id: row.id, number: row.number == null ? null : Number(row.number),
     status: row.ready_at != null ? "ready" : row.status,
     total_cents: Number(row.total_cents), currency: row.currency, sede_id: row.sede_id,
     sede: sede ? { id: sede.id, nombre: sede.nombre, direccion: sede.direccion } : null,
-    payment_method: row.payment_method || "cash", created_at: Number(row.created_at),
+    payment_method: row.payment_method || "cash", payment_status: paymentStatus,
+    ...(paymentMessage ? { payment_message: paymentMessage } : {}), retryable,
+    created_at: Number(row.created_at),
     paid_at: row.paid_at == null ? null : Number(row.paid_at),
     ready_at: row.ready_at == null ? null : Number(row.ready_at),
     items: publicLines(row.items),

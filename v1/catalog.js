@@ -119,8 +119,9 @@
     return uuid;
   }
   // ── Recibo /gracias y datos de facturación (helpers puros, testables en Node) ──
-  // Datos bancarios SOLO si la config oficial los trae completos. Nunca hay cuentas por defecto:
-  // una config incompleta devuelve null y la transferencia se deshabilita en la UI.
+  // Datos bancarios SOLO si la config oficial los trae completos y existe un WhatsApp
+  // oficial de comprobantes. Nunca hay cuentas por defecto: una config incompleta
+  // devuelve null y la transferencia se deshabilita en la UI.
   function transferInfo(config){
     const raw=(config&&config.checkout_orders&&config.checkout_orders.transfer)||
       (config&&config.payments&&config.payments.transfer)||
@@ -133,7 +134,8 @@
     const bank=pick('bank','bank_name','banco');
     const account=pick('account_number','account','numero_cuenta','cuenta');
     const holder=pick('holder','holder_name','titular');
-    if(!bank||!account||!holder) return null;
+    const wa=String((config&&config.location&&config.location.telefono_principal)||(config&&config.whatsapp_number)||'').replace(/\D/g,'');
+    if(!bank||!account||!holder||wa.length<7||wa.length>15) return null;
     return {bank,account,holder,account_type:pick('account_type','tipo_cuenta','type')};
   }
   // Validación UX del contrato fiscal. Devuelve {campo: mensaje}; el servidor sigue siendo la
@@ -1367,10 +1369,24 @@
         producto_no_disponible:'Un producto ya no está disponible. Revisa tu pedido',sin_stock:'Un producto ya no tiene stock. Revisa tu pedido',
         variante_no_existe:'Una opción del pedido cambió. Vuelve a elegirla',precio_no_disponible:'El precio de un producto cambió. Revisa tu pedido',
         idempotencia_conflicto:'El pedido cambió. Revisa el carrito e intenta de nuevo',demasiados_pedidos:'Demasiados intentos. Espera un momento',
-        pedido_invalido:'Revisa los datos del pedido',metodo_pago_invalido:'Elige un método de pago válido',payphone_no_disponible:'Payphone no está disponible ahora. Elige efectivo o transferencia.',catalogo_no_disponible:'El menú no está disponible ahora. Reintenta',
+        pedido_invalido:'Revisa los datos del pedido',metodo_pago_invalido:'Elige un método de pago válido',payphone_no_disponible:'Payphone no está disponible ahora. Elige efectivo o transferencia.',catalogo_no_disponible:'El menú no está disponible ahora. Reintenta',solo_retiro:'Este menú solo permite retiro en el local',
         billing_requerido:'Revisa los datos de facturación',documento_invalido:'Revisa el número de documento',correo_invalido:'Revisa el correo electrónico',direccion_invalida:'Revisa la dirección de facturación',telefono_invalido:'Revisa el teléfono',cliente_requerido:'Completa tu nombre y teléfono',
+        datos_fiscales_requeridos:'Completa los datos de facturación',datos_fiscales_invalidos:'Revisa los datos de facturación',
       };
       return map[code]||(status===429?'Demasiados intentos. Espera un momento':'No se pudo enviar tu pedido. Reintenta.');
+    }
+    // El backend es la fuente de verdad y responde con `campo` (p. ej.
+    // billing.document_type o customer.phone). Se traduce al campo visible para
+    // que el error quede junto al control y el foco vaya al primero inválido.
+    function showServerFieldError(code,campo){
+      const field=String(campo||'').replace(/^customer\./,'').replace(/^billing\./,'');
+      if(!field||!FIELD_IDS[field]) return false;
+      const messages={
+        name:'Completa tu nombre y apellido.',phone:'Ingresa un teléfono válido (7 a 15 dígitos).',
+        document_type:'Elige el tipo de documento.',document_number:'Ingresa un documento válido.',
+        email:'Ingresa un correo electrónico válido.',address:'Ingresa la dirección de facturación.',
+      };
+      return showBillingErrors({[field]:messages[field]||orderErrorMessage(400,code)});
     }
     const orderNumberLabel=number=>Number.isSafeInteger(Number(number))&&Number(number)>0?'#'+String(number).padStart(6,'0'):'';
     function clearOrderPoll(){if(orderPollTimer){clearTimeout(orderPollTimer);orderPollTimer=null;}}
@@ -1444,7 +1460,13 @@
       fetch(ordersEndpoint(checkout,'/api/payment-options'),{cache:'no-store'})
         .then(r=>r.ok?r.json():null).then(options=>{
           if(card&&options?.payphone){card.disabled=false;card.textContent='Tarjeta con Payphone';}
-          if(transferOpt&&options?.transfer===false){transferOpt.disabled=true;transferOpt.textContent='Transferencia (no disponible)';}
+          // La fuente pública oficial manda: si el servidor entrega detalles
+          // bancarios saneados, se usan también en el recibo y en el enlace wa.me.
+          if(options?.transfer_details&&typeof options.transfer_details==='object'){
+            config.bank_transfer={...(config.bank_transfer||{}),...options.transfer_details};
+          }
+          if(transferOpt&&(options?.transfer===false||!transferInfo(config))){transferOpt.disabled=true;transferOpt.textContent='Transferencia (no disponible)';}
+          else if(transferOpt){transferOpt.disabled=false;transferOpt.textContent='Transferencia bancaria';}
           if(payment&&payment.selectedOptions?.[0]?.disabled) payment.value='cash';
           updatePaymentHint();
         }).catch(()=>{updatePaymentHint();});
@@ -1812,6 +1834,7 @@
         const ok=response.status===200||response.status===201;
         if(!ok||!receipt||typeof receipt.id!=='string'||!Number.isSafeInteger(receipt.number)||receipt.number<1||typeof receipt.order_token!=='string'){
           if(response.status===409) forgetOrderKey();
+          if(response.status===400) showServerFieldError(receipt&&receipt.error,receipt&&receipt.campo);
           throw new Error(orderErrorMessage(response.status,receipt&&receipt.error));
         }
         const record=orderRecord(receipt,paymentMethod,sedeId);

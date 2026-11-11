@@ -128,6 +128,9 @@ test("transferencia: la caja confirma manualmente, con sede autorizada e idempot
   })), env, ctx)).json();
   const transfer = () => panel.fetch(body(`/panel/api/orders/${created.id}/pay-transfer`, { idempotency_key: "tr-00001" }, { headers: { cookie: owner } }), env, ctx);
 
+  const before = await (await panel.fetch(request(`/api/orders/${created.id}?token=${created.order_token}`), env, ctx)).json();
+  assert.equal(before.payment_status, "pending", "transferencia sin confirmar no se muestra pagada");
+
   let response = await transfer();
   assert.equal(response.status, 200);
   const paid = await response.json();
@@ -149,6 +152,9 @@ test("transferencia: la caja confirma manualmente, con sede autorizada e idempot
   const status = await (await panel.fetch(request(`/api/orders/${created.id}?token=${created.order_token}`), env, ctx)).json();
   assert.equal(status.payment_method, "transfer");
   assert.equal(status.status, "paid");
+  assert.equal(status.payment_status, "paid");
+  assert.equal(status.retryable, false);
+  assert.deepEqual(status.items, [{ name: "Margarita", qty: 1, unit_cents: 850, subtotal_cents: 850 }]);
 
   // Un pedido de efectivo no se puede liquidar como transferencia (ni al revés).
   const cashOrder = await (await panel.fetch(body("/api/orders", webOrder({ idempotency_key: "transfer-0002" })), env, ctx)).json();
@@ -157,6 +163,26 @@ test("transferencia: la caja confirma manualmente, con sede autorizada e idempot
   assert.deepEqual(await response.json(), { error: "metodo_pago_invalido" });
   response = await panel.fetch(body(`/panel/api/orders/${created.id}/pay-cash`, { idempotency_key: "tr-00003" }, { headers: { cookie: owner } }), env, ctx);
   assert.equal(response.status, 409);
+});
+
+test("estado público del pedido: efectivo pendiente y pagado, sin PII", async () => {
+  const env = pedidoEnv(), ctx = makeCtx();
+  const created = await (await panel.fetch(body("/api/orders", webOrder({ idempotency_key: "estado-efectivo" })), env, ctx)).json();
+  const read = async () => (await panel.fetch(request(`/api/orders/${created.id}?token=${created.order_token}`), env, ctx)).json();
+  let status = await read();
+  assert.equal(status.status, "pending");
+  assert.equal(status.payment_method, "cash");
+  assert.equal(status.payment_status, "pending");
+  assert.equal(status.retryable, false);
+  assert.equal(status.items.length, 1);
+  for (const secret of ["1712345678", "ana@example.com", "Siempre Viva", "0991234567", "Ana"]) {
+    assert.equal(JSON.stringify(status).includes(secret), false, `no expone ${secret}`);
+  }
+  const owner = await ownerCookie(env);
+  await panel.fetch(body(`/panel/api/orders/${created.id}/pay-cash`, { idempotency_key: "estado-cash" }, { headers: { cookie: owner } }), env, ctx);
+  status = await read();
+  assert.equal(status.status, "paid");
+  assert.equal(status.payment_status, "paid");
 });
 
 test("transferencia: un operador de otra sede no puede confirmarla", async () => {
@@ -202,6 +228,21 @@ test("paid → ready: auth por sede, marca de tiempo e idempotencia", async () =
   const status = await (await panel.fetch(request(`/api/orders/${created.id}?token=${created.order_token}`), env, ctx)).json();
   assert.equal(status.status, "ready");
   assert.equal(status.ready_at, ready.ready_at);
+  assert.equal(status.payment_status, "paid");
+
+  // `ready` en D1 sigue siendo `paid` + ready_at: filtros, KDS y reimpresión intactos.
+  const row = rowOf(env, created.id);
+  assert.equal(row.status, "paid");
+  assert.equal(row.ready_at, ready.ready_at);
+  const readyList = await (await panel.fetch(withCookie("/panel/api/pos/orders?status=ready&sede_id=centro", cookie), env, ctx)).json();
+  assert.ok(readyList.orders.some(order => order.id === created.id && order.status === "ready"));
+  const paidList = await (await panel.fetch(withCookie("/panel/api/pos/orders?status=paid&sede_id=centro", cookie), env, ctx)).json();
+  assert.ok(paidList.orders.some(order => order.id === created.id), "pagados incluye los listos");
+  const kitchen = await (await panel.fetch(withCookie("/panel/api/kitchen/orders?sede_id=centro&since=0", cookie), env, ctx)).json();
+  assert.ok(kitchen.orders.some(order => order.id === created.id), "el KDS conserva la comanda pagada");
+  const reprint = await panel.fetch(body(`/panel/api/kitchen/orders/${created.id}/print`, { idempotency_key: "ready-reprint" }, { headers: { cookie } }), env, ctx);
+  assert.equal(reprint.status, 200, "la reimpresión de una orden lista cuenta el acuse");
+  assert.equal((await reprint.json()).print_count, 1);
 
   // Operador de otra sede no puede marcar listo.
   const north = await (await panel.fetch(body("/api/orders", webOrder({ sede_id: "norte", idempotency_key: "ready-0002" })), env, ctx)).json();
@@ -222,6 +263,7 @@ test("Payphone vuelve a /gracias solo con el estado conciliado y sin duplicar co
   globalThis.fetch = async (url, init) => {
     if (String(url).endsWith("/api/button/Prepare")) {
       prepared++;
+      if (confirmMode === "prepare-fail") throw new Error("sin red");
       return Response.json({ payWithCard: "https://pay.payphonetodoesposible.com/card" });
     }
     if (String(url).endsWith("/api/button/V2/Confirm")) {
@@ -277,6 +319,9 @@ test("Payphone vuelve a /gracias solo con el estado conciliado y sin duplicar co
     assert.equal(comandas(env, pending.id), 0);
     const pendingStatus = await (await panel.fetch(request(`/api/orders/${pending.id}?token=${pending.order_token}`), env, ctx)).json();
     assert.equal(pendingStatus.status, "pending");
+    assert.equal(pendingStatus.payment_method, "payphone");
+    assert.equal(pendingStatus.payment_status, "unknown", "timeout queda en verificación, nunca rechazado");
+    assert.equal(pendingStatus.retryable, false, "unknown no se reintenta para no duplicar el cobro");
 
     // Rechazo del banco: estado real rechazado y sin comanda.
     confirmMode = "rejected";
@@ -289,16 +334,34 @@ test("Payphone vuelve a /gracias solo con el estado conciliado y sin duplicar co
     response = await panel.fetch(request(`/api/payphone/return?id=9003&clientTransactionId=${rejectedStart.payment_id}`), env, ctx);
     assert.equal(new URL(response.headers.get("location")).searchParams.get("pago"), "rechazado");
     assert.equal(comandas(env, rejected.id), 0);
+    const rejectedStatus = await (await panel.fetch(request(`/api/orders/${rejected.id}?token=${rejected.order_token}`), env, ctx)).json();
+    assert.equal(rejectedStatus.status, "rejected");
+    assert.equal(rejectedStatus.payment_status, "rejected");
+
+    // Intento fallido antes de cobrar: el recibo puede reintentar sin duplicar.
+    confirmMode = "prepare-fail";
+    const failed = await (await panel.fetch(body("/api/orders", webOrder({
+      idempotency_key: "payphone-fallido", payment_method: "payphone",
+    })), env, ctx)).json();
+    const failedStart = await panel.fetch(body(`/api/orders/${failed.id}/payphone`, {
+      order_token: failed.order_token, idempotency_key: "ph-00004",
+    }), env, ctx);
+    assert.equal(failedStart.status, 502);
+    const failedStatus = await (await panel.fetch(request(`/api/orders/${failed.id}?token=${failed.order_token}`), env, ctx)).json();
+    assert.equal(failedStatus.status, "pending");
+    assert.equal(failedStatus.payment_status, "failed");
+    assert.equal(failedStatus.retryable, true);
   } finally { globalThis.fetch = original; }
 });
 
-test("opciones de pago: transferencia solo con datos bancarios oficiales", async () => {
+test("opciones de pago: transferencia solo con cuenta y WhatsApp oficiales", async () => {
   const env = pedidoEnv(), ctx = makeCtx();
   let options = await (await panel.fetch(request("/api/payment-options"), env, ctx)).json();
   assert.equal(options.transfer, false, "sin config no se habilita ni se inventan cuentas");
   assert.equal(options.transfer_details, null);
 
   const config = await env.MENUS.get("pizza:config", "json");
+  config.location = { ...(config.location || {}), telefono_principal: "0991234567" };
   config.bank_transfer = {
     bank: "Banco Pichincha", account_type: "Ahorros", account_number: "2200123456",
     holder: "Munch S.A.S.", note: "Cuenta oficial del local",
@@ -313,7 +376,15 @@ test("opciones de pago: transferencia solo con datos bancarios oficiales", async
   });
   assert.equal(JSON.stringify(options).includes("1790012345001"), false, "no expone el RUC del titular");
 
+  // Sin WhatsApp oficial de comprobantes no se habilita la transferencia.
+  delete config.location.telefono_principal;
+  delete config.whatsapp_number;
+  await env.MENUS.put("pizza:config", JSON.stringify(config));
+  options = await (await panel.fetch(request("/api/payment-options"), env, ctx)).json();
+  assert.equal(options.transfer, false, "sin WhatsApp de comprobantes se deshabilita");
+
   // Configuración incompleta: se deshabilita en vez de mostrar una cuenta a medias.
+  config.location.telefono_principal = "0991234567";
   config.bank_transfer = { bank: "Banco Pichincha" };
   await env.MENUS.put("pizza:config", JSON.stringify(config));
   options = await (await panel.fetch(request("/api/payment-options"), env, ctx)).json();

@@ -1321,12 +1321,12 @@ function runtime() {
     buttonEl.disabled = true;
     const route = manual ? (transfer ? "/pay-transfer" : "/pay-cash") : "/payphone";
     return api("orders/" + encodeURIComponent(order.id) + route, { idempotency_key: key }, "POST").then(async r => {
-      // Compatibilidad mientras el backend suma pay-transfer: solo si la ruta
-      // todavía no existe se registra la confirmación manual existente.
-      if (transfer && (r.status === 404 || r.status === 405))
-        r = await api("orders/" + encodeURIComponent(order.id) + "/pay-cash", { idempotency_key: key }, "POST");
       buttonEl.disabled = false;
       if (r.status === 401) return goLogin("Tu sesión venció. Vuelve a entrar.");
+      // Sin fallback silencioso: si la ruta no existe, no se registra el cobro
+      // como otro método (falsearía la conciliación y el estado del pedido).
+      if (transfer && (r.status === 404 || r.status === 405))
+        return toast("Esta versión del panel todavía no permite confirmar transferencias. Actualiza el panel.", true);
       if (r.status !== 200) {
         if (r.status === 409) { toast("Esa orden ya cambió de estado.", true); return reload(); }
         return toast(errMsg(r, "No pudimos registrar el cobro."), true);

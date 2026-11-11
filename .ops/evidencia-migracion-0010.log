@@ -1,0 +1,14 @@
+aplicadas 0001-0009: 0001_init.sql,0002_catalog.sql,0003_pedidos_estado.sql,0004_features.sql,0005_mesas.sql,0006_pos.sql,0007_invoices.sql,0008_reports.sql,0009_payment_choice.sql
+antes: { orders: 2, payments: 2 }
+despues: { orders: 2, payments: 2 }
+columnas nuevas: [
+  'billing_document_type',
+  'billing_document_number',
+  'billing_email',
+  'billing_address',
+  'ready_at'
+]
+pagos preservados: [{"id":"p1","provider":"cash","status":"paid","provider_ref":null,"attempts":0},{"id":"p2","provider":"payphone","status":"unknown","provider_ref":"ref2","attempts":2}]
+provider CHECK acepta transfer: true
+indices: pos_order_lines_order,pos_order_lines_slug_category,pos_orders_slug_ready,pos_orders_slug_sede_created,pos_orders_slug_status,pos_payments_order,pos_payments_ref,pos_staff_pin
+rollback restaurado: { orders: 2, payments: 2 }

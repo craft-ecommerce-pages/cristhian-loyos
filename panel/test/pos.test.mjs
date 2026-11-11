@@ -143,8 +143,8 @@ test("estado público con token: líneas, sede, método y sin PII", async () => 
   assert.equal(response.headers.get("referrer-policy"), "no-referrer");
   const status = await response.json();
   assert.deepEqual(Object.keys(status).sort(), [
-    "created_at", "currency", "id", "items", "number", "paid_at", "payment_method", "ready_at",
-    "sede", "sede_id", "status", "total_cents",
+    "created_at", "currency", "id", "items", "number", "paid_at", "payment_method", "payment_status",
+    "ready_at", "retryable", "sede", "sede_id", "status", "total_cents",
   ]);
   assert.equal(status.status, "pending");
   assert.equal(status.payment_method, "cash");

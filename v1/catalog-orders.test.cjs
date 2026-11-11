@@ -62,15 +62,17 @@ test('orderStatusLabel/Final y nextOrderKey idempotente',()=>{
   assert.equal(nextOrderKey({fingerprint:'a',key:'corto'},'a','nuevo-00000000'),'nuevo-00000000');
 });
 
-test('transferInfo: solo config oficial completa; nunca inventa cuenta ni titular',()=>{
+test('transferInfo: solo config oficial completa (cuenta + WhatsApp); nunca inventa datos',()=>{
   assert.equal(transferInfo(undefined),null);
   assert.equal(transferInfo({}),null);
-  assert.equal(transferInfo({checkout_orders:{transfer:{enabled:false,bank:'B',account_number:'1',holder:'H'}}}),null);
-  assert.equal(transferInfo({checkout_orders:{transfer:{bank:'B',holder:'H'}}}),null); // sin cuenta
-  assert.deepEqual(transferInfo({checkout_orders:{transfer:{bank:'Banco Pichincha',account_number:'1234567890',holder:'Munch S.A.',account_type:'Ahorros'}}}),
+  assert.equal(transferInfo({checkout_orders:{transfer:{enabled:false,bank:'B',account_number:'1',holder:'H'}},whatsapp_number:'0991234567'}),null);
+  assert.equal(transferInfo({checkout_orders:{transfer:{bank:'B',holder:'H'}},whatsapp_number:'0991234567'}),null); // sin cuenta
+  assert.equal(transferInfo({checkout_orders:{transfer:{bank:'B',account_number:'1',holder:'H'}}}),null); // sin WhatsApp oficial
+  assert.deepEqual(transferInfo({checkout_orders:{transfer:{bank:'Banco Pichincha',account_number:'1234567890',holder:'Munch S.A.',account_type:'Ahorros'}},whatsapp_number:'0991234567'}),
     {bank:'Banco Pichincha',account:'1234567890',holder:'Munch S.A.',account_type:'Ahorros'});
-  assert.equal(transferInfo({payments:{transfer:{bank:'B',account:'1',titular:'H'}}}).holder,'H');
-  assert.equal(transferInfo({bank_transfer:{banco:'B',cuenta:'1',titular:'H'}}).bank,'B');
+  assert.equal(transferInfo({payments:{transfer:{bank:'B',account:'1',titular:'H'}},location:{telefono_principal:'0991234567'}}).holder,'H');
+  assert.equal(transferInfo({bank_transfer:{banco:'B',cuenta:'1',titular:'H'},whatsapp_number:'0991234567'}).bank,'B');
+  assert.equal(transferInfo({bank_transfer:{banco:'B',cuenta:'1',titular:'H'},whatsapp_number:'12'}),null); // teléfono inválido
 });
 
 test('billingFieldErrors: exige cédula/RUC, correo y dirección con mensajes claros',()=>{
