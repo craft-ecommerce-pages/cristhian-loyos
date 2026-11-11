@@ -1,7 +1,7 @@
 # Handoff media pendiente B
 
 - Estado: `OK` con un bloqueo explícito de descripción.
-- Commit: `PENDIENTE DE COMMIT`.
+- Commit de assets y documentación: `af206254bc474806267796c68e39b19d639790d0`.
 - Rama: `agent/munch-media-pendiente-b-20261110`.
 - Alcance: siete WebP nuevos generados y un ID bloqueado; no se publicó R2 ni se desplegó.
 - Rutas tocadas: `media/generated/*-v3.webp`, `.ops/inventario-pendiente-b.md`, `.ops/mapa-pendiente-b.json`, este handoff.
