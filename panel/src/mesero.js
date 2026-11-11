@@ -206,6 +206,8 @@ background:#fff1d9}
 background:#e6f4ed}
 .badge.paid{color:#0f5c7a;
 background:#e3f2f8}
+.badge.ready{color:var(--ok);
+background:#e6f4ed}
 .badge.rejected{color:var(--danger);
 background:#fbe9e8}
 .lines{margin:12px 0;
@@ -724,6 +726,29 @@ function meseroRuntime() {
     const found = sedes.find((item) => item && item.id === id);
     return found ? text(found.nombre) || id : "";
   }
+  // Solo dígitos: el enlace wa.me se abre a mano desde el pedido listo.
+  function orderPhone(order) {
+    const digits = text(order?.customer_phone ?? order?.client_phone).replace(
+      /\D/g,
+      "",
+    );
+    return /^\d{8,15}$/.test(digits) ? digits : "";
+  }
+  // Aviso manual: número y sede, sin cédula/RUC, correo ni dirección.
+  function waLink(order) {
+    const phone = orderPhone(order);
+    if (!phone) return "";
+    const who = clientName(order);
+    const place = sedeLabel(order?.sede_id) || text(order?.sede_id);
+    const message =
+      "Hola" +
+      (who ? " " + who : "") +
+      ", tu pedido " +
+      shortNumber(order) +
+      (place ? " de " + place : "") +
+      " está listo. Te esperamos.";
+    return "https://wa.me/" + phone + "?text=" + encodeURIComponent(message);
+  }
   // Sin inventar sedes: la lista sale de /panel/api/mesero/me y empieza vacía.
   function sedeSelect(onChange) {
     const select = h(
@@ -1036,9 +1061,10 @@ function meseroRuntime() {
     return name && name !== table ? table + " · " + name : table;
   }
   const STATE_LABEL = {
-    pending: "Pendiente",
+    pending: "Pendiente · sin comanda",
     confirmed: "Confirmado · falta cobro",
-    paid: "Pagado",
+    paid: "Pago confirmado",
+    ready: "Listo para avisar",
     rejected: "Rechazado",
   };
   function orderCard(order) {
@@ -1065,9 +1091,12 @@ function meseroRuntime() {
     } else if (state === "confirmed") {
       // Confirmar disponibilidad NO cobra: la comanda sale a cocina solo al pagar.
       if (pos) {
+        const transfer = text(order.payment_method) === "transfer";
         actions.push(
-          button("Cobrar efectivo", "btn primary small", (event) =>
-            payCash(order, event.currentTarget),
+          button(
+            transfer ? "Confirmar transferencia" : "Cobrar efectivo",
+            "btn primary small",
+            (event) => payOrder(order, event.currentTarget),
           ),
         );
         actions.push(
@@ -1076,7 +1105,7 @@ function meseroRuntime() {
           ),
         );
       }
-    } else if (state === "paid")
+    } else if (state === "paid") {
       actions.push(
         button(
           Number(order.print_count) ? "Reimprimir" : "Imprimir",
@@ -1084,6 +1113,34 @@ function meseroRuntime() {
           (event) => print(order, event.currentTarget),
         ),
       );
+      actions.push(
+        button("Marcar listo", "btn small", (event) =>
+          markReady(order, event.currentTarget),
+        ),
+      );
+    } else if (state === "ready") {
+      actions.push(
+        button(
+          Number(order.print_count) ? "Reimprimir" : "Imprimir",
+          "btn small",
+          (event) => print(order, event.currentTarget),
+        ),
+      );
+      const wa = waLink(order);
+      if (wa)
+        actions.push(
+          h(
+            "a",
+            {
+              class: "btn primary small",
+              href: wa,
+              target: "_blank",
+              rel: "noopener",
+              text: "Avisar por WhatsApp",
+            },
+          ),
+        );
+    }
     return h(
       "article",
       { class: "card" },
@@ -1138,12 +1195,27 @@ function meseroRuntime() {
       order.note
         ? h("p", { class: "order-note", text: "Nota: " + order.note })
         : null,
-      state === "confirmed"
+      state === "pending"
         ? h("p", {
             class: "edited",
-            text: "Falta el cobro. La comanda llega a cocina al confirmar el pago.",
+            text: "Pendiente sin comanda: confirma y cobra para enviarla a cocina.",
           })
-        : null,
+        : state === "confirmed"
+          ? h("p", {
+              class: "edited",
+              text: "Falta el cobro. La comanda llega a cocina al confirmar el pago.",
+            })
+          : state === "paid"
+            ? h("p", {
+                class: "edited",
+                text: "Pago confirmado y comanda en cocina. Marca listo cuando esté para entregar.",
+              })
+            : state === "ready"
+              ? h("p", {
+                  class: "edited",
+                  text: "Listo. El aviso por WhatsApp es manual: la app no envía mensajes solo.",
+                })
+              : null,
       order.edited_at ? h("p", { class: "edited", text: "Editado" }) : null,
       Number(order.print_count)
         ? h("p", {
@@ -1718,23 +1790,39 @@ function meseroRuntime() {
       render();
     });
   }
-  // Cobro en efectivo: es la única acción que libera la comanda a cocina.
-  function payCash(order, buttonEl) {
+  // Cobro manual: efectivo por pay-cash y transferencia por pay-transfer.
+  // Ambos son idempotentes y son la única acción que libera la comanda.
+  function payOrder(order, buttonEl) {
+    const transfer = text(order.payment_method) === "transfer";
     if (
       typeof window.confirm === "function" &&
       !window.confirm(
-        "¿Confirmas que recibiste el pago en efectivo de " +
-          shortNumber(order) +
-          "?",
+        (transfer
+          ? "¿Verificaste la transferencia de " + shortNumber(order) + "?"
+          : "¿Confirmas que recibiste el pago en efectivo de " +
+            shortNumber(order) +
+            "?") + " La comanda se enviará a cocina.",
       )
     )
       return;
     return act(buttonEl, async () => {
-      const result = await callRoot(
-        "orders/" + encodeURIComponent(order.id) + "/pay-cash",
-        { idempotency_key: uuid() },
+      const key = uuid();
+      const path = "orders/" + encodeURIComponent(order.id);
+      let result = await callRoot(
+        path + (transfer ? "/pay-transfer" : "/pay-cash"),
+        { idempotency_key: key },
       );
+      // Compatibilidad mientras el backend suma pay-transfer: solo si la ruta
+      // todavía no existe se usa la confirmación manual existente.
+      const missingRoute = result.status === 404 || result.status === 405;
+      if (transfer && missingRoute)
+        result = await callRoot(path + "/pay-cash", { idempotency_key: key });
       if (result.status === 401) return sessionExpired();
+      if (result.status === 409) {
+        toast("Ese pedido ya cambió de estado. Actualiza la lista.", true);
+        await loadOrders();
+        return render();
+      }
       if (result.status !== 200)
         return toast(
           message(result, "No pudimos registrar el cobro. Intenta de nuevo."),
@@ -1743,7 +1831,40 @@ function meseroRuntime() {
       const updated = result.data?.order;
       if (updated) upsert(updated);
       else await loadOrders();
-      toast("Cobrado. La comanda ya está en cocina; imprímela desde Cocina.");
+      toast(
+        (transfer ? "Transferencia confirmada." : "Cobrado.") +
+          " La comanda ya está en cocina; imprímela desde Cocina.",
+      );
+      render();
+    });
+  }
+  // paid → ready: lo confirma el operador autorizado y queda con marca de tiempo.
+  function markReady(order, buttonEl) {
+    return act(buttonEl, async () => {
+      const result = await callRoot(
+        "orders/" + encodeURIComponent(order.id) + "/ready",
+        {},
+      );
+      if (result.status === 401) return sessionExpired();
+      if (result.status === 404 || result.status === 405)
+        return toast(
+          "Esta versión del panel todavía no permite marcar listo.",
+          true,
+        );
+      if (result.status === 409) {
+        toast("Ese pedido ya cambió de estado. Actualiza la lista.", true);
+        await loadOrders();
+        return render();
+      }
+      if (result.status !== 200)
+        return toast(
+          message(result, "No pudimos marcar el pedido como listo."),
+          true,
+        );
+      const updated = result.data?.order;
+      if (updated) upsert(updated);
+      else await loadOrders();
+      toast("Pedido listo. Avisa al cliente con el enlace manual de WhatsApp.");
       render();
     });
   }
@@ -1754,6 +1875,8 @@ function meseroRuntime() {
       return 80;
     }
   }
+  // Devuelve true solo si el navegador pudo abrir su diálogo de impresión.
+  // Abrir el diálogo no significa que la impresora haya sacado papel.
   function printTicket(order) {
     const paper = paperWidth();
     const width = columnsForPaper(paper);
@@ -1794,24 +1917,39 @@ body{margin:0;font-family:monospace;font-size:11px;white-space:pre;line-height:1
       "</body></html>";
     const iframe = h("iframe", { title: "Comanda", hidden: true });
     const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
-    iframe.src = url;
-    iframe.addEventListener(
-      "load",
-      () => {
-        try {
-          iframe.contentWindow.focus();
-          iframe.contentWindow.print();
-        } catch {
-          toast("No pudimos abrir la impresión.", true);
-        }
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = (ok) => {
+        if (done) return;
+        done = true;
+        resolve(ok);
         window.setTimeout(() => {
-          URL.revokeObjectURL(url);
+          try {
+            URL.revokeObjectURL(url);
+          } catch {
+            /* navegador restringido */
+          }
           iframe.remove();
         }, 1000);
-      },
-      { once: true },
-    );
-    document.body.append(iframe);
+      };
+      iframe.addEventListener(
+        "load",
+        () => {
+          try {
+            iframe.contentWindow.focus();
+            iframe.contentWindow.print();
+            finish(true);
+          } catch {
+            finish(false);
+          }
+        },
+        { once: true },
+      );
+      iframe.addEventListener("error", () => finish(false), { once: true });
+      iframe.src = url;
+      document.body.append(iframe);
+      window.setTimeout(() => finish(false), 5000);
+    });
   }
   function print(order, buttonEl) {
     if (Number(order.print_count) && typeof window.confirm === "function") {
@@ -1825,17 +1963,31 @@ body{margin:0;font-family:monospace;font-size:11px;white-space:pre;line-height:1
         return;
     }
     return act(buttonEl, async () => {
+      // Primero se abre la impresión: si el navegador falla, no se registra
+      // un acuse que parezca una comanda impresa.
+      const opened = await printTicket({
+        ...order,
+        print_count: (Number(order.print_count) || 0) + 1,
+      });
+      if (!opened) {
+        toast("No pudimos abrir la impresión. No se registró acuse.", true);
+        return;
+      }
       const result = await call(
         "orders/" + encodeURIComponent(order.id) + "/print",
         { idempotency_key: uuid() },
       );
       if (result.status === 401) return sessionExpired();
-      if (result.status !== 200)
-        return toast(message(result, "No pudimos preparar la comanda."), true);
+      if (result.status !== 200) {
+        toast(
+          "La impresión se abrió, pero no pudimos registrar el acuse. Revisa el papel.",
+          true,
+        );
+        return;
+      }
       const updated = result.data?.order || order;
       const count = Number(result.data?.print_count);
       if (Number.isFinite(count) && count > 0) updated.print_count = count;
-      printTicket(updated);
       upsert(updated);
       render();
       toast(
@@ -1877,6 +2029,9 @@ body{margin:0;font-family:monospace;font-size:11px;white-space:pre;line-height:1
         "details",
         {},
         h("summary", { text: "Ayuda para imprimir" }),
+        h("p", {
+          text: "Imprime desde una PC o estación de caja con Chrome y una impresora térmica de 58 u 80 mm. No necesitas la tablet ASUS.",
+        }),
         h("p", {
           text: "Para imprimir sin diálogo, abre el panel en la PC de la caja con Chrome y la opción --kiosk-printing.",
         }),

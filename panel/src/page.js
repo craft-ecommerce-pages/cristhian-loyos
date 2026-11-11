@@ -4,6 +4,7 @@
 // tests y se inyecta al navegador serializando la función, igual que loyalty/src/page.js.
 
 import { qrMatrix } from "../../shared/qr.js";
+import { ticketColumns, ticketLines, ticketPageHeight } from "../../shared/ticket.js";
 export { qrMatrix };
 
 /* ── Fechas sugeridas de campañas ───────────────────────────────────────────
@@ -214,6 +215,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:0}
 .order-state.rejected{color:var(--muted)}
 .order-actions{display:flex;justify-content:flex-end;gap:10px;white-space:nowrap}
 .order-state.paid{color:#0f5c7a}
+.order-state.ready{color:var(--ok)}
 /* ── nueva orden: tarjetas con foto ── */
 .neworder{display:grid;gap:18px;grid-template-columns:minmax(0,1.45fr) minmax(280px,1fr);align-items:start}
 .neworder-main,.neworder-side{min-width:0}
@@ -395,6 +397,12 @@ input,select,textarea{font-size:16px;padding:10px 12px}
 .toast{bottom:calc(84px + env(safe-area-inset-bottom))}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/* ── comanda térmica 58/80 mm: solo el pre dinámico llega al papel ── */
+@media print{
+  body{background:#fff}
+  body>*:not(.print-ticket){display:none!important}
+  .print-ticket{display:block!important;margin:0;font-family:monospace;font-size:11px;line-height:1.25;white-space:pre}
+}
 `;
 
 /* Runtime del navegador: se serializa con String() y se inyecta sin build. */
@@ -404,6 +412,9 @@ function runtime() {
   const toastEl = document.getElementById("toast");
   const qrFn = window.__qrPanel;
   const datesFn = window.__panelDates;
+  const ticketFn = window.__panelTicket;
+  const columnsFn = window.__panelColumns;
+  const heightFn = window.__panelHeight;
   let me = null, V = null, tab = "products", search = "", viewToken = 0;
   let cats = [], prods = [], catalog = null, catalogVersion = null;
   let pendingOrders = 0, pendingNote = null;
@@ -481,11 +492,26 @@ function runtime() {
       return hex.slice(0, 8) + "-" + hex.slice(8, 12) + "-" + hex.slice(12, 16) + "-" + hex.slice(16, 20) + "-" + hex.slice(20);
     } catch { return "k-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10); }
   }
-  const POS_STATE = { pending: "Pendiente", confirmed: "Confirmado · falta cobro", paid: "Pagado", rejected: "Rechazado" };
+  const POS_STATE = { pending: "Pendiente · sin comanda", confirmed: "Confirmado · falta cobro", paid: "Pago confirmado", ready: "Listo para avisar", rejected: "Rechazado" };
   const POS_SOURCE = { web: "Web", caja: "Caja", mesero: "Mesero", mesa: "Mesa" };
+  const POS_PAYMENT = { cash: "efectivo", transfer: "transferencia", payphone: "tarjeta Payphone" };
   const isPosOrder = o => !!o && (o.sede_id != null || o.total_cents != null);
   const posMoney = o => Number.isFinite(Number(o?.total_cents)) ? money(Number(o.total_cents) / 100) : money(o?.total);
   const posName = o => String(o?.customer_name || o?.client_name || "").trim();
+  const posPhone = o => {
+    const digits = String(o?.customer_phone || o?.client_phone || "").replace(/\D/g, "");
+    return /^\d{8,15}$/.test(digits) ? digits : "";
+  };
+  const sedeNameOf = (id, sedeName) => String((sedeName && sedeName(id)) || id || "").trim();
+  // Aviso manual para pedido listo: pedido y sede, sin cédula/RUC, correo ni dirección.
+  function posWaLink(o, sedeName) {
+    const phone = posPhone(o);
+    if (!phone) return "";
+    const place = sedeNameOf(o.sede_id, sedeName);
+    const text = "Hola" + (posName(o) ? " " + posName(o) : "") +
+      ", tu pedido " + orderCode(o) + (place ? " de " + place : "") + " está listo. Te esperamos.";
+    return "https://wa.me/" + phone + "?text=" + encodeURIComponent(text);
+  }
   const itemName = i => String(i?.name ?? i?.nombre ?? "Producto");
   const productImage = p => {
     const list = Array.isArray(p?.images) ? p.images : Array.isArray(p?.imagenes) ? p.imagenes : [];
@@ -1232,21 +1258,35 @@ function runtime() {
       if (order.payment_method === "payphone") {
         actions.append(h("span", { class: "hint", text: "Esperando confirmación de Payphone" }));
       } else {
-        actions.append(btn(order.payment_method === "transfer" ? "Confirmar transferencia" : "Cobrar efectivo", "btn primary small", ev => payPosOrder(order, "cash", ev.currentTarget, reload)));
+        const transfer = order.payment_method === "transfer";
+        actions.append(btn(transfer ? "Confirmar transferencia" : "Cobrar efectivo", "btn primary small",
+          ev => payPosOrder(order, transfer ? "transfer" : "cash", ev.currentTarget, reload)));
         if (order.source !== "web" && me?.payment_mode === "live") actions.append(btn("Payphone", "btn small", ev => payPosOrder(order, "payphone", ev.currentTarget, reload)));
       }
       actions.append(btn("Rechazar", "btn ghost small", ev => run("reject", ev)));
     }
-    if (order.status === "paid") actions.append(h("span", { class: "order-state paid", text: "En cocina · cobrada" }));
-    const place = sedeName ? sedeName(order.sede_id) : order.sede_id;
+    if (order.status === "paid" || order.status === "ready") {
+      actions.append(btn(Number(order.print_count) ? "Reimprimir comanda" : "Imprimir comanda", "btn small",
+        ev => printPosOrder(order, sedeName, ev.currentTarget, reload)));
+      if (order.status === "paid") actions.append(btn("Marcar listo", "btn primary small",
+        ev => readyPosOrder(order, ev.currentTarget, reload)));
+      else {
+        const wa = posWaLink(order, sedeName);
+        if (wa) actions.append(h("a", { class: "btn primary small", href: wa, target: "_blank", rel: "noopener", text: "Avisar por WhatsApp" }));
+      }
+    }
+    const place = sedeNameOf(order.sede_id, sedeName);
     return h("article", { class: "pos-card" },
       h("div", { class: "pos-head" },
         h("strong", { text: order.number ? "#" + order.number : "Orden" }),
         h("strong", { text: posMoney(order) })),
       h("p", { class: "pos-meta", text: [posName(order) || "Sin cliente", POS_SOURCE[order.source] || "", place, Number.isNaN(when.getTime()) ? "" : when.toLocaleString("es-EC", { dateStyle: "short", timeStyle: "short", timeZone: "America/Guayaquil" })].filter(Boolean).join(" · ") }),
       h("p", { class: "pos-meta", text: summary || "Sin ítems" }),
-      h("p", { class: "pos-meta", text: "Pago: " + ({ cash: "efectivo", transfer: "transferencia", payphone: "tarjeta Payphone" }[order.payment_method] || "efectivo") }),
+      h("p", { class: "pos-meta", text: "Pago: " + (POS_PAYMENT[order.payment_method] || "efectivo") }),
       h("span", { class: "order-state " + status, text: POS_STATE[status] }),
+      order.status === "pending" ? h("p", { class: "hint", text: "Sin comanda: todavía no se envió a cocina." }) : null,
+      order.status === "paid" ? h("p", { class: "hint", text: "Pago confirmado; la comanda ya está en cocina. Marca listo al entregar." }) : null,
+      order.status === "ready" ? h("p", { class: "hint", text: "Listo. El aviso por WhatsApp se abre a mano; la app no envía mensajes automáticos." }) : null,
       actions);
   }
   // Confirmar no cobra: la comanda sale solo cuando el pago queda confirmado.
@@ -1264,31 +1304,103 @@ function runtime() {
       reload();
     });
   }
-  // Cobro POS: idempotente por orden y sin asumir el resultado de Payphone.
+  // Cobro POS: idempotente por orden. Efectivo y transferencia se confirman
+  // a mano con rutas distintas; Payphone nunca se asume sin confirmación.
   function payPosOrder(order, provider, buttonEl, reload) {
-    const isCash = provider === "cash";
-    if (typeof window.confirm === "function" && !window.confirm(isCash
-      ? order.payment_method === "transfer" ? "¿Verificaste la transferencia en la cuenta? La comanda se enviará a cocina." : "¿Confirmas que recibiste el pago en efectivo de esta orden? La comanda se enviará a cocina."
-      : me?.payment_mode === "live"
-        ? "¿Abrir el pago con Payphone? La comanda se enviará a cocina solo si el pago se aprueba."
-        : "¿Simular el pago con Payphone? Esta prueba no cobra dinero; la comanda se enviará a cocina al aprobarla.")) return;
+    const manual = provider === "cash" || provider === "transfer";
+    const transfer = provider === "transfer";
+    if (typeof window.confirm === "function" && !window.confirm(transfer
+      ? "¿Verificaste la transferencia en la cuenta? La comanda se enviará a cocina."
+      : manual
+        ? "¿Confirmas que recibiste el pago en efectivo de esta orden? La comanda se enviará a cocina."
+        : me?.payment_mode === "live"
+          ? "¿Abrir el pago con Payphone? La comanda se enviará a cocina solo si el pago se aprueba."
+          : "¿Simular el pago con Payphone? Esta prueba no cobra dinero; la comanda se enviará a cocina al aprobarla.")) return;
     const key = paymentKeys.get(order.id) || uuid();
     paymentKeys.set(order.id, key);
     buttonEl.disabled = true;
-    return api("orders/" + encodeURIComponent(order.id) + (isCash ? "/pay-cash" : "/payphone"), { idempotency_key: key }, "POST").then(r => {
+    const route = manual ? (transfer ? "/pay-transfer" : "/pay-cash") : "/payphone";
+    return api("orders/" + encodeURIComponent(order.id) + route, { idempotency_key: key }, "POST").then(async r => {
+      // Compatibilidad mientras el backend suma pay-transfer: solo si la ruta
+      // todavía no existe se registra la confirmación manual existente.
+      if (transfer && (r.status === 404 || r.status === 405))
+        r = await api("orders/" + encodeURIComponent(order.id) + "/pay-cash", { idempotency_key: key }, "POST");
       buttonEl.disabled = false;
       if (r.status === 401) return goLogin("Tu sesión venció. Vuelve a entrar.");
       if (r.status !== 200) {
         if (r.status === 409) { toast("Esa orden ya cambió de estado.", true); return reload(); }
         return toast(errMsg(r, "No pudimos registrar el cobro."), true);
       }
-      if (!isCash) {
+      if (!manual) {
         const url = safeUrl(r.data?.payment_url);
         if (r.data?.status === "paid") toast("Pago confirmado. La comanda ya está en cocina.");
         else if (url) { window.open(url, "_blank", "noopener"); toast("Pago abierto. La comanda sale cuando Payphone confirme; verifica en Cocina."); }
         else toast("Pago iniciado. La comanda saldrá cuando se confirme.");
-      } else toast("Cobrado. La comanda ya está en cocina; imprímela desde Cocina.");
+      } else toast((transfer ? "Transferencia confirmada." : "Cobrado.") + " La comanda ya está en cocina; imprímela desde Cocina o aquí.");
       paymentKeys.delete(order.id);
+      reload();
+    });
+  }
+  // paid → ready: solo el operador autorizado; el servidor pone la marca de tiempo.
+  function readyPosOrder(order, buttonEl, reload) {
+    if (typeof window.confirm === "function" && !window.confirm("¿Marcar esta orden como lista para avisar al cliente?")) return;
+    buttonEl.disabled = true;
+    return api("orders/" + encodeURIComponent(order.id) + "/ready", {}, "POST").then(r => {
+      buttonEl.disabled = false;
+      if (r.status === 401) return goLogin("Tu sesión venció. Vuelve a entrar.");
+      if (r.status === 404 || r.status === 405) return toast("Esta versión del panel todavía no permite marcar listo.", true);
+      if (r.status === 409) { toast("Esa orden ya cambió de estado.", true); return reload(); }
+      if (r.status !== 200) return toast(errMsg(r, "No pudimos marcar la orden como lista."), true);
+      toast("Orden lista. Abre el enlace de WhatsApp para avisar al cliente.");
+      reload();
+    });
+  }
+  function paperWidth() {
+    try { return localStorage.getItem("panel.paperWidth") === "58" ? 58 : 80; } catch { return 80; }
+  }
+  // Comanda térmica desde esta PC/estación. Devuelve true solo si el navegador
+  // abrió su diálogo; el acuse se registra después y nunca afirma papel impreso.
+  function printPosTicket(order, sedeName) {
+    const paper = paperWidth();
+    const width = typeof columnsFn === "function" ? columnsFn(paper) : 32;
+    const printable = Object.assign({}, order, {
+      sede_nombre: sedeNameOf(order.sede_id, sedeName),
+      items: (Array.isArray(order.items) ? order.items : []).map(item => Object.assign({}, item, {
+        nombre: itemName(item),
+        variant: [item.variant_id, item.note ? "Nota: " + item.note : ""].filter(Boolean).join(" · "),
+      })),
+    });
+    const lines = typeof ticketFn === "function"
+      ? ticketFn(printable, { store: me?.store?.store_name || me?.store?.name || "", width })
+      : ["COMANDA " + orderCode(order)];
+    const height = typeof heightFn === "function" ? heightFn(lines.length) : Math.max(50, lines.length * 4 + 8);
+    const style = document.createElement("style");
+    style.textContent = "@page{size:" + paper + "mm " + height + "mm;margin:3mm}";
+    const pre = document.createElement("pre");
+    pre.className = "print-ticket";
+    pre.textContent = lines.join("\n");
+    document.body.append(style, pre);
+    let opened = false;
+    try { window.print(); opened = true; } catch { opened = false; }
+    window.setTimeout(() => { pre.remove(); style.remove(); }, 1000);
+    return opened;
+  }
+  function printPosOrder(order, sedeName, buttonEl, reload) {
+    if (Number(order.print_count) && typeof window.confirm === "function" &&
+      !window.confirm("Esta comanda ya tiene " + Number(order.print_count) + " acuse(s) de impresión. ¿Reimprimir?")) return;
+    buttonEl.disabled = true;
+    const opened = printPosTicket(Object.assign({}, order, { print_count: (Number(order.print_count) || 0) + 1 }), sedeName);
+    if (!opened) {
+      buttonEl.disabled = false;
+      return toast("No pudimos abrir la impresión. No se registró acuse.", true);
+    }
+    return api("kitchen/orders/" + encodeURIComponent(order.id) + "/print", { idempotency_key: uuid() }, "POST").then(r => {
+      buttonEl.disabled = false;
+      if (r.status === 401) return goLogin("Tu sesión venció. Vuelve a entrar.");
+      if (r.status !== 200) return toast("La impresión se abrió, pero no pudimos registrar el acuse. Revisa el papel.", true);
+      const count = Number(r.data?.print_count);
+      if (Number.isFinite(count)) order.print_count = count;
+      toast("Acuse registrado. Revisa la comanda en la impresora; la app no confirma el papel.");
       reload();
     });
   }
@@ -1307,7 +1419,7 @@ function runtime() {
     const posSection = h("section", {},
       h("div", { class: "page-head" }, h("div", {},
         h("h2", { text: "Órdenes con sede" }),
-        h("p", { class: "muted small", text: "Web y caja. Confirmar no cobra; la comanda sale al quedar pagada." }))),
+        h("p", { class: "muted small", text: "Web y caja. Confirmar no cobra; la comanda sale al quedar pagada. Los pedidos listos se avisan a mano por WhatsApp." }))),
       posBox);
     posSection.hidden = true;
     function orderRow(o) {
@@ -1365,9 +1477,10 @@ function runtime() {
     }
     async function load(nextOffset = 0) {
       offset = Math.max(0, nextOffset); list.replaceChildren(h("p", { class: "empty", text: "Cargando pedidos…" }));
-      const [r, posR, sedeR] = await Promise.all([
+      const [r, posR, readyR, sedeR] = await Promise.all([
         api("orders?offset=" + offset + "&limit=20"),
         api("pos/orders?status=open&limit=50"),
+        api("pos/orders?status=ready&limit=30"),
         api("sedes"),
       ]);
       if (r.status === 401) return goLogin("Tu sesión venció. Vuelve a entrar.");
@@ -1381,8 +1494,15 @@ function runtime() {
       // El dueño ve todas las sedes; un operador autorizado ve las suyas. Sin sede: todas.
       const sedeNames = new Map((sedeR.status === 200 && Array.isArray(sedeR.data?.sedes) ? sedeR.data.sedes : []).map(s => [s.id, s.nombre || s.id]));
       const openPos = posR.status === 200 && Array.isArray(posR.data?.orders) ? posR.data.orders : [];
-      posBox.replaceChildren(...openPos.map(o => posOrderCard(o, () => load(offset), id => sedeNames.get(id) || id)));
-      posSection.hidden = !openPos.length;
+      const readyPos = readyR.status === 200 && Array.isArray(readyR.data?.orders) ? readyR.data.orders : [];
+      const seenPos = new Set();
+      const visiblePos = openPos.concat(readyPos).filter(o => {
+        if (!o || seenPos.has(o.id)) return false;
+        seenPos.add(o.id);
+        return true;
+      });
+      posBox.replaceChildren(...visiblePos.map(o => posOrderCard(o, () => load(offset), id => sedeNames.get(id) || id)));
+      posSection.hidden = !visiblePos.length;
       page.textContent = total ? (offset + 1) + "–" + Math.min(offset + orders.length, total) + " de " + total : "0 pedidos";
       prev.disabled = offset === 0; next.disabled = offset + orders.length >= total;
     }
@@ -1408,7 +1528,7 @@ function runtime() {
     st.sede_id = typeof st.sede_id === "string" ? st.sede_id : "";
     st.items = Array.isArray(st.items) ? st.items : [];
     st.key = typeof st.key === "string" ? st.key : "";
-    st.filter = ["open", "pending", "confirmed", "paid", "all"].includes(st.filter) ? st.filter : "open";
+    st.filter = ["open", "pending", "confirmed", "paid", "ready", "all"].includes(st.filter) ? st.filter : "open";
     st.pick = st.pick || null;
     return st;
   }
@@ -1641,7 +1761,7 @@ function runtime() {
     }
 
     const filters = h("div", { class: "subtabs", role: "tablist", "aria-label": "Estado de las órdenes" });
-    const FILTERS = [["open", "Por cobrar"], ["pending", "Pendientes"], ["confirmed", "Falta cobro"], ["paid", "Pagados"], ["all", "Todos"]];
+    const FILTERS = [["open", "Por cobrar"], ["pending", "Pendientes"], ["confirmed", "Falta cobro"], ["paid", "Pagados"], ["ready", "Listos"], ["all", "Todos"]];
     function paintFilter() {
       filters.replaceChildren(...FILTERS.map(([id, label]) =>
         h("button", { type: "button", class: "subtab" + (st.filter === id ? " active" : ""), role: "tab", "aria-selected": String(st.filter === id), onclick: () => { st.filter = id; paintFilter(); loadOrders(); } }, label)));
@@ -2866,6 +2986,9 @@ export function jsonInline(obj) {
 // Una sola copia del código cliente: se serializa una vez por isolate.
 const QR_SRC = String(qrMatrix);
 const DATE_SRC = String(campaignDates);
+const TICKET_SRC = String(ticketLines);
+const COLUMNS_SRC = String(ticketColumns);
+const HEIGHT_SRC = String(ticketPageHeight);
 const MAIN_SRC = String(runtime);
 
 export function renderPage(site) {
@@ -2889,7 +3012,10 @@ export function renderPage(site) {
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 <script id="panelData">window.__PANEL__=${jsonInline({ slug, host })};</script>
 <script id="panelQr">var __name=function(f){return f};var __qr=${QR_SRC};window.__qrPanel=__qr;
-var __dates=${DATE_SRC};window.__panelDates=__dates;</script>
+var __dates=${DATE_SRC};window.__panelDates=__dates;
+var __ticket=${TICKET_SRC};window.__panelTicket=__ticket;
+var __columns=${COLUMNS_SRC};window.__panelColumns=__columns;
+var __height=${HEIGHT_SRC};window.__panelHeight=__height;</script>
 <script id="panelMain">${MAIN_SRC}
 runtime();</script>
 </body>

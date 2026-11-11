@@ -26,7 +26,7 @@ export async function renderKitchenPage(request, env, site) {
   </div>
   <p class="status" id="kdsStatus" role="status" aria-live="polite">Cargando órdenes pagadas…</p>
   <section id="kds" class="grid" aria-live="polite"></section>
-  <p class="hint">La cocina solo recibe órdenes pagadas. La app registra el acuse de impresión, pero no puede confirmar que la impresora haya sacado el papel.</p>
+  <p class="hint">La cocina solo recibe órdenes pagadas. Imprime desde una PC o estación con impresora térmica de 58 u 80 mm; no necesitas la tablet ASUS. La app registra el acuse de impresión, pero no puede confirmar que la impresora haya sacado el papel.</p>
 </main>
 <div id="kdsToast" class="toast" role="status" aria-live="polite"></div>
 <div class="print-only"><pre id="kdsTicket"></pre></div>
@@ -240,25 +240,34 @@ function kitchenRuntime() {
     if (printing) return;
     printing = order.id;
     if (buttonEl) buttonEl.disabled = true;
+    // Primero se abre la impresión. Si el navegador falla, no se registra un
+    // acuse que parezca una comanda impresa.
+    const opened = printTicket(order, (Number(order.print_count) || 0) + 1);
+    if (!opened) {
+      printing = "";
+      if (buttonEl && buttonEl.isConnected) buttonEl.disabled = false;
+      return toast("No pudimos abrir la impresión. No se registró acuse.", true);
+    }
     const result = await call("kitchen/orders/" + encodeURIComponent(order.id) + "/print", { idempotency_key: uuid() });
     printing = "";
     if (buttonEl && buttonEl.isConnected) buttonEl.disabled = false;
     if (result.status === 401) return messageView("Tu sesión venció. Vuelve a entrar al panel.", true);
     if (result.status !== 200) {
-      toast(message(result, "No pudimos registrar el acuse de la comanda."), true);
+      toast("La impresión se abrió, pero no pudimos registrar el acuse. Revisa el papel.", true);
       return;
     }
     const count = Number(result.data?.print_count);
     order.print_count = Number.isFinite(count) ? count : (Number(order.print_count) || 0) + 1;
     render();
-    printTicket(order);
     // Nunca se afirma impresión física: solo queda el acuse del servidor.
     toast("Acuse registrado (" + order.print_count + ") para " + printOrderTitle(order) + ". Revisa el papel en la impresora.");
   }
-  function printTicket(order) {
+  // Devuelve true solo si el navegador abrió su diálogo de impresión.
+  function printTicket(order, copy) {
     const paper = paperWidth();
     const width = typeof columnsFn === "function" ? columnsFn(paper) : 32;
     const printable = Object.assign({}, order, {
+      print_count: Number(copy) || Number(order.print_count) || 0,
       items: (Array.isArray(order.items) ? order.items : []).map(item => Object.assign({}, item, {
         nombre: text(item.name || item.nombre) || "Producto",
         variant: [item.variant_id, item.note ? "Nota: " + text(item.note) : ""].filter(Boolean).join(" · "),
@@ -270,7 +279,7 @@ function kitchenRuntime() {
     const height = typeof heightFn === "function" ? heightFn(lines.length) : Math.max(50, lines.length * 4 + 8);
     if (printCss) printCss.textContent = "@page{size:" + paper + "mm " + height + "mm;margin:3mm}";
     ticketEl.textContent = lines.join("\n");
-    try { window.print(); } catch { toast("No pudimos abrir la impresión desde este navegador.", true); }
+    try { window.print(); return true; } catch { return false; }
   }
   async function load(reset) {
     if (loading || !sede) return;

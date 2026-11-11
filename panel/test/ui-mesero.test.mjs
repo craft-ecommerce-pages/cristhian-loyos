@@ -134,6 +134,28 @@ test("Pedidos muestra la comanda confirmada sin botón de impresión antes de co
   assert.equal(root.textContent.includes("Imprimir"), false, "no se imprime una orden sin pagar");
 });
 
+test("una transferencia confirmada y un pedido listo muestran sus acciones honestas", async () => {
+  const transfer = {
+    ...confirmedOrder, id: "orden-transfer", number: 32, payment_method: "transfer",
+  };
+  const ready = {
+    ...confirmedOrder, id: "orden-lista", number: 33, status: "ready", client_name: "Andrea",
+    customer_phone: "0991234567", print_count: 0,
+  };
+  const { root } = await startMesero({ orders: [transfer, ready] });
+  assert.match(root.textContent, /Confirmar transferencia/);
+  assert.match(root.textContent, /Listo para avisar/);
+  assert.match(root.textContent, /La app no envía mensajes solo|no envía mensajes/);
+  const link = find(root, node => node.tagName === "a" && node.textContent === "Avisar por WhatsApp");
+  assert.ok(link, "el aviso listo es un enlace manual");
+  const href = link.getAttribute("href");
+  assert.match(href, /^https:\/\/wa\.me\/0991234567\?text=/);
+  const message = decodeURIComponent(href.split("?text=")[1]);
+  assert.match(message, /pedido #33/);
+  assert.match(message, /Centro/);
+  assert.doesNotMatch(message, /RUC|cédula|cedula|correo|dirección|direccion/i);
+});
+
 test("Nuevo pedido pinta tarjetas con imagen y fallback, y agrega al carrito", async () => {
   const { root, doc, toast } = await startMesero();
   const nav = find(root, node => node.tagName === "button" && node.textContent === "Nuevo pedido");

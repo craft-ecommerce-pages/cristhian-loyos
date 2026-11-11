@@ -67,9 +67,14 @@ async function flush() {
   await new Promise(resolve => setImmediate(resolve));
 }
 
-function startKitchen(orders = [order]) {
-  const calls = [], printed = [], intervals = [];
-  let confirmAnswer = false;
+function startKitchen(input = [order]) {
+  // Copia por prueba: el acuse incrementa print_count y no debe contaminar otros tests.
+  const orders = input.map(item => ({
+    ...item,
+    items: Array.isArray(item.items) ? item.items.map(row => ({ ...row })) : item.items,
+  }));
+  const calls = [], printed = [], intervals = [], events = [];
+  let confirmAnswer = false, printThrows = false;
   const elements = new Map();
   const element = id => {
     if (!elements.has(id)) { const node = new Node(id === "kdsTicket" ? "pre" : "div"); node.id = id; elements.set(id, node); }
@@ -95,6 +100,7 @@ function startKitchen(orders = [order]) {
       return Response.json({ orders: list, next: list.length ? list[list.length - 1].comanda_at : Number(parsed.searchParams.get("since") || 0) });
     }
     if (/^\/panel\/api\/kitchen\/orders\/[^/]+\/print$/.test(parsed.pathname) && method === "POST") {
+      events.push("ack");
       const target = orders.find(o => o.id === parsed.pathname.split("/")[5]);
       target.print_count = (target.print_count || 0) + 1;
       return Response.json({ order_id: target.id, print_count: target.print_count, printed_at: Date.now() });
@@ -104,7 +110,11 @@ function startKitchen(orders = [order]) {
   const window = {
     __kdsStore: "Pizza", __kdsTicket: ticketLines, __kdsColumns: ticketColumns, __kdsHeight: ticketPageHeight,
     location: { search: "" },
-    print: () => printed.push(true),
+    print: () => {
+      events.push("print");
+      if (printThrows) throw new Error("impresión bloqueada");
+      printed.push(true);
+    },
     confirm: () => confirmAnswer,
     setTimeout() { return 0; },
     clearTimeout() {},
@@ -113,7 +123,7 @@ function startKitchen(orders = [order]) {
   new Function("window", "document", "fetch", "localStorage", "confirm", "setInterval", "clearInterval", "URLSearchParams", runtimeSource())(
     window, document, fetch, localStorage, () => confirmAnswer,
     (fn, ms) => { intervals.push({ fn, ms }); return intervals.length; }, () => {}, URLSearchParams);
-  return { document, root, calls, printed, intervals, setConfirm: v => { confirmAnswer = v; }, window };
+  return { document, root, calls, printed, intervals, events, setConfirm: v => { confirmAnswer = v; }, setPrintThrows: v => { printThrows = v; }, window };
 }
 
 function runtimeSource() {
@@ -161,7 +171,7 @@ test("carga sedes reales y muestra la comanda pagada con sus ítems", async () =
   assert.match(ctx.root.textContent, /Sin acuse/);
 });
 
-test("imprimir registra el acuse antes de llamar window.print y no afirma el papel", async () => {
+test("imprimir abre el diálogo y solo después registra el acuse; no afirma el papel", async () => {
   await prepareHtml();
   const ctx = startKitchen();
   await flush();
@@ -169,16 +179,32 @@ test("imprimir registra el acuse antes de llamar window.print y no afirma el pap
   assert.ok(print);
   print.trigger("click");
   await flush();
+  assert.deepEqual(ctx.events, ["print", "ack"], "primero el diálogo, luego el acuse");
   const ack = ctx.calls.find(call => call.path === "/panel/api/kitchen/orders/orden-1/print");
-  assert.ok(ack, "primero registra el acuse");
+  assert.ok(ack);
   assert.match(ack.body.idempotency_key, /^[A-Za-z0-9_.:-]{8,100}$/);
-  assert.equal(ctx.printed.length, 1, "después abre la impresión del navegador");
+  assert.equal(ctx.printed.length, 1);
   assert.match(ctx.root.textContent, /Acuse ×1/);
   assert.match(ctx.root.textContent, /Reimprimir/);
   const toast = ctx.document.getElementById("kdsToast");
   assert.match(toast.textContent, /Acuse registrado \(1\)/);
   assert.match(toast.textContent, /Revisa el papel en la impresora/);
   assert.doesNotMatch(toast.textContent, /impreso correctamente|impresión exitosa|papel impreso/);
+});
+
+test("si el navegador no abre la impresión no se registra un falso acuse", async () => {
+  await prepareHtml();
+  const ctx = startKitchen();
+  await flush();
+  ctx.setPrintThrows(true);
+  const print = find(ctx.root, node => node.tagName === "button" && node.textContent === "Imprimir comanda");
+  print.trigger("click");
+  await flush();
+  assert.deepEqual(ctx.events, ["print"], "el acuse no se intenta");
+  assert.equal(ctx.calls.some(call => call.path.includes("/print")), false);
+  const toast = ctx.document.getElementById("kdsToast");
+  assert.match(toast.textContent, /No pudimos abrir la impresión\. No se registró acuse\./);
+  assert.match(ctx.root.textContent, /Sin acuse/);
 });
 
 test("reimprimir exige confirmación explícita y no repite el acuse si se cancela", async () => {

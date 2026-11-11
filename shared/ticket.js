@@ -82,6 +82,7 @@ export function ticketLines(order, { store = "", width = 32, now } = {}) {
   else if (mode === "pickup" || mode === "retiro") push("Para llevar");
   else if (mode === "delivery" || mode === "domicilio") push("Domicilio");
   push(`${date} ${hour}`);
+  if (value.sede_nombre) push(`Sede: ${String(value.sede_nombre)}`);
   if (Number(value.print_count) > 1)
     centered(`COPIA ${Math.floor(Number(value.print_count))}`);
   lines.push("-".repeat(columns));

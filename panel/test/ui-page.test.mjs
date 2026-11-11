@@ -102,28 +102,43 @@ const PRODUCTS = [
     categories: ["bebidas"] },
 ];
 
-function startPanel() {
-  const doc = new Document(), calls = [];
-  let confirmAnswer = true;
+const DEFAULT_POS_ORDERS = [
+  { id: "o1", number: 40, status: "pending", source: "web", sede_id: "centro", total_cents: 950, currency: "USD",
+    created_at: 0, customer_name: "Ana", items: [{ name: "Pizza margarita", qty: 1, unit_cents: 950 }] },
+  { id: "o2", number: 41, status: "confirmed", source: "caja", sede_id: "centro", total_cents: 225, currency: "USD",
+    created_at: 0, customer_name: "Luis", items: [{ name: "Jugo natural", qty: 1, unit_cents: 225 }] },
+];
+
+function startPanel({ posOrders = DEFAULT_POS_ORDERS } = {}) {
+  const doc = new Document(), calls = [], events = [];
+  let confirmAnswer = true, printThrows = false;
   const fetch = async (url, init = {}) => {
-    const path = new URL(String(url), "https://pizza.craft-systems.com").pathname + new URL(String(url), "https://pizza.craft-systems.com").search;
+    const parsed = new URL(String(url), "https://pizza.craft-systems.com");
+    const path = parsed.pathname + parsed.search;
     const method = init.method || "GET";
     const body = init.body ? JSON.parse(init.body) : null;
     calls.push({ path, method, body });
     if (path === "/panel/api/me") return Response.json({ email: "dueno@pizza.ec", store: { store_name: "Pizza", currency: "USD" }, features: { loyalty: false } });
     if (path === "/panel/api/catalog") return Response.json({ version: 1, categories: [{ slug: "pizzas", name: "Pizzas" }], products: PRODUCTS, variant_groups: [] });
     if (path === "/panel/api/sedes") return Response.json({ sedes: [{ id: "centro", nombre: "Centro", activa: true }] });
-    if (path.startsWith("/panel/api/pos/orders")) return Response.json({
-      orders: [
-        { id: "o1", number: 40, status: "pending", source: "web", sede_id: "centro", total_cents: 950, currency: "USD",
-          created_at: 0, customer_name: "Ana", items: [{ name: "Pizza margarita", qty: 1, unit_cents: 950 }] },
-        { id: "o2", number: 41, status: "confirmed", source: "caja", sede_id: "centro", total_cents: 225, currency: "USD",
-          created_at: 0, customer_name: "Luis", items: [{ name: "Jugo natural", qty: 1, unit_cents: 225 }] },
-      ],
-    });
+    if (parsed.pathname === "/panel/api/pos/orders") {
+      const status = parsed.searchParams.get("status");
+      const list = status === "open"
+        ? posOrders.filter(order => order.status === "pending" || order.status === "confirmed")
+        : status && status !== "all"
+          ? posOrders.filter(order => order.status === status)
+          : posOrders;
+      return Response.json({ orders: list });
+    }
     if (path === "/panel/api/mesero/orders" && method === "POST") return Response.json({ id: "nuevo", number: 42, status: "pending", total_cents: 950 }, { status: 201 });
-    if (/^\/panel\/api\/orders\/[^/]+\/(confirm|reject|pay-cash|payphone)$/.test(path) && method === "POST") {
-      return Response.json({ order: { id: path.split("/")[4], status: path.endsWith("confirm") ? "confirmed" : "paid" } });
+    if (/^\/panel\/api\/kitchen\/orders\/[^/]+\/print$/.test(parsed.pathname) && method === "POST") {
+      events.push("ack");
+      return Response.json({ order_id: parsed.pathname.split("/")[5], print_count: 1, printed_at: Date.now() });
+    }
+    if (/^\/panel\/api\/orders\/[^/]+\/(confirm|reject|pay-cash|pay-transfer|ready|payphone)$/.test(parsed.pathname) && method === "POST") {
+      const action = parsed.pathname.split("/").pop();
+      const status = action === "confirm" ? "confirmed" : action === "ready" ? "ready" : action === "reject" ? "rejected" : "paid";
+      return Response.json({ order: { id: parsed.pathname.split("/")[4], status } });
     }
     if (path.startsWith("/panel/api/orders")) return Response.json({ orders: [], total: 0, pending: 0 });
     return Response.json({ error: "sin_mock" }, { status: 500 });
@@ -133,22 +148,35 @@ function startPanel() {
     scrollTo() {},
     confirm: () => confirmAnswer,
     open() {},
+    setTimeout: () => 0,
+    print: () => { events.push("print"); if (printThrows) throw new Error("impresión bloqueada"); },
   };
   const location = { pathname: "/panel", host: "pizza.craft-systems.com", origin: "https://pizza.craft-systems.com", search: "" };
   new Function("window", "document", "fetch", "location", "confirm", "setTimeout", "clearTimeout", runtimeSource())(
     window, doc, fetch, location, () => confirmAnswer, () => 0, () => {},
   );
-  return { doc, calls, setConfirm: value => { confirmAnswer = value; } };
+  return {
+    doc, calls, events,
+    setConfirm: value => { confirmAnswer = value; },
+    setPrintThrows: value => { printThrows = value; },
+  };
 }
 
-async function openNewOrder() {
-  const context = startPanel();
+async function openNewOrder(options) {
+  const context = startPanel(options);
   await flush();
   const nav = find(context.doc.body, node => node.tagName === "button" && node.textContent === "Nueva orden");
   assert.ok(nav, "existe la entrada Nueva orden en Ventas");
   nav.trigger("click");
   await flush();
   return context;
+}
+
+async function showFilter(doc, label) {
+  const tab = find(doc.body, node => node.tagName === "button" && node.classList.contains("subtab") && node.textContent === label);
+  assert.ok(tab, "existe el filtro " + label);
+  tab.trigger("click");
+  await flush();
 }
 
 test("Nueva orden pinta tarjetas con imagen, fallback y etiquetas accesibles", async () => {
@@ -219,6 +247,108 @@ test("cobrar en efectivo envía idempotency_key y avisa que la comanda ya está 
   assert.ok(paid, "el cobro usa la ruta POS");
   assert.match(paid.body.idempotency_key, /^[A-Za-z0-9_.:-]{8,100}$/);
   assert.match(doc.body.textContent, /Cobrado\. La comanda ya está en cocina/);
+});
+
+test("caja confirma transferencia por pay-transfer y efectivo por pay-cash", async () => {
+  const { doc, calls } = await openNewOrder({
+    posOrders: [
+      { id: "o3", number: 43, status: "confirmed", source: "web", sede_id: "centro", total_cents: 950,
+        currency: "USD", created_at: 0, customer_name: "Ana", payment_method: "transfer",
+        items: [{ name: "Pizza margarita", qty: 1, unit_cents: 950 }] },
+    ],
+  });
+  const transfer = find(doc.body, node => node.tagName === "button" && node.textContent === "Confirmar transferencia");
+  assert.ok(transfer, "la transferencia tiene su propia confirmación manual");
+  transfer.trigger("click");
+  await flush();
+  const call = calls.find(item => item.path === "/panel/api/orders/o3/pay-transfer" && item.method === "POST");
+  assert.ok(call, "usa la ruta de transferencia");
+  assert.match(call.body.idempotency_key, /^[A-Za-z0-9_.:-]{8,100}$/);
+  assert.equal(calls.some(item => item.path === "/panel/api/orders/o3/pay-cash"), false);
+  assert.match(doc.body.textContent, /Transferencia confirmada\./);
+});
+
+test("un pedido listo ofrece wa.me manual con pedido y sede, sin datos fiscales", async () => {
+  const { doc } = await openNewOrder({
+    posOrders: [
+      { id: "o4", number: 44, status: "ready", source: "web", sede_id: "centro", total_cents: 950,
+        currency: "USD", created_at: 0, customer_name: "Ana", customer_phone: "0991234567",
+        items: [{ name: "Pizza margarita", qty: 1, unit_cents: 950 }] },
+    ],
+  });
+  await showFilter(doc, "Listos");
+  assert.match(doc.body.textContent, /Listo para avisar/);
+  assert.match(doc.body.textContent, /no envía mensajes automáticos/);
+  const link = find(doc.body, node => node.tagName === "a" && node.textContent === "Avisar por WhatsApp");
+  assert.ok(link, "el aviso es un enlace manual");
+  const href = link.getAttribute("href");
+  assert.match(href, /^https:\/\/wa\.me\/0991234567\?text=/);
+  const message = decodeURIComponent(href.split("?text=")[1]);
+  assert.match(message, /pedido #44/);
+  assert.match(message, /Centro/);
+  assert.match(message, /está listo/);
+  assert.doesNotMatch(message, /RUC|cédula|cedula|correo|dirección|direccion/i);
+});
+
+test("marcar listo usa la ruta autenticada y no adelanta el estado", async () => {
+  const { doc, calls } = await openNewOrder({
+    posOrders: [
+      { id: "o5", number: 45, status: "paid", source: "caja", sede_id: "centro", total_cents: 950,
+        currency: "USD", created_at: 0, customer_name: "Luis", payment_method: "cash",
+        items: [{ name: "Jugo natural", qty: 1, unit_cents: 950 }] },
+    ],
+  });
+  await showFilter(doc, "Pagados");
+  assert.match(doc.body.textContent, /Pago confirmado/);
+  assert.equal(doc.body.textContent.includes("Listo para avisar"), false, "paid no se pinta como listo");
+  const ready = find(doc.body, node => node.tagName === "button" && node.textContent === "Marcar listo");
+  assert.ok(ready);
+  ready.trigger("click");
+  await flush();
+  assert.ok(calls.some(item => item.path === "/panel/api/orders/o5/ready" && item.method === "POST"));
+  assert.match(doc.body.textContent, /Orden lista\. Abre el enlace de WhatsApp/);
+});
+
+test("la comanda de caja abre la impresión antes de registrar el acuse", async () => {
+  const { doc, calls, events } = await openNewOrder({
+    posOrders: [
+      { id: "o6", number: 46, status: "paid", source: "caja", sede_id: "centro", total_cents: 950,
+        currency: "USD", created_at: 0, customer_name: "Ana", print_count: 0,
+        items: [{ name: "Pizza margarita", qty: 1, unit_cents: 950 }] },
+    ],
+  });
+  await showFilter(doc, "Pagados");
+  const print = find(doc.body, node => node.tagName === "button" && node.textContent === "Imprimir comanda");
+  assert.ok(print);
+  print.trigger("click");
+  await flush();
+  assert.deepEqual(events, ["print", "ack"], "si no se abre el diálogo, no hay acuse");
+  const ack = calls.find(item => item.path === "/panel/api/kitchen/orders/o6/print" && item.method === "POST");
+  assert.ok(ack);
+  assert.match(ack.body.idempotency_key, /^[A-Za-z0-9_.:-]{8,100}$/);
+  const toast = doc.getElementById("toast");
+  assert.match(toast.textContent, /Acuse registrado/);
+  assert.match(toast.textContent, /no confirma el papel/);
+  assert.doesNotMatch(toast.textContent, /impreso correctamente|impresión exitosa|papel impreso/);
+});
+
+test("si la impresión no se abre, la caja no registra un falso acuse", async () => {
+  const context = await openNewOrder({
+    posOrders: [
+      { id: "o7", number: 47, status: "paid", source: "caja", sede_id: "centro", total_cents: 950,
+        currency: "USD", created_at: 0, customer_name: "Ana", print_count: 0,
+        items: [{ name: "Pizza margarita", qty: 1, unit_cents: 950 }] },
+    ],
+  });
+  await showFilter(context.doc, "Pagados");
+  context.setPrintThrows(true);
+  const print = find(context.doc.body, node => node.tagName === "button" && node.textContent === "Imprimir comanda");
+  print.trigger("click");
+  await flush();
+  assert.deepEqual(context.events, ["print"]);
+  assert.equal(context.calls.some(item => item.path.includes("/print")), false);
+  const toast = context.doc.getElementById("toast");
+  assert.match(toast.textContent, /No pudimos abrir la impresión\. No se registró acuse\./);
 });
 
 test("Pedidos también muestra las órdenes web/caja con sede", async () => {
