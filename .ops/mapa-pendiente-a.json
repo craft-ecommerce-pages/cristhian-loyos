@@ -1,0 +1,18 @@
+{
+  "fecha": "2026-11-10",
+  "origen": "image_gen integrado",
+  "alcance": ["tradicional-majado-*", "tradicional-bolon-*", "tradicional-tortillas-*"],
+  "excluidos_v2": ["tradicional-majado-camaron", "tradicional-bolon-mixto", "tradicional-tortillas-camaron", "tradicional-arroz-moro-ceviche-mixto"],
+  "items": {
+    "tradicional-majado-huevo": {"foto": "media/generated/tradicional-majado-huevo-v3.webp", "motivo": "majado.webp omite café/huevo verificable", "hash": "f4e521d3bf9f99205a116b830b4cbfc0f391ae0b5bc1ec45c42a03cdf26b1254", "resultado_visual": "OK-generada"},
+    "tradicional-majado-queso": {"foto": "media/generated/tradicional-majado-queso-v3.webp", "motivo": "majado.webp omite queso/huevo verificable", "hash": "6e5c09c8fbfa5c0d7dd56068c7bb99a80ad5f8130855e384e33c18d93c007c3b", "resultado_visual": "OK-generada"},
+    "tradicional-majado-chicharron": {"foto": "media/generated/tradicional-majado-chicharron-v3.webp", "motivo": "majado.webp omite chicharrón/café/huevo verificable", "hash": "85a43200396b511aea26965808b94a48279aebbf7d8da4681fb1e03487a17aa4", "resultado_visual": "OK-generada"},
+    "tradicional-majado-ceviche": {"foto": "media/generated/tradicional-majado-ceviche-v3.webp", "motivo": "majado.webp omite ceviche/café/huevo verificable", "hash": "e51a80b97be79038e0a0560e291bd30f252ebbbc059ec171bf2fd38f45d33499", "resultado_visual": "OK-generada"},
+    "tradicional-bolon-camaron": {"foto": "media/generated/tradicional-bolon-camaron-v3.webp", "motivo": "bolon.webp omite camarón/café", "hash": "da87c975d9d7c5de2101c4b450c4ce43bee8c9a85198f4986e35156c821e78c1", "resultado_visual": "OK-generada"},
+    "tradicional-bolon-chicharron": {"foto": "media/generated/tradicional-bolon-chicharron-v3.webp", "motivo": "bolon.webp omite chicharrón/café", "hash": "dd786a0569344707576d00ee3e27c6ae39f7ff115012050e84873641fc8f4607", "resultado_visual": "OK-generada"},
+    "tradicional-bolon-queso": {"foto": "media/generated/tradicional-bolon-queso-v3.webp", "motivo": "bolon.webp omite queso/café", "hash": "2971bb58b4fd74f07a8374aa517450d23118028a38015d7181146ffc6884d983", "resultado_visual": "OK-generada"},
+    "tradicional-tortillas-carne": {"foto": "media/generated/tradicional-tortillas-carne-v3.webp", "motivo": "tortillas.webp no verifica carne/huevo", "hash": "8aed7d45b6a9a49cac1832c0c3f5d73b84d4dd9db1d4c5cc2e1ee8d6dd344248", "resultado_visual": "OK-generada"},
+    "tradicional-tortillas-arroz-estofado": {"foto": "media/generated/tradicional-tortillas-arroz-estofado-v3.webp", "motivo": "tortillas.webp omite relleno y contiene rótulo", "hash": "2a2dbdf74765164e61e52711d7f56a15f4130b83eca5d9357bb103246f9afb6c", "resultado_visual": "OK-generada"},
+    "tradicional-tortillas-mixta": {"foto": "media/generated/tradicional-tortillas-mixta-v3.webp", "motivo": "tortillas.webp no identifica mezcla y contiene rótulo", "hash": "6116649602c6cb6721c19a0957f05d6308b594a1088144aeec94055821084c92", "resultado_visual": "OK-generada", "estado": "BLOQUEO", "bloqueo": "Descripción ambigua: confirmar composición real de mixta"}
+  }
+}
