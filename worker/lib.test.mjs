@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert";
-import { resolveSlug, render, trackingTags, SHELL_EN, esc, jsonInline, sanitizeBrandSub, handle, siteFile, contentType, ogTags, clubBinding } from "./src/lib.js";
+import { resolveSlug, render, trackingTags, SHELL_EN, esc, jsonInline, sanitizeBrandSub, handle, siteFile, contentType, ogTags, clubBinding, receiptRedirect } from "./src/lib.js";
 
 test("/club y subrutas pasan el Request intacto al binding; sin binding sigue el menú", async () => {
   const calls = [];
@@ -89,6 +89,35 @@ test("handle: menú config-driven redirige rutas ≠ / a / (conserva query)", as
   assert.equal(out.status, 301);
   assert.equal(out.headers.location, "/?mesa=3");
   assert.equal((await handle(U("pizza.menu.test", "/index.html"), env2, "TPL")).status, 200);
+});
+
+test("handle: /gracias sirve el recibo con cabeceras privadas (sin caché ni indexado)", async () => {
+  const out = await handle(U("pizza.menu.test", "/gracias"), env2, "<title><!--TITLE--></title>");
+  assert.equal(out.status, 200);
+  assert.ok(out.body.includes("Pizza"));
+  assert.equal(out.headers["cache-control"], "no-store, max-age=0");
+  assert.equal(out.headers["referrer-policy"], "no-referrer");
+  assert.match(out.headers["x-robots-tag"], /noindex/);
+  assert.equal((await handle(U("pizza.menu.test", "/gracias/"), env2, "TPL")).status, 200);
+});
+
+test("handle: retorno de Payphone a / → 302 /gracias conservando pedido, token y resultado", async () => {
+  const out = await handle(U("pizza.menu.test", "/?pago=pendiente&pedido=ord-1&token=tok-1&utm=x"), env2, "TPL");
+  assert.equal(out.status, 302);
+  assert.equal(out.headers.location, "/gracias?pedido=ord-1&token=tok-1&pago=pendiente");
+  assert.equal(out.headers["cache-control"], "no-store");
+  // Sin token no hay recibo: el menú sigue sirviendo "/" normalmente.
+  assert.equal((await handle(U("pizza.menu.test", "/?pedido=ord-1"), env2, "TPL")).status, 200);
+});
+
+test("receiptRedirect: solo la raíz con pedido+token opacos; ignora el resto", () => {
+  assert.equal(receiptRedirect("/", "?pedido=ord-1&token=tok-1"), "/gracias?pedido=ord-1&token=tok-1");
+  assert.equal(receiptRedirect("/index.html", "?order=ord-1&order_token=tok-1&payment=rechazado"),
+    "/gracias?pedido=ord-1&token=tok-1&pago=rechazado");
+  assert.equal(receiptRedirect("/gracias", "?pedido=ord-1&token=tok-1"), null);
+  assert.equal(receiptRedirect("/", "?pedido=ord-1"), null);
+  assert.equal(receiptRedirect("/", "?token=tok-1"), null);
+  assert.equal(receiptRedirect("/", `?pedido=${"x".repeat(101)}&token=tok`), null);
 });
 
 test("ogTags: og_image > logo, description opcional, escapa", () => {

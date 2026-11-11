@@ -7,7 +7,8 @@ const vm=require('node:vm');
 const {webcrypto}=require('node:crypto');
 const source=fs.readFileSync(__dirname+'/catalog.js','utf8');
 const {checkoutOrders,ordersEndpoint,sedeList,sedeFromQuery,defaultSede,orderCartItems,
-  orderStatusLabel,orderStatusFinal,nextOrderKey}=require('./catalog.js');
+  orderStatusLabel,orderStatusFinal,nextOrderKey,transferInfo,billingFieldErrors,parseOrderReturn,
+  orderPaymentLabel,thanksRetryAllowed,thanksPurchaseEligible,thanksPollFinal}=require('./catalog.js');
 
 /* ── helpers puros ───────────────────────────────────────────────────────── */
 test('checkoutOrders: solo habilita con enabled:true y normaliza poll_ms/api_base',()=>{
@@ -61,6 +62,57 @@ test('orderStatusLabel/Final y nextOrderKey idempotente',()=>{
   assert.equal(nextOrderKey({fingerprint:'a',key:'corto'},'a','nuevo-00000000'),'nuevo-00000000');
 });
 
+test('transferInfo: solo config oficial completa; nunca inventa cuenta ni titular',()=>{
+  assert.equal(transferInfo(undefined),null);
+  assert.equal(transferInfo({}),null);
+  assert.equal(transferInfo({checkout_orders:{transfer:{enabled:false,bank:'B',account_number:'1',holder:'H'}}}),null);
+  assert.equal(transferInfo({checkout_orders:{transfer:{bank:'B',holder:'H'}}}),null); // sin cuenta
+  assert.deepEqual(transferInfo({checkout_orders:{transfer:{bank:'Banco Pichincha',account_number:'1234567890',holder:'Munch S.A.',account_type:'Ahorros'}}}),
+    {bank:'Banco Pichincha',account:'1234567890',holder:'Munch S.A.',account_type:'Ahorros'});
+  assert.equal(transferInfo({payments:{transfer:{bank:'B',account:'1',titular:'H'}}}).holder,'H');
+  assert.equal(transferInfo({bank_transfer:{banco:'B',cuenta:'1',titular:'H'}}).bank,'B');
+});
+
+test('billingFieldErrors: exige cédula/RUC, correo y dirección con mensajes claros',()=>{
+  const ok={name:'Ana Pérez',phone:'0991234567',document_type:'cedula',document_number:'0912345678',
+    email:'ana@test.com',address:'Av. Siempre Viva 123'};
+  assert.deepEqual(billingFieldErrors(ok),{});
+  assert.equal(billingFieldErrors({...ok,phone:'12'}).phone,'Ingresa un teléfono válido (7 a 15 dígitos).');
+  assert.equal(billingFieldErrors({...ok,document_type:'ruc',document_number:'0912345678'}).document_number,'El RUC debe tener 13 dígitos.');
+  assert.equal(billingFieldErrors({...ok,document_number:'09a'}).document_number,'El documento solo puede tener números.');
+  assert.equal(billingFieldErrors({...ok,email:'ana@'}).email,'Ingresa un correo electrónico válido.');
+  assert.equal(billingFieldErrors({...ok,address:' x '}).address,'Ingresa la dirección de facturación.');
+});
+
+test('parseOrderReturn: id/token opacos y alias sin exponer otros parámetros',()=>{
+  assert.deepEqual(parseOrderReturn('?pedido=ord-1&token=tok-1&pago=pendiente'),
+    {id:'ord-1',token:'tok-1',payment:'pendiente'});
+  assert.deepEqual(parseOrderReturn('?order_id=ord-1&order_token=tok-1'),{id:'ord-1',token:'tok-1',payment:''});
+  assert.equal(parseOrderReturn('?pedido=ord-1'),null);
+  assert.equal(parseOrderReturn(''),null);
+  assert.equal(parseOrderReturn(`?pedido=${'x'.repeat(101)}&token=tok`),null);
+});
+
+test('orderPaymentLabel/thanksRetryAllowed: unknown nunca se presenta como rechazo',()=>{
+  assert.equal(orderPaymentLabel({payment_method:'cash',status:'pending'}),'Pago pendiente en caja');
+  assert.equal(orderPaymentLabel({payment_method:'transfer',status:'pending'}),'Pago pendiente de verificación');
+  assert.equal(orderPaymentLabel({payment_method:'payphone',status:'pending',payment_status:'unknown'}),'Pago en verificación con Payphone');
+  assert.equal(orderPaymentLabel({payment_method:'payphone',status:'rejected',payment_status:'rejected'}),'Pago rechazado');
+  assert.equal(orderPaymentLabel({payment_method:'payphone',status:'paid'}),'Pago confirmado con Payphone');
+  const unknown={payment_method:'payphone',status:'pending',payment_status:'unknown'};
+  assert.equal(thanksRetryAllowed(unknown),false); // reintentar podría duplicar el cobro
+  assert.equal(thanksRetryAllowed({payment_method:'payphone',status:'pending',payment_status:'failed'}),true);
+  assert.equal(thanksRetryAllowed({payment_method:'payphone',status:'pending',retryable:true}),true);
+  assert.equal(thanksRetryAllowed({payment_method:'payphone',status:'paid',payment_status:'failed'}),false);
+  assert.equal(thanksRetryAllowed({payment_method:'payphone',status:'rejected',payment_status:'rejected',retryable:true}),true);
+  assert.equal(thanksRetryAllowed({payment_method:'cash',status:'pending',payment_status:'failed'}),false);
+  assert.equal(thanksPurchaseEligible({status:'paid'}),true);
+  assert.equal(thanksPurchaseEligible({status:'pending'}),false);
+  assert.equal(thanksPollFinal('ready'),true);
+  assert.equal(thanksPollFinal('paid'),false); // sigue sondeando hasta ready
+  assert.equal(thanksPollFinal('unknown'),false);
+});
+
 /* ── DOM mínimo por VM ───────────────────────────────────────────────────── */
 class Classes{constructor(...n){this.names=new Set(n);}add(...n){n.forEach(x=>this.names.add(x));}
   remove(...n){n.forEach(x=>this.names.delete(x));}contains(n){return this.names.has(n);}
@@ -77,6 +129,7 @@ class Element{
     const i=this.doc.elements.indexOf(this);if(i>=0)this.doc.elements.splice(i,1);}
   addEventListener(name,fn){this.handlers[name]=fn;}
   setAttribute(name,value){this.attributes[name]=String(value);}
+  removeAttribute(name){delete this.attributes[name];}
   focus(){this.focused=true;}
   closest(selector){let node=this;while(node){if(matches(node,selector))return node;node=node.parentNode;}return null;}
   querySelector(selector){return descendants(this).find(node=>matches(node,selector))||null;}
@@ -99,7 +152,7 @@ function matches(node,selector){
   if(selector==='#cartStep2 .step2-body')return node.classList.contains('step2-body')&&ancestor(node,'#cartStep2');
   return matchesSimple(node,selector);
 }
-function menu({checkout=true,fetchImpl,search='' }={}){
+function menu({checkout=true,fetchImpl,search='',transfer=null,path='/'}={}){
   const doc={elements:[],listeners:{},documentElement:{style:{setProperty(){}}},currentScript:{src:'https://engine.test/v1/catalog.js'}};
   doc.body=new Element(doc,'body');doc.head=new Element(doc,'head');
   doc.createElement=tag=>{const e=new Element(doc);e.tagName=tag;return e;};
@@ -122,13 +175,25 @@ function menu({checkout=true,fetchImpl,search='' }={}){
     const input=add(id,[],wrap);return {wrap,label,input};};
   const name=field('fieldName'),phone=field('fieldPhone'),address=field('fieldAddressWrap');
   address.wrap.id='fieldAddressWrap';address.input.id='fieldAddress';
+  const billingWrap=add('billingFields',['billing-fields'],stepBody);
+  const docType=add('fieldDocType',[],billingWrap),docNumber=add('fieldDocNumber',[],billingWrap);
+  const email=add('fieldEmail',[],billingWrap),billingAddress=add('fieldBillingAddress',[],billingWrap);
+  const paymentWrap=add('fieldPaymentWrap',['form-field'],stepBody);
+  const payment=add('fieldPayment',[],paymentWrap),paymentHint=add('paymentHint',[],paymentWrap);
+  const notify=add('notifyNote',['notify-note'],stepFooter);
+  const thanks=add('thanksPage',['thanks-page']);
+  for(const key of ['name','phone','document_type','document_number','email','address']){
+    void add('err-'+key,[],billingWrap);
+  }
+  void paymentHint;void notify;void thanks;void docType;
   const confirm=add('btnConfirm',[],stepFooter),bottom=add('', ['bottom-nav']),wa=add('', ['wa-float']);
   void bottom;void wa;
   const storage=new Map([['menu_cart',JSON.stringify([{key:'p1:0=Queso',id:'p1',nombre:'Pizza',precio:8,qty:2,variantes:{0:'Queso'},nota:'Sin cebolla'}])]]);
   const calls=[],opens=[],events=[];
   const products=[{id:'p1',nombre:'Pizza',precio:8,categorias:[],variantes:[{name:'Sabor',type:'option',options:['Queso','Peperoni']}]}];
   const baseConfig={store_name:'Food Trucks',locale:'es',currency:'$',whatsapp_number:'593999999999',tracking:{meta_pixel_id:'1'}};
-  if(checkout)baseConfig.checkout_orders={enabled:true,api_base:'',poll_ms:1000};
+  if(checkout)baseConfig.checkout_orders={enabled:true,api_base:'',poll_ms:5000};
+  if(transfer)baseConfig.checkout_orders.transfer=transfer;
   baseConfig.location={sedes:[{id:'sede-01',nombre:'Food truck 1',direccion:'Por confirmar'},
     {id:'sede-02',nombre:'Food truck 2',direccion:'Por confirmar'}]};
   const fetch=async(url,options)=>{
@@ -141,9 +206,11 @@ function menu({checkout=true,fetchImpl,search='' }={}){
     return {ok:result.ok??true,status:result.status??201,json:async()=>result.body??result};
   };
   // poll_ms=1000 se resuelve al instante; el timeout de abort (15s) usa temporizador real (no dispara).
-  const setTimeoutFake=(fn,ms)=>ms===1000?queueMicrotask(fn):setTimeout(fn,ms);
+  // El Sondeo de /gracias (poll_ms) se desactiva en el test: el refresco inicial ya se prueba.
+  const setTimeoutFake=(fn,ms)=>ms===5000?0:setTimeout(fn,ms);
   const ctx=vm.createContext({document:doc,window:null,crypto:webcrypto,AbortController,TextEncoder,URL,URLSearchParams,
-    location:{href:'https://menu.test/'+search,search},
+    location:{href:'https://menu.test/'+search,pathname:path,search,replace(){},assign(){}},
+    history:{pushState(){},replaceState(){}},
     localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,String(v))},
     sessionStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,String(v)),removeItem:k=>storage.delete(k)},
     fetch,open:(...a)=>{opens.push(a);return {};},setTimeout:setTimeoutFake,clearTimeout,requestAnimationFrame:fn=>fn(),
@@ -151,43 +218,71 @@ function menu({checkout=true,fetchImpl,search='' }={}){
   ctx.window=ctx;ctx.__CONFIG__=baseConfig;ctx.CraftTracking={create:()=>({track:(n,d)=>events.push([n,d])})};
   vm.runInContext(source,ctx);
   const ready=()=>new Promise(resolve=>setTimeout(resolve,0));
-  return {doc,byId,calls,opens,events,ready,step,stepBody,confirm,checkout:()=>confirm.handlers.click()};
+  return {doc,byId,calls,opens,events,ready,step,stepBody,confirm,storage,checkout:()=>confirm.handlers.click()};
 }
 
 const receipt={id:'ord-1',number:7,status:'pending',total_cents:1600,currency:'USD',order_token:'tok'};
-const handler=async url=>url.startsWith('/api/orders/')?{body:{status:'paid'}}:{status:201,body:receipt};
+const statusBody={status:'paid',number:7,total_cents:1600,currency:'USD',sede_id:'sede-01',
+  payment_method:'cash',payment_status:'paid',items:[{name:'Pizza',qty:2,unit_cents:800,subtotal_cents:1600}]};
+const handler=async url=>url.startsWith('/api/orders/')?{body:statusBody}:{status:201,body:receipt};
 
-test('checkout nativo: sede + POST /api/orders + recibo + polling, sin WhatsApp',async()=>{
+function fillBilling(m,overrides={}){
+  const set=(id,value)=>{const el=m.doc.getElementById(id);if(el)el.value=value;};
+  set('fieldName','Ana');set('fieldPhone','0991234567');
+  set('fieldDocNumber','0912345678');set('fieldEmail','ana@test.com');
+  set('fieldBillingAddress','Av. Siempre Viva 123');
+  Object.entries(overrides).forEach(([id,value])=>set(id,value));
+}
+
+test('checkout nativo: sede + datos fiscales + /api/orders + recibo /gracias, sin WhatsApp',async()=>{
   const m=menu({fetchImpl:handler});await m.ready();
   assert.equal(m.opens.length,0);
   assert.equal(m.doc.querySelectorAll('.dtog-btn[data-mode="mesa"]').length,0); // sin Mesa en web
   assert.equal(m.doc.getElementById('fieldSede').value,''); // seis sedes: exige elegir
   m.doc.getElementById('fieldSede').value='sede-02';
-  m.doc.getElementById('fieldName').value='Ana';m.doc.getElementById('fieldPhone').value='0991234567';
-  m.checkout();await m.ready();await m.ready();
+  fillBilling(m);
+  m.checkout();await m.ready();await m.ready();await m.ready();
   const post=m.calls.find(([url])=>url==='/api/orders');
   assert.ok(post);
   const body=JSON.parse(post[1].body);
   assert.equal(body.sede_id,'sede-02');assert.deepEqual(body.items,[{product_id:'p1',qty:2,variant_id:'Queso',note:'Sin cebolla'}]);
-  assert.deepEqual(body.customer,{name:'Ana',phone:'0991234567'});
+  assert.deepEqual(body.customer,{name:'Ana',phone:'0991234567',billing:{
+    document_type:'cedula',document_number:'0912345678',email:'ana@test.com',address:'Av. Siempre Viva 123'}});
   assert.match(body.idempotency_key,/^[A-Za-z0-9_.:-]{8,100}$/);
   assert.equal(m.opens.length,0); // nunca abre WhatsApp
-  assert.equal(m.doc.getElementById('webOrderReceipt').children[0].textContent,'Pedido #000007 recibido');
-  assert.match(m.doc.getElementById('webOrderStatus').textContent,/Pagado/);
+  const thanks=m.doc.getElementById('thanksPage').innerHTML;
+  assert.match(thanks,/#000007/);
+  assert.match(thanks,/Pago confirmado en caja/);
+  assert.match(thanks,/Cuando tu pedido esté listo te avisaremos por WhatsApp/);
   assert.equal(m.events.at(-1)[0],'Purchase');
+  // El recibo local no guarda cédula ni correo en sessionStorage.
+  const stored=m.storage.get('munch_order:ord-1')||'';
+  assert.ok(stored);
+  assert.doesNotMatch(stored,/0912345678|ana@test\.com/);
+});
+
+test('checkout nativo: datos fiscales inválidos bloquean el envío y marcan el campo',async()=>{
+  const m=menu({fetchImpl:handler});await m.ready();
+  m.doc.getElementById('fieldSede').value='sede-01';
+  fillBilling(m,{fieldDocNumber:'123',fieldEmail:'ana@'});
+  m.checkout();await m.ready();
+  assert.equal(m.calls.some(([url])=>url==='/api/orders'),false);
+  assert.match(m.byId.toast.textContent,/Revisa los datos de facturación/);
+  assert.equal(m.doc.getElementById('fieldDocNumber').attributes['aria-invalid'],'true');
+  assert.match(m.doc.getElementById('err-document_number').textContent,/cédula debe tener 10 dígitos/);
 });
 
 test('sede del QR (?sede=) preselecciona y se envía',async()=>{
   const m=menu({fetchImpl:handler,search:'?sede=sede-01'});await m.ready();
   assert.equal(m.doc.getElementById('fieldSede'),null);
-  m.doc.getElementById('fieldName').value='Ana';m.doc.getElementById('fieldPhone').value='099';
+  fillBilling(m);
   m.checkout();await m.ready();await m.ready();
   assert.equal(JSON.parse(m.calls[0][1].body).sede_id,'sede-01');
 });
 
 test('sin sede: no llama a la API y avisa',async()=>{
   const m=menu({fetchImpl:handler});await m.ready();
-  m.doc.getElementById('fieldName').value='Ana';m.doc.getElementById('fieldPhone').value='099';
+  fillBilling(m);
   m.checkout();await m.ready();
   assert.equal(m.calls.some(([url])=>url==='/api/orders'),false);
   assert.match(m.byId.toast.textContent,/Selecciona tu food truck/);
@@ -195,18 +290,65 @@ test('sin sede: no llama a la API y avisa',async()=>{
 
 test('reintento reutiliza idempotency_key mientras el pedido no cambie',async()=>{
   let tries=0;
-  const m=menu({fetchImpl:async url=>url.startsWith('/api/orders/')?{body:{status:'paid'}}:(++tries===1?new Error('red'):{status:201,body:receipt})});
+  const m=menu({fetchImpl:async url=>url.startsWith('/api/orders/')?{body:statusBody}:(++tries===1?new Error('red'):{status:201,body:receipt})});
   await m.ready();m.doc.getElementById('fieldSede').value='sede-01';
-  m.doc.getElementById('fieldName').value='Ana';m.doc.getElementById('fieldPhone').value='099';
+  fillBilling(m);
   m.checkout();await m.ready();await m.ready();
   m.checkout();await m.ready();await m.ready();
   const posts=m.calls.filter(([url])=>url==='/api/orders').map(([,o])=>JSON.parse(o.body).idempotency_key);
   assert.equal(posts.length,2);assert.equal(posts[0],posts[1]);
 });
 
-test('legacy (sin checkout_orders) sigue abriendo WhatsApp y no llama a /api/orders',async()=>{
+test('transferencia: muestra solo la cuenta oficial y el enlace de WhatsApp sin datos fiscales',async()=>{
+  const transfer={bank:'Banco Pichincha',account_number:'2200123456',holder:'Munch S.A.',account_type:'Ahorros'};
+  const transferStatus=async url=>url.startsWith('/api/orders/')
+    ?{body:{...statusBody,payment_method:'transfer'}}:{status:201,body:receipt};
+  const m=menu({fetchImpl:transferStatus,transfer});await m.ready();
+  m.doc.getElementById('fieldSede').value='sede-01';
+  fillBilling(m);
+  m.doc.getElementById('fieldPayment').value='transfer';
+  m.checkout();await m.ready();await m.ready();await m.ready();
+  const thanks=m.doc.getElementById('thanksPage').innerHTML;
+  assert.match(thanks,/Banco Pichincha/);assert.match(thanks,/2200123456/);assert.match(thanks,/Munch S\.A\./);
+  assert.match(thanks,/https:\/\/wa\.me\/593999999999/);
+  assert.match(thanks,/Transferencia verificada/);
+  assert.doesNotMatch(thanks,/0912345678/);
+  assert.doesNotMatch(thanks,/ana@test\.com/);
+});
+
+test('transferencia sin config: se bloquea el método y no hay enlace de comprobante',async()=>{
+  const m=menu({fetchImpl:handler});await m.ready();
+  m.doc.getElementById('fieldSede').value='sede-01';
+  fillBilling(m);
+  m.doc.getElementById('fieldPayment').value='transfer';
+  m.checkout();await m.ready();
+  assert.equal(m.calls.some(([url])=>url==='/api/orders'),false);
+  assert.match(m.byId.toast.textContent,/Transferencia no disponible/);
+});
+
+test('/gracias directo: reconstruye el recibo por token opaco y refresca el estado',async()=>{
+  const m=menu({fetchImpl:handler,path:'/gracias',search:'?pedido=ord-1&token=tok-1'});await m.ready();
+  await m.ready();await m.ready();
+  const thanks=m.doc.getElementById('thanksPage').innerHTML;
+  assert.match(thanks,/#000007/);
+  assert.match(thanks,/Pizza/);
+  assert.match(thanks,/Pago confirmado en caja/);
+  assert.equal(m.calls.some(([url])=>url==='/productos.json'),false);
+});
+
+test('/gracias sin pedido en el dispositivo: avisa y ofrece volver al menú',async()=>{
+  const m=menu({fetchImpl:handler,path:'/gracias'});await m.ready();await m.ready();
+  const thanks=m.doc.getElementById('thanksPage').innerHTML;
+  assert.match(thanks,/No encontramos este pedido en este dispositivo/);
+  assert.match(thanks,/Volver al menú/);
+  assert.equal(m.calls.length,0);
+});
+
+test('legacy (sin checkout_orders) sigue abriendo WhatsApp, conserva el CTA y no llama a /api/orders',async()=>{
   const m=menu({checkout:false,fetchImpl:handler});await m.ready();
   assert.equal(m.doc.getElementById('fieldSede'),null);
+  assert.equal(m.confirm.classList.contains('btn-whatsapp'),true);
+  assert.match(m.confirm.innerHTML,/Confirmar pedido por WhatsApp/);
   m.doc.getElementById('fieldName').value='Ana';m.doc.getElementById('fieldPhone').value='099';
   m.doc.querySelector('.dtog-btn[data-mode="pickup"]').classList.add('active');
   m.doc.querySelector('.dtog-btn[data-mode="delivery"]').classList.remove('active');

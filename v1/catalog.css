@@ -1,6 +1,7 @@
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
     :root{
+      color-scheme:dark;
       --primary:#23DDF4;
       --accent:#F339A8;
       --font-display:'Anton',sans-serif;
@@ -371,8 +372,25 @@
     .form-field{display:flex;flex-direction:column;gap:6px}
     .form-field label{font-size:12px;font-weight:600;color:var(--text-soft);text-transform:uppercase;letter-spacing:.04em}
     .form-field input,.form-field textarea{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;color:var(--text);font:inherit;font-size:14px;outline:none;transition:border-color .18s;resize:none;width:100%}
-    .form-field input:focus,.form-field textarea:focus{border-color:var(--primary)}
+    .form-field input{min-height:46px}
+    .form-field select{
+      width:100%;min-height:46px;appearance:none;-webkit-appearance:none;cursor:pointer;
+      padding:12px 40px 12px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);
+      background:var(--surface-2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a29ba8' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right 14px center/16px;
+      color:var(--text);font:inherit;font-size:14px;outline:none;transition:border-color .18s,background-color .18s;
+    }
+    .form-field select option{background:#111321;color:#f6f4f1}
+    .form-field select:disabled{opacity:.55;cursor:not-allowed}
+    .form-field input:focus,.form-field select:focus,.form-field textarea:focus{border-color:var(--primary);box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 20%,transparent)}
     .form-field input::placeholder,.form-field textarea::placeholder{color:var(--text-dim)}
+    .form-field [aria-invalid="true"]{border-color:var(--out-of-stock);box-shadow:0 0 0 2px color-mix(in srgb,var(--out-of-stock) 18%,transparent)}
+    .field-error{font-size:12px;line-height:1.35;color:#ff8a8a}
+    .field-error:empty{display:none}
+    .billing-fields{display:flex;flex-direction:column;gap:14px;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm)}
+    .billing-fields[hidden]{display:none}
+    .billing-note{font-size:12px;line-height:1.45;color:var(--text-soft)}
+    .notify-note{font-size:12.5px;line-height:1.45;color:var(--text-soft);text-align:center}
+    .notify-note[hidden]{display:none}
 
     /* ── PRODUCT MODAL ── */
     .modal-overlay{position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .3s;display:flex;align-items:flex-end;justify-content:center;padding:0}
@@ -562,3 +580,66 @@
     }
 
 .payment-return{position:sticky;top:0;z-index:200;padding:14px 18px;text-align:center;background:#102638;color:#f4faff;border-bottom:2px solid var(--primary);font-weight:700;box-shadow:0 5px 20px #23ddf444}
+
+    /* ── CTA DEL CHECKOUT ── */
+    .btn-confirm{
+      width:100%;min-height:52px;padding:15px;border:none;border-radius:16px;
+      background:linear-gradient(135deg,var(--primary),var(--accent));color:#fff;
+      font:inherit;font-size:15px;font-weight:700;cursor:pointer;text-decoration:none;
+      display:flex;align-items:center;justify-content:center;gap:10px;
+      box-shadow:0 12px 30px color-mix(in srgb,var(--accent) 28%,transparent);
+      transition:transform .2s,filter .2s,opacity .2s;
+    }
+    .btn-confirm:hover{transform:scale(1.01);filter:brightness(1.05)}
+    .btn-confirm:disabled{opacity:.55;cursor:not-allowed;transform:none;filter:grayscale(.2)}
+    .btn-secondary{
+      width:100%;min-height:50px;padding:14px 16px;border:1px solid var(--border-2);border-radius:16px;
+      background:var(--surface-2);color:var(--text);font:inherit;font-size:14px;font-weight:600;
+      cursor:pointer;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:9px;
+      transition:background .18s,border-color .18s;
+    }
+    .btn-secondary:hover{background:var(--surface);border-color:var(--primary)}
+    .btn-secondary:disabled{opacity:.5;cursor:not-allowed}
+
+    /* ── RECIBO /gracias ── */
+    body.thanks-view{padding-bottom:env(safe-area-inset-bottom)}
+    body.thanks-view .hero,
+    body.thanks-view .sticky-bar,
+    body.thanks-view #catalog,
+    body.thanks-view footer,
+    body.thanks-view .bottom-nav,
+    body.thanks-view .cart-peek,
+    body.thanks-view .wa-float,
+    body.thanks-view .club-float,
+    body.thanks-view .cart-overlay,
+    body.thanks-view .cart-drawer{display:none!important}
+    .thanks-page{display:block;max-width:640px;margin:0 auto;padding:calc(26px + env(safe-area-inset-top)) 18px calc(40px + env(safe-area-inset-bottom))}
+    .thanks-page[hidden]{display:none}
+    .thanks-shell{display:flex;flex-direction:column;gap:16px}
+    .thanks-head{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;padding:6px 0}
+    .thanks-kicker{font-size:11.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+    .thanks-title{font-size:clamp(24px,6vw,32px);font-weight:800;line-height:1.1}
+    .thanks-number{font-size:20px;font-weight:800;letter-spacing:.05em}
+    .thanks-sede{font-size:13px;color:var(--text-soft)}
+    .thanks-badge{display:inline-flex;align-items:center;padding:6px 14px;border-radius:999px;font-size:12.5px;font-weight:700;border:1px solid var(--border-2);color:var(--text-soft)}
+    .thanks-badge.ok{background:color-mix(in srgb,var(--wa) 18%,transparent);border-color:color-mix(in srgb,var(--wa) 45%,transparent);color:#8af0af}
+    .thanks-badge.warn{background:color-mix(in srgb,var(--low-stock) 16%,transparent);border-color:color-mix(in srgb,var(--low-stock) 40%,transparent);color:#ffd27a}
+    .thanks-badge.bad{background:color-mix(in srgb,var(--out-of-stock) 16%,transparent);border-color:color-mix(in srgb,var(--out-of-stock) 40%,transparent);color:#ff9a9a}
+    .thanks-card{display:flex;flex-direction:column;gap:12px;padding:18px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)}
+    .thanks-card h2{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-soft)}
+    .thanks-lines{list-style:none;display:flex;flex-direction:column;gap:10px}
+    .thanks-lines li{display:flex;justify-content:space-between;gap:14px;font-size:14px;line-height:1.35}
+    .thanks-line-name{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px;min-width:0}
+    .thanks-line-name small{flex-basis:100%;font-size:12px;color:var(--text-soft)}
+    .thanks-total{display:flex;justify-content:space-between;align-items:baseline;padding-top:10px;border-top:1px solid var(--border);font-size:14px}
+    .thanks-total strong{font-size:22px}
+    .thanks-muted{font-size:13px;line-height:1.5;color:var(--text-soft)}
+    .thanks-warn{font-size:13px;line-height:1.5;color:#ffb4b4;padding:10px 12px;border-radius:12px;border:1px solid color-mix(in srgb,var(--out-of-stock) 28%,transparent);background:color-mix(in srgb,var(--out-of-stock) 10%,transparent)}
+    .thanks-pay-state{font-size:15px}
+    .thanks-bank{display:flex;flex-direction:column;gap:8px}
+    .thanks-bank div{display:flex;justify-content:space-between;gap:14px;font-size:13.5px}
+    .thanks-bank dt{color:var(--text-soft);flex-shrink:0}
+    .thanks-bank dd{font-weight:700;text-align:right;word-break:break-word}
+    .thanks-actions{display:flex;flex-direction:column;gap:10px}
+    .thanks-notice{font-size:12.5px;line-height:1.5;color:var(--text-soft);text-align:center}
+    .thanks-privacy{font-size:11.5px;line-height:1.5;text-align:center;color:var(--text-dim)}

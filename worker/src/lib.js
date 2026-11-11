@@ -49,13 +49,22 @@ export const SHELL_EN = [
   ['data-mode="delivery">Domicilio</button>', 'data-mode="delivery">Delivery</button>'],
   ['data-mode="pickup">Retiro en local</button>', 'data-mode="pickup">Pickup</button>'],
   ['data-mode="mesa">Mesa</button>', 'data-mode="mesa">Dine-in</button>'],
-  ['<label>Nombre y Apellido</label>', '<label>Full name</label>'],
+  ['<label for="fieldName">Nombre y Apellido</label>', '<label for="fieldName">Full name</label>'],
   ['placeholder="Ej: María González"', 'placeholder="e.g. John Smith"'],
-  ['<label>Teléfono</label>', '<label>Phone</label>'],
+  ['<label for="fieldPhone">Teléfono</label>', '<label for="fieldPhone">Phone</label>'],
   ['placeholder="Ej: 0991234567"', 'placeholder="e.g. (315) 555-0123"'],
+  ['<label for="fieldDocType">Tipo de documento</label>', '<label for="fieldDocType">Document type</label>'],
+  ['<option value="cedula">Cédula</option>', '<option value="cedula">ID card</option>'],
+  ['<option value="ruc">RUC</option>', '<option value="ruc">Tax ID</option>'],
+  ['<label for="fieldDocNumber">Número de documento</label>', '<label for="fieldDocNumber">Document number</label>'],
+  ['<label for="fieldEmail">Correo electrónico</label>', '<label for="fieldEmail">Email</label>'],
+  ['<label for="fieldBillingAddress">Dirección de facturación</label>', '<label for="fieldBillingAddress">Billing address</label>'],
+  ['placeholder="Calle, número y ciudad"', 'placeholder="Street, number and city"'],
+  ['Datos para tu comprobante. No se muestran públicamente.', 'Details for your receipt. They are not shown publicly.'],
+  ['Cuando tu pedido esté listo te avisaremos por WhatsApp.', 'We will notify you on WhatsApp when your order is ready.'],
   ['<label>Dirección de entrega</label>', '<label>Delivery address</label>'],
   ['placeholder="Sector, calles, número de casa y referencia..."', 'placeholder="Street, number, apt and delivery notes..."'],
-  ['\n          Confirmar pedido por WhatsApp\n', '\n          Confirm order on WhatsApp\n'],
+  ['<button class="btn-confirm" id="btnConfirm">Confirmar pedido</button>', '<button class="btn-confirm" id="btnConfirm">Confirm order</button>'],
 ];
 const localize = (tpl, locale) => locale === "en" ? SHELL_EN.reduce((h, [es, en]) => h.replaceAll(es, en), tpl) : tpl;
 
@@ -162,6 +171,29 @@ const ok = (type, body) => ({ status: 200, headers: { "content-type": type, "cac
 // vigente del motor (catalog.js?v=...). Sin esto, un HTML cacheado apunta a un catalog.js viejo
 // y el cliente no recibe fixes del motor hasta que expire la caché.
 const okHtml = (body) => ({ status: 200, headers: { "content-type": "text/html;charset=utf-8", "cache-control": "no-cache, must-revalidate" }, body });
+// Recibo /gracias: contiene el número de pedido y acciones de pago. Nunca se cachea ni se indexa,
+// y no filtra el token por Referer al abrir WhatsApp/Payphone.
+const receiptHtml = (body) => ({ status: 200, headers: {
+  "content-type": "text/html;charset=utf-8",
+  "cache-control": "no-store, max-age=0",
+  "referrer-policy": "no-referrer",
+  "x-robots-tag": "noindex, nofollow",
+  "x-content-type-options": "nosniff",
+}, body });
+// Retorno de Payphone a "/" (backend actual): mover al recibo conservando pedido, token y resultado.
+// Solo actúa con ambos parámetros presentes; el resto de query legacy sigue intacto.
+export function receiptRedirect(pathname, search) {
+  if (pathname !== "/" && pathname !== "/index.html") return null;
+  let params;
+  try { params = new URLSearchParams(search || ""); } catch { return null; }
+  const id = (params.get("pedido") || params.get("order") || params.get("order_id") || "").trim();
+  const token = (params.get("token") || params.get("order_token") || "").trim();
+  if (!id || !token || id.length > 100 || token.length > 200) return null;
+  const query = new URLSearchParams({ pedido: id, token });
+  const payment = (params.get("pago") || params.get("payment") || "").trim();
+  if (payment) query.set("pago", payment);
+  return "/gracias?" + query.toString();
+}
 const notFound = () => ({ status: 404, headers: {}, body: "No existe" });
 
 // handle: enruta una petición ya parseada → {status, headers, body} (index.js lo envuelve en
@@ -188,11 +220,19 @@ export async function handle(url, env, template) {
   // Menú config-driven: render del template único con la config del cliente.
   const cfgRaw = await env.MENUS.get(`${slug}:config`);
   if (cfgRaw == null) return notFound();
-  // El menú vive solo en "/" (el motor pide productos.json relativo): cualquier otra ruta, p.ej. URLs
-  // viejas de un sitio bespoke (/pages/contacto.html), rompería la carga → 301 a "/" con su query.
-  if (url.pathname !== "/" && url.pathname !== "/index.html") return { status: 301, headers: { location: "/" + url.search }, body: "" };
+  const isReceipt = url.pathname === "/gracias" || url.pathname === "/gracias/";
+  // Retorno viejo de Payphone a "/?pedido=…&token=…" → /gracias sin pasar por JS (evita flash y
+  // conserva el pedido si el cliente recarga). Las rutas legacy siguen redirigiendo a "/".
+  if (!isReceipt) {
+    const target = receiptRedirect(url.pathname, url.search);
+    if (target) return { status: 302, headers: { location: target, "cache-control": "no-store" }, body: "" };
+  }
+  // El menú vive solo en "/" y el recibo en "/gracias"; cualquier otra ruta, p.ej. URLs viejas de un
+  // sitio bespoke (/pages/contacto.html), rompería la carga → 301 a "/" con su query.
+  if (!isReceipt && url.pathname !== "/" && url.pathname !== "/index.html") return { status: 301, headers: { location: "/" + url.search }, body: "" };
   const theme = (await env.MENUS.get(`${slug}:theme`)) || "";
-  return okHtml(render(template, safeParse(cfgRaw), cfgRaw, theme, env.ENGINE_ORIGIN || undefined));
+  const html = render(template, safeParse(cfgRaw), cfgRaw, theme, env.ENGINE_ORIGIN || undefined);
+  return isReceipt ? receiptHtml(html) : okHtml(html);
 }
 
 // siteFile: elige el archivo del mapa de la tienda para un pathname, con índice de directorio

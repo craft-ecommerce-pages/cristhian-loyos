@@ -107,6 +107,7 @@
     pending:'Pedido recibido',
     confirmed:'Confirmado; lo están preparando',
     paid:'Pagado. ¡Buen provecho!',
+    ready:'Tu pedido está listo',
     rejected:'Pedido rechazado',
   };
   function orderStatusLabel(status){ return ORDER_STATUS_LABEL[status]||'Estado del pedido'; }
@@ -117,9 +118,96 @@
       /^[A-Za-z0-9_.:-]{8,100}$/.test(previous.key)) return previous.key;
     return uuid;
   }
+  // ── Recibo /gracias y datos de facturación (helpers puros, testables en Node) ──
+  // Datos bancarios SOLO si la config oficial los trae completos. Nunca hay cuentas por defecto:
+  // una config incompleta devuelve null y la transferencia se deshabilita en la UI.
+  function transferInfo(config){
+    const raw=(config&&config.checkout_orders&&config.checkout_orders.transfer)||
+      (config&&config.payments&&config.payments.transfer)||
+      (config&&config.bank_transfer)||null;
+    if(!raw||typeof raw!=='object'||Array.isArray(raw)||raw.enabled===false) return null;
+    const pick=(...keys)=>{
+      for(const key of keys){const value=raw[key];if(typeof value==='string'&&value.trim())return value.trim();}
+      return '';
+    };
+    const bank=pick('bank','bank_name','banco');
+    const account=pick('account_number','account','numero_cuenta','cuenta');
+    const holder=pick('holder','holder_name','titular');
+    if(!bank||!account||!holder) return null;
+    return {bank,account,holder,account_type:pick('account_type','tipo_cuenta','type')};
+  }
+  // Validación UX del contrato fiscal. Devuelve {campo: mensaje}; el servidor sigue siendo la
+  // fuente de verdad y valida otra vez longitud/formato antes de persistir.
+  function billingFieldErrors(values){
+    const v=values||{},errors={};
+    const name=String(v.name||'').trim();
+    if([...name].length<2) errors.name='Ingresa tu nombre y apellido.';
+    const phone=String(v.phone||'').replace(/[^\d]/g,'');
+    if(phone.length<7||phone.length>15) errors.phone='Ingresa un teléfono válido (7 a 15 dígitos).';
+    const type=String(v.document_type||'');
+    if(type!=='cedula'&&type!=='ruc') errors.document_type='Elige el tipo de documento.';
+    const document=String(v.document_number||'').replace(/[\s.-]/g,'');
+    if(!/^\d+$/.test(document)) errors.document_number='El documento solo puede tener números.';
+    else if(type==='cedula'&&document.length!==10) errors.document_number='La cédula debe tener 10 dígitos.';
+    else if(type==='ruc'&&document.length!==13) errors.document_number='El RUC debe tener 13 dígitos.';
+    else if(type!=='cedula'&&type!=='ruc'&&(document.length<10||document.length>13)) errors.document_number='Ingresa un documento válido.';
+    const email=String(v.email||'').trim();
+    if(email.length>120||!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) errors.email='Ingresa un correo electrónico válido.';
+    const address=String(v.address||'').trim();
+    if([...address].length<5) errors.address='Ingresa la dirección de facturación.';
+    else if([...address].length>300) errors.address='La dirección es demasiado larga.';
+    return errors;
+  }
+  // Retorno de Payphone/recibo: id y token opacos. Acepta los alias nuevos sin perder el
+  // contrato existente (?pedido&token&pago). El token NUNCA se registra en analítica.
+  function parseOrderReturn(search){
+    let params;
+    try{params=new URLSearchParams(search||'');}catch(e){return null;}
+    const id=(params.get('pedido')||params.get('order')||params.get('order_id')||'').trim();
+    const token=(params.get('token')||params.get('order_token')||'').trim();
+    if(!id||!token||id.length>100||token.length>200) return null;
+    return {id,token,payment:(params.get('pago')||params.get('payment')||'').trim()};
+  }
+  function derivedPaymentStatus(order){
+    const raw=String(order&&order.payment_status||'').toLowerCase();
+    if(raw) return raw;
+    const status=String(order&&order.status||'');
+    return status==='paid'||status==='ready'?'paid':status==='rejected'?'rejected':'pending';
+  }
+  // Etiqueta honesta del pago. `unknown`/timeout nunca se muestra como rechazo.
+  function orderPaymentLabel(order){
+    const method=String(order&&order.payment_method||'cash');
+    const status=String(order&&order.status||'pending');
+    const payment=derivedPaymentStatus(order);
+    if(status==='rejected') return payment==='rejected'?'Pago rechazado':'Pedido rechazado';
+    if(method==='cash') return status==='paid'||status==='ready'?'Pago confirmado en caja':'Pago pendiente en caja';
+    if(method==='transfer') return status==='paid'||status==='ready'?'Transferencia verificada':'Pago pendiente de verificación';
+    if(payment==='rejected') return 'Pago rechazado por Payphone';
+    if(payment==='failed') return 'El pago con Payphone no se completó';
+    if(payment==='unknown') return 'Pago en verificación con Payphone';
+    if(payment==='paid'||status==='paid'||status==='ready') return 'Pago confirmado con Payphone';
+    return 'Esperando confirmación de Payphone';
+  }
+  // Reintentar tarjeta solo cuando el intento anterior falló antes de cobrar. Con pago
+  // `unknown` o pendiente NO se ofrece: reintentar podría duplicar el cobro.
+  function thanksRetryAllowed(order){
+    if(!order||String(order.payment_method||'')!=='payphone') return false;
+    const status=String(order.status||'');
+    if(status==='paid'||status==='ready') return false;
+    const payment=derivedPaymentStatus(order);
+    return payment==='failed'||order.retryable===true;
+  }
+  function thanksPurchaseEligible(order){
+    const status=String(order&&order.status||'');
+    return status==='paid'||status==='ready';
+  }
+  // El polling del recibo termina en estados estables. `paid` sigue consultando para
+  // reflejar `ready`; `unknown` sigue pendiente y nunca se asume rechazo.
+  function thanksPollFinal(status){ return status==='ready'||status==='rejected'; }
   if(typeof module!=='undefined' && module.exports) module.exports={clubBanner,panelCount,panelOrder,
     checkoutOrders,ordersEndpoint,sedeList,sedeFromQuery,defaultSede,orderVariantLabel,variantOptionExists,
-    orderCartItems,orderStatusLabel,orderStatusFinal,nextOrderKey};
+    orderCartItems,orderStatusLabel,orderStatusFinal,nextOrderKey,transferInfo,billingFieldErrors,
+    parseOrderReturn,orderPaymentLabel,thanksRetryAllowed,thanksPurchaseEligible,thanksPollFinal};
 
   // El motor solo corre en el navegador: el guard permite testear clubBanner en Node sin DOM.
   if(typeof document!=='undefined') (function(){
@@ -161,7 +249,19 @@
       'Food truck':'Food truck','Total':'Total','Estado del pedido':'Order status','Consultando estado…':'Checking status…','Hacer otro pedido':'Place another order',
       'Muestra este número en tu food truck.':'Show this number at your food truck.',
       'No pudimos consultar el estado. Muestra tu número en el food truck.':'We could not check the status. Show your number at the food truck.',
-      'Pedido recibido':'Order received','Confirmado; lo están preparando':'Confirmed; they are preparing it','Pagado. ¡Buen provecho!':'Paid. Enjoy!','Pedido rechazado':'Order rejected',
+      'Pedido recibido':'Order received','Confirmado; lo están preparando':'Confirmed; they are preparing it','Pagado. ¡Buen provecho!':'Paid. Enjoy!','Pedido rechazado':'Order rejected','Pedido confirmado':'Order confirmed','Pago confirmado':'Payment confirmed','Tu pedido está listo':'Your order is ready','¡Tu pedido está listo!':'Your order is ready!',
+      'Confirmar pedido':'Confirm order','Confirmar pedido por WhatsApp':'Confirm order on WhatsApp',
+      'El pago con Payphone no se completó':'The Payphone payment was not completed',
+      'No se completó el pago con Payphone. Puedes reintentar.':'The Payphone payment was not completed. You can try again.',
+      'Datos de facturación':'Billing details','Tipo de documento':'Document type','Cédula':'ID card','RUC':'Tax ID (RUC)','Número de documento':'Document number','Correo electrónico':'Email','Dirección de facturación':'Billing address','Estos datos se usan solo para tu comprobante. No se envían por WhatsApp.':'This information is used only for your receipt. It is never sent through WhatsApp.',
+      'Te avisaremos por WhatsApp al número que ingresaste cuando tu pedido esté listo.':'We will notify you on WhatsApp at the number you entered when your order is ready.',
+      'Revisa los datos de facturación':'Please review your billing details','Ingresa tu nombre y apellido.':'Please enter your full name.','Ingresa un teléfono válido (7 a 15 dígitos).':'Please enter a valid phone number (7 to 15 digits).','Elige el tipo de documento.':'Choose a document type.','El documento solo puede tener números.':'The document can only contain numbers.','La cédula debe tener 10 dígitos.':'The ID card must have 10 digits.','El RUC debe tener 13 dígitos.':'The RUC must have 13 digits.','Ingresa un documento válido.':'Please enter a valid document.','Ingresa un correo electrónico válido.':'Please enter a valid email address.','Ingresa la dirección de facturación.':'Please enter your billing address.','La dirección es demasiado larga.':'The address is too long.',
+      'Pago pendiente en caja':'Payment pending at the counter','Pago pendiente de verificación':'Payment pending verification','Pago confirmado en caja':'Payment confirmed at the counter','Transferencia verificada':'Transfer verified','Pago rechazado por Payphone':'Payment rejected by Payphone','Pago en verificación con Payphone':'Payment being verified with Payphone','Pago confirmado con Payphone':'Payment confirmed with Payphone','Esperando confirmación de Payphone':'Waiting for Payphone confirmation',
+      'Volver al menú':'Back to the menu','Actualizar estado':'Refresh status','Actualizando…':'Refreshing…','Verificando tu pago…':'Verifying your payment…','No pudimos consultar el estado. Reintenta.':'We could not check the status. Try again.','No encontramos este pedido en este dispositivo.':'We could not find this order on this device.','Muestra este número en caja.':'Show this number at the counter.','Envía tu comprobante por WhatsApp':'Send your receipt on WhatsApp','Transferencia no disponible':'Transfer unavailable','La cuenta bancaria aún no está configurada. Paga en efectivo en caja.':'The bank account is not configured yet. Please pay in cash at the counter.','Reintentar pago con tarjeta':'Retry card payment','El pago no fue aprobado. Puedes volver al menú e intentar de nuevo.':'The payment was not approved. You can go back to the menu and try again.','Estamos verificando tu pago con Payphone. No vuelvas a pagar.':'We are verifying your payment with Payphone. Please do not pay again.','Cuando tu pedido esté listo te avisaremos por WhatsApp al número que registraste.':'When your order is ready we will notify you on WhatsApp at the number you registered.','Tus datos fiscales no se muestran en esta página.':'Your tax details are not shown on this page.','Resumen':'Summary','Sede':'Location','Método de pago':'Payment method','Datos para tu comprobante':'Details for your receipt','Facturación':'Billing','Resumen no disponible. Muestra tu número en caja.':'Summary unavailable. Show your number at the counter.',
+      'Datos para tu comprobante. No se muestran públicamente.':'Details for your receipt. They are not shown publicly.',
+      'Cuando tu pedido esté listo te avisaremos por WhatsApp.':'We will notify you on WhatsApp when your order is ready.',
+      'Banco':'Bank','Tipo de cuenta':'Account type','Cuenta':'Account','Titular':'Account holder',
+      'Efectivo en caja':'Cash at the counter','Transferencia bancaria':'Bank transfer','Tarjeta con Payphone':'Card with Payphone',
       'Un producto ya no está disponible. Revisa tu pedido':'An item is no longer available. Please review your order.',
       'Un producto ya no tiene stock. Revisa tu pedido':'An item is out of stock. Please review your order.',
       'Una opción del pedido cambió. Vuelve a elegirla':'An option in your order changed. Please choose it again.',
@@ -1203,11 +1303,17 @@
     }
 
     /* ── CHECKOUT NATIVO (opt-in config.checkout_orders) ── */
-    // Pedido web al panel con sede, recibo visible y polling de estado. Sin WhatsApp.
+    // Pedido web al panel con sede, datos fiscales obligatorios, recibo /gracias y polling.
+    // Sin WhatsApp en el flujo de pedido: el local avisa manualmente cuando está listo.
     // El servidor recalcula precios; aquí solo se envían product_id, qty, variante y nota.
     const SEDE_KEY='menu_sede';
     const ORDER_KEY_PREFIX='craft_pos_order:';
+    const ORDER_RECORD_PREFIX='munch_order:';
+    const LAST_ORDER_KEY='munch_last_order';
+    const FIELD_IDS={name:'fieldName',phone:'fieldPhone',document_type:'fieldDocType',
+      document_number:'fieldDocNumber',email:'fieldEmail',address:'fieldBillingAddress'};
     let orderPollTimer=null,orderStorageKey='';
+    let thanksTimer=null,thanksRecord=null,thanksCheckout=null,thanksBusy=false,thanksError='',thanksBound=false;
     function readSede(){try{return sessionStorage.getItem(SEDE_KEY)||'';}catch(e){return '';}}
     function writeSede(id){try{if(id)sessionStorage.setItem(SEDE_KEY,id);else sessionStorage.removeItem(SEDE_KEY);}catch(e){}}
     function renderSedeField(){
@@ -1244,12 +1350,14 @@
       return Array.from(new Uint8Array(bytes),b=>b.toString(16).padStart(2,'0')).join('');
     }
     // Misma clave de idempotencia mientras sede/items/cliente no cambien; el servidor devuelve el mismo pedido.
+    // Solo se guarda el HASH del cuerpo: ni cédula, RUC, correo ni dirección quedan en sessionStorage.
     async function orderKey(fingerprint){
-      orderStorageKey=ORDER_KEY_PREFIX+await sha256hex(fingerprint);
+      const hash=await sha256hex(fingerprint);
+      orderStorageKey=ORDER_KEY_PREFIX+hash;
       let previous=null;
       try{previous=JSON.parse(sessionStorage.getItem(orderStorageKey));}catch(e){}
-      const key=nextOrderKey(previous,fingerprint,crypto.randomUUID());
-      try{sessionStorage.setItem(orderStorageKey,JSON.stringify({fingerprint,key}));}catch(e){}
+      const key=nextOrderKey(previous,hash,crypto.randomUUID());
+      try{sessionStorage.setItem(orderStorageKey,JSON.stringify({fingerprint:hash,key}));}catch(e){}
       return key;
     }
     function forgetOrderKey(){try{if(orderStorageKey)sessionStorage.removeItem(orderStorageKey);}catch(e){}orderStorageKey='';}
@@ -1260,72 +1368,422 @@
         variante_no_existe:'Una opción del pedido cambió. Vuelve a elegirla',precio_no_disponible:'El precio de un producto cambió. Revisa tu pedido',
         idempotencia_conflicto:'El pedido cambió. Revisa el carrito e intenta de nuevo',demasiados_pedidos:'Demasiados intentos. Espera un momento',
         pedido_invalido:'Revisa los datos del pedido',metodo_pago_invalido:'Elige un método de pago válido',payphone_no_disponible:'Payphone no está disponible ahora. Elige efectivo o transferencia.',catalogo_no_disponible:'El menú no está disponible ahora. Reintenta',
+        billing_requerido:'Revisa los datos de facturación',documento_invalido:'Revisa el número de documento',correo_invalido:'Revisa el correo electrónico',direccion_invalida:'Revisa la dirección de facturación',telefono_invalido:'Revisa el teléfono',cliente_requerido:'Completa tu nombre y teléfono',
       };
       return map[code]||(status===429?'Demasiados intentos. Espera un momento':'No se pudo enviar tu pedido. Reintenta.');
     }
-    const orderNumberLabel=number=>'#'+String(number).padStart(6,'0');
+    const orderNumberLabel=number=>Number.isSafeInteger(Number(number))&&Number(number)>0?'#'+String(number).padStart(6,'0'):'';
     function clearOrderPoll(){if(orderPollTimer){clearTimeout(orderPollTimer);orderPollTimer=null;}}
-    function setOrderStatus(status){
-      const el=document.getElementById('webOrderStatus');
-      if(el) el.textContent=t(orderStatusLabel(status));
+
+    /* Datos fiscales obligatorios: errores junto al campo y foco en el primero inválido. */
+    function setFieldError(key,message){
+      const input=document.getElementById(FIELD_IDS[key]);
+      const error=document.getElementById('err-'+key);
+      if(input){ if(message) input.setAttribute('aria-invalid','true'); else input.removeAttribute('aria-invalid'); }
+      if(error) error.textContent=message?t(message):'';
     }
-    function startOrderPoll(checkout,receipt){
-      clearOrderPoll();
-      if(orderStatusFinal(receipt.status)) return;
-      const url=ordersEndpoint(checkout,`/api/orders/${encodeURIComponent(receipt.id)}?token=${encodeURIComponent(receipt.order_token)}`);
-      const tick=async()=>{
-        let final=false;
-        orderPollTimer=null;
-        try{
-          const response=await fetch(url,{cache:'no-store'});
-          const data=await response.json().catch(()=>null);
-          if(response.status===404){
-            // Token/ID inválido: no tiene sentido seguir consultando. El recibo sigue visible.
-            const el=document.getElementById('webOrderStatus');
-            if(el) el.textContent=t('No pudimos consultar el estado. Muestra tu número en el food truck.');
-            return;
-          }
-          if(response.ok&&data&&typeof data.status==='string'){
-            receipt.status=data.status;
-            setOrderStatus(data.status);
-          }
-        }catch(e){}
-        final=orderStatusFinal(receipt.status);
-        if(!final) orderPollTimer=setTimeout(tick,checkout.poll_ms);
+    function showBillingErrors(errors){
+      Object.keys(FIELD_IDS).forEach(key=>setFieldError(key,''));
+      const keys=Object.keys(errors||{});
+      keys.forEach(key=>setFieldError(key,errors[key]));
+      if(keys.length) document.getElementById(FIELD_IDS[keys[0]])?.focus();
+      return keys.length===0;
+    }
+    function billingValues(){
+      const read=id=>{const el=document.getElementById(id);return el&&typeof el.value==='string'?el.value.trim():'';};
+      return {name:read('fieldName'),phone:read('fieldPhone'),document_type:read('fieldDocType')||'cedula',
+        document_number:read('fieldDocNumber').replace(/[\s.-]/g,''),email:read('fieldEmail'),address:read('fieldBillingAddress')};
+    }
+    function wireBillingValidation(){
+      Object.keys(FIELD_IDS).forEach(key=>{
+        const input=document.getElementById(FIELD_IDS[key]);
+        if(!input) return;
+        const clear=()=>setFieldError(key,'');
+        input.addEventListener('input',clear);
+        input.addEventListener('change',clear);
+      });
+    }
+
+    function updatePaymentHint(){
+      const payment=document.getElementById('fieldPayment');
+      const hint=document.getElementById('paymentHint');
+      if(!payment||!hint) return;
+      const transfer=transferInfo(config);
+      const hints={
+        cash:'Paga en caja; el pedido se prepara después del cobro.',
+        transfer:transfer?'Transfiere y envía tu comprobante por WhatsApp. La caja verifica el pago antes de preparar.':'Transferencia no disponible: la cuenta bancaria aún no está configurada.',
+        payphone:'Serás dirigido a Payphone para pagar con tarjeta. La confirmación llega al volver.',
       };
-      orderPollTimer=setTimeout(tick,checkout.poll_ms);
+      hint.textContent=hints[payment.value]||hints.cash;
     }
-    function showOrderReceipt(checkout,receipt,sedeId){
-      const step=document.getElementById('cartStep2');
-      if(!step) return;
-      step.querySelector('.step2-body').style.display='none';
-      step.querySelector('.step2-footer').style.display='none';
-      document.getElementById('webOrderReceipt')?.remove();
-      const box=document.createElement('section');box.id='webOrderReceipt';box.setAttribute('role','status');
-      const title=document.createElement('strong');title.textContent=t('Pedido {0} recibido',orderNumberLabel(receipt.number));
-      const total=document.createElement('p');total.textContent=`${t('Total')}: ${formatPrice(Number(receipt.total_cents)/100)}`;
-      const sede=sedeList(config).find(item=>item.id===sedeId);
-      const place=document.createElement('p');place.textContent=sede?`${t('Food truck')}: ${sede.nombre}`:'';
-      const status=document.createElement('p');status.id='webOrderStatus';status.setAttribute('aria-live','polite');
-      status.textContent=t(orderStatusLabel(receipt.status));
-      const note=document.createElement('p');note.textContent=t('Muestra este número en tu food truck.');
-      const again=document.createElement('button');again.type='button';again.className='btn-next';again.textContent=t('Hacer otro pedido');
-      again.addEventListener('click',()=>{clearOrderPoll();box.remove();goToStep1();});
-      box.append(title,total);
-      if(place.textContent) box.append(place);
-      box.append(status,note,again);
-      step.append(box);
-      startOrderPoll(checkout,receipt);
+    // UI del checkout nativo: pickup sin toggle, CTA Munch sin WhatsApp, campos fiscales
+    // visibles y opciones de pago habilitadas solo con contrato oficial.
+    function setupNativeCheckout(checkout){
+      document.querySelector('.dtog-btn[data-mode="mesa"]')?.remove();
+      document.querySelector('.dtog-btn[data-mode="delivery"]')?.remove();
+      const toggle=document.getElementById('deliveryToggle');if(toggle)toggle.style.display='none';
+      const pickup=document.querySelector('.dtog-btn[data-mode="pickup"]');
+      if(pickup){
+        document.querySelectorAll('.dtog-btn').forEach(btn=>btn.classList.remove('active'));
+        pickup.classList.add('active');
+        const addressWrap=document.getElementById('fieldAddressWrap');
+        if(addressWrap) addressWrap.style.display='none';
+      }
+      renderSedeField();
+      const billing=document.getElementById('billingFields');if(billing)billing.hidden=false;
+      const note=document.getElementById('notifyNote');if(note)note.hidden=false;
+      const confirm=document.getElementById('btnConfirm');
+      if(confirm){confirm.classList.remove('btn-whatsapp');confirm.classList.add('btn-confirm');confirm.innerHTML=t('Confirmar pedido');}
+      const paymentWrap=document.getElementById('fieldPaymentWrap');if(paymentWrap)paymentWrap.hidden=false;
+      const payment=document.getElementById('fieldPayment');
+      const transfer=transferInfo(config);
+      const transferOpt=payment?.querySelector('option[value="transfer"]');
+      if(transferOpt&&!transfer){transferOpt.disabled=true;transferOpt.textContent='Transferencia (no disponible)';}
+      else if(transferOpt){transferOpt.textContent='Transferencia bancaria';}
+      const card=payment?.querySelector('option[value="payphone"]');
+      fetch(ordersEndpoint(checkout,'/api/payment-options'),{cache:'no-store'})
+        .then(r=>r.ok?r.json():null).then(options=>{
+          if(card&&options?.payphone){card.disabled=false;card.textContent='Tarjeta con Payphone';}
+          if(transferOpt&&options?.transfer===false){transferOpt.disabled=true;transferOpt.textContent='Transferencia (no disponible)';}
+          if(payment&&payment.selectedOptions?.[0]?.disabled) payment.value='cash';
+          updatePaymentHint();
+        }).catch(()=>{updatePaymentHint();});
+      payment?.addEventListener('change',updatePaymentHint);
+      updatePaymentHint();
+      wireBillingValidation();
+    }
+    // Menús legacy (sin checkout_orders) conservan su CTA de WhatsApp: el template es neutral
+    // para que el checkout nativo nunca prometa WhatsApp antes de que corra el motor.
+    function restoreLegacyCta(){
+      const button=document.getElementById('btnConfirm');
+      if(!button) return;
+      const icon=document.getElementById('legacyCtaIcon');
+      button.classList.remove('btn-confirm');
+      button.classList.add('btn-whatsapp');
+      button.innerHTML=(icon?icon.innerHTML:'')+t('Confirmar pedido por WhatsApp');
+    }
+
+    /* ── Rastro local del pedido y /gracias ── */
+    function receiptLine(item){
+      if(!item||typeof item!=='object') return null;
+      const name=String(item.name||item.nombre||'').trim();
+      const qty=Number(item.qty);
+      if(!name||!Number.isInteger(qty)||qty<1) return null;
+      const unit=Number(item.unit_cents),sub=Number(item.subtotal_cents);
+      return {name:name.slice(0,120),qty,
+        ...(Number.isFinite(unit)?{unit_cents:unit}:{}),...(Number.isFinite(sub)?{subtotal_cents:sub}:{}),
+        ...(typeof item.variant_id==='string'&&item.variant_id?{variant_id:item.variant_id.slice(0,120)}:{}),
+        ...(typeof item.note==='string'&&item.note?{note:item.note.slice(0,200)}:{})};
+    }
+    function localOrderLines(){
+      return cartItems.map(item=>({
+        name:item.nombre,qty:item.qty,
+        unit_cents:Math.round(Number(item.precio)*100),subtotal_cents:Math.round(Number(item.precio)*Number(item.qty)*100),
+        ...(variantLabel(item.variantes)?{variant_id:variantLabel(item.variantes)}:{}),...(item.nota?{note:item.nota}:{}),
+      })).map(receiptLine).filter(Boolean);
+    }
+    function orderRecord(receipt,paymentMethod,sedeId){
+      const items=Array.isArray(receipt.items)?receipt.items.map(receiptLine).filter(Boolean):localOrderLines();
+      const total=Number(receipt.total_cents);
+      return {
+        id:receipt.id,token:receipt.order_token,number:Number(receipt.number),status:String(receipt.status||'pending'),
+        total_cents:Number.isFinite(total)?total:0,currency:typeof receipt.currency==='string'?receipt.currency:(config.currency||'USD'),
+        payment_method:paymentMethod,sede_id:sedeId,items,created_at:Number(receipt.created_at)||Date.now(),
+        payment_status:paymentMethod==='payphone'?'pending':'pending',
+      };
+    }
+    function saveOrderRecord(record){
+      if(!record||!record.id) return;
+      try{
+        sessionStorage.setItem(ORDER_RECORD_PREFIX+record.id,JSON.stringify(record));
+        sessionStorage.setItem(LAST_ORDER_KEY,record.id);
+      }catch(e){}
+    }
+    function loadOrderRecord(id){
+      try{
+        let raw=id?sessionStorage.getItem(ORDER_RECORD_PREFIX+id):null;
+        if(!raw){
+          const last=sessionStorage.getItem(LAST_ORDER_KEY)||'';
+          if(last){
+            if(last.charAt(0)==='{') return JSON.parse(last); // compatibilidad con la versión anterior
+            raw=sessionStorage.getItem(ORDER_RECORD_PREFIX+last);
+            id=last;
+          }
+        }
+        return raw?JSON.parse(raw):null;
+      }catch(e){return null;}
+    }
+    function statusSnapshot(data){
+      const out={};
+      if(typeof data.status==='string') out.status=data.status;
+      if(Number.isSafeInteger(data.number)&&data.number>0) out.number=data.number;
+      if(Number.isSafeInteger(data.total_cents)&&data.total_cents>=0) out.total_cents=data.total_cents;
+      if(typeof data.currency==='string'&&/^[A-Z]{3}$/.test(data.currency)) out.currency=data.currency;
+      if(typeof data.sede_id==='string') out.sede_id=data.sede_id;
+      if(['cash','transfer','payphone'].includes(data.payment_method)) out.payment_method=data.payment_method;
+      if(['pending','paid','rejected','unknown','failed'].includes(data.payment_status)) out.payment_status=data.payment_status;
+      if(typeof data.payment_message==='string') out.payment_message=[...data.payment_message].slice(0,200).join('');
+      if(typeof data.retryable==='boolean') out.retryable=data.retryable;
+      if(Array.isArray(data.items)) out.items=data.items.slice(0,60).map(receiptLine).filter(Boolean);
+      return out;
+    }
+    function thanksStatusUrl(checkout,record){
+      return ordersEndpoint(checkout,`/api/orders/${encodeURIComponent(record.id)}?token=${encodeURIComponent(record.token)}`);
+    }
+    function syncThanksUrl(record){
+      try{
+        if(location.pathname.replace(/\/+$/,'')!=='/gracias') return;
+        const query=new URLSearchParams({pedido:record.id,token:record.token});
+        const returned=parseOrderReturn(location.search);
+        if(returned&&returned.payment) query.set('pago',returned.payment);
+        history.replaceState(null,'','/gracias?'+query.toString());
+      }catch(e){}
+    }
+    function clearThanksPoll(){if(thanksTimer){clearTimeout(thanksTimer);thanksTimer=null;}}
+    function transferWhatsAppNumber(){
+      const raw=(config.location&&config.location.telefono_principal)||config.whatsapp_number||'';
+      return String(raw).replace(/\D/g,'');
+    }
+    function transferMessage(record){
+      const sede=sedeList(config).find(item=>item.id===record.sede_id);
+      const lines=(record.items||[]).map(item=>`${item.qty}x ${item.name}`).join(', ');
+      let message=`Hola, envío mi comprobante del pedido ${orderNumberLabel(record.number)}.`;
+      if(sede) message+=`\nSede: ${sede.nombre}`;
+      if(lines) message+=`\n${lines}`;
+      if(Number.isFinite(Number(record.total_cents))) message+=`\nTotal: ${formatPrice(Number(record.total_cents)/100)}`;
+      return message;
+    }
+    function thanksTone(record){
+      const status=String(record&&record.status||'pending');
+      const payment=derivedPaymentStatus(record);
+      if(status==='rejected'||payment==='rejected') return 'bad';
+      if(payment==='unknown'||status==='pending'&&record.payment_method==='payphone') return 'warn';
+      if(status==='ready'||status==='paid') return 'ok';
+      return 'pending';
+    }
+    function thanksTitle(record){
+      const status=String(record&&record.status||'pending');
+      if(status==='ready') return '¡Tu pedido está listo!';
+      if(status==='paid') return 'Pago confirmado';
+      if(status==='confirmed') return 'Pedido confirmado';
+      if(status==='rejected') return 'Pedido rechazado';
+      return 'Pedido recibido';
+    }
+    function trackThanksPurchase(){
+      if(!thanksRecord||!thanksPurchaseEligible(thanksRecord)) return;
+      const storageKey='munch_tracked:'+thanksRecord.id;
+      try{if(sessionStorage.getItem(storageKey)) return;sessionStorage.setItem(storageKey,'1');}catch(e){}
+      const contents=(thanksRecord.items||[]).map(item=>({id:item.name,nombre:item.name,
+        precio:Number(item.unit_cents||item.subtotal_cents||0)/100,qty:item.qty}));
+      track('Purchase',{contents,value:Number(thanksRecord.total_cents||0)/100,order_id:thanksRecord.id});
+    }
+    function renderThanksMissing(){
+      const section=document.getElementById('thanksPage');
+      document.body.classList.add('thanks-view');
+      if(!section) return;
+      section.hidden=false;
+      section.innerHTML=`<div class="thanks-shell">
+        <div class="thanks-head"><span class="thanks-kicker">${esc(config.store_name||'Munch')}</span>
+          <h1 class="thanks-title">${t('No encontramos este pedido en este dispositivo.')}</h1></div>
+        <section class="thanks-card"><p class="thanks-muted">${t('Resumen no disponible. Muestra tu número en caja.')}</p></section>
+        <div class="thanks-actions"><a class="btn-confirm" href="/">${t('Volver al menú')}</a></div>
+      </div>`;
+    }
+    function renderThanks(){
+      const section=document.getElementById('thanksPage');
+      if(!section||!thanksRecord) return;
+      document.body.classList.add('thanks-view');
+      section.hidden=false;
+      const record=thanksRecord;
+      const sede=sedeList(config).find(item=>item.id===record.sede_id);
+      const tone=thanksTone(record);
+      const method=String(record.payment_method||'');
+      const payment=derivedPaymentStatus(record);
+      const total=Number(record.total_cents);
+      const lines=(record.items||[]).map(item=>{
+        const subtotal=Number(item.subtotal_cents);
+        return `<li><span class="thanks-line-name"><strong>${item.qty}×</strong> ${esc(item.name)}${item.variant_id?`<small>${esc(item.variant_id)}</small>`:''}${item.note?`<small>${esc(item.note)}</small>`:''}</span><span>${Number.isFinite(subtotal)?formatPrice(subtotal/100):''}</span></li>`;
+      }).join('');
+      const methodLabel=method==='payphone'?t('Tarjeta con Payphone'):method==='transfer'?t('Transferencia bancaria'):method==='cash'?t('Efectivo en caja'):'';
+      let payHTML='';
+      if(method==='cash'){
+        payHTML=`<h2>${t('Método de pago')}</h2><p class="thanks-pay-state"><strong>${t(orderPaymentLabel(record))}</strong></p>
+          <p class="thanks-muted">${t('Muestra este número en caja.')}</p>`;
+      } else if(method==='transfer'){
+        const info=transferInfo(config);
+        payHTML=`<h2>${t('Método de pago')}</h2><p class="thanks-pay-state"><strong>${t(orderPaymentLabel(record))}</strong></p>`;
+        if(info){
+          payHTML+=`<dl class="thanks-bank">
+            <div><dt>${t('Banco')}</dt><dd>${esc(info.bank)}</dd></div>
+            ${info.account_type?`<div><dt>${t('Tipo de cuenta')}</dt><dd>${esc(info.account_type)}</dd></div>`:''}
+            <div><dt>${t('Cuenta')}</dt><dd>${esc(info.account)}</dd></div>
+            <div><dt>${t('Titular')}</dt><dd>${esc(info.holder)}</dd></div>
+          </dl>`;
+        } else {
+          payHTML+=`<p class="thanks-warn">${t('Transferencia no disponible')}</p>
+            <p class="thanks-muted">${t('La cuenta bancaria aún no está configurada. Paga en efectivo en caja.')}</p>`;
+        }
+      } else if(method==='payphone'){
+        payHTML=`<h2>${t('Método de pago')}</h2><p class="thanks-pay-state"><strong>${t(orderPaymentLabel(record))}</strong></p>`;
+        if(record.status==='rejected'||payment==='rejected'){
+          payHTML+=`<p class="thanks-warn">${t('El pago no fue aprobado. Puedes volver al menú e intentar de nuevo.')}</p>`;
+          if(record.payment_message) payHTML+=`<p class="thanks-muted">${esc(record.payment_message)}</p>`;
+        } else if(payment==='unknown'){
+          payHTML+=`<p class="thanks-warn">${t('Estamos verificando tu pago con Payphone. No vuelvas a pagar.')}</p>`;
+        } else if(payment==='failed'){
+          payHTML+=`<p class="thanks-warn">${t('No se completó el pago con Payphone. Puedes reintentar.')}</p>`;
+        } else if(record.status!=='paid'&&record.status!=='ready'){
+          payHTML+=`<p class="thanks-muted">${t('Verificando tu pago…')}</p>`;
+        }
+      } else {
+        payHTML=`<h2>${t('Método de pago')}</h2><p class="thanks-muted">${t('Verificando tu pago…')}</p>`;
+      }
+      const waNumber=transferWhatsAppNumber();
+      const waLink=method==='transfer'&&transferInfo(config)&&waNumber
+        ? `https://wa.me/${waNumber}?text=${encodeURIComponent(transferMessage(record))}`:'';
+      const retry=thanksRetryAllowed(record);
+      section.innerHTML=`<div class="thanks-shell">
+        <div class="thanks-head">
+          <span class="thanks-kicker">${esc(config.store_name||'Munch')}</span>
+          <h1 class="thanks-title">${t(thanksTitle(record))}</h1>
+          <p class="thanks-number">${orderNumberLabel(record.number)}</p>
+          <span class="thanks-badge ${tone}"${method?'':' hidden'}>${t(orderPaymentLabel(record))}</span>
+          ${sede?`<p class="thanks-sede">${t('Sede')}: ${esc(sede.nombre)}</p>`:''}
+        </div>
+        <section class="thanks-card">
+          <h2>${t('Resumen')}</h2>
+          ${lines?`<ul class="thanks-lines">${lines}</ul>`:`<p class="thanks-muted">${t('Resumen no disponible. Muestra tu número en caja.')}</p>`}
+          <div class="thanks-total"><span>${t('Total')}</span><strong>${Number.isFinite(total)?formatPrice(total/100):''}</strong></div>
+          <p class="thanks-muted">${methodLabel}</p>
+        </section>
+        <section class="thanks-card thanks-payment">${payHTML}</section>
+        <div class="thanks-actions">
+          <button type="button" class="btn-confirm" id="thanksRefresh">${t('Actualizar estado')}</button>
+          ${waLink?`<a class="btn-whatsapp" href="${waLink}" target="_blank" rel="noopener">${t('Envía tu comprobante por WhatsApp')}</a>`:''}
+          ${retry?`<button type="button" class="btn-secondary" id="thanksRetry">${t('Reintentar pago con tarjeta')}</button>`:''}
+          <a class="btn-secondary" href="/">${t('Volver al menú')}</a>
+        </div>
+        <p class="thanks-notice">${t('Cuando tu pedido esté listo te avisaremos por WhatsApp al número que registraste.')}</p>
+        <p class="thanks-privacy">${t('Tus datos fiscales no se muestran en esta página.')}</p>
+        ${thanksError==='notfound'?`<p class="thanks-warn">${t('No pudimos consultar el estado. Reintenta.')}</p>`:''}
+      </div>`;
+      section.querySelector('#thanksRefresh')?.addEventListener('click',()=>refreshThanks(true));
+      section.querySelector('#thanksRetry')?.addEventListener('click',retryThanksPayphone);
+    }
+    function scheduleThanksPoll(){
+      clearThanksPoll();
+      if(!thanksRecord||!thanksCheckout||thanksError) return;
+      if(thanksPollFinal(String(thanksRecord.status||''))) return;
+      thanksTimer=setTimeout(()=>refreshThanks(false),thanksCheckout.poll_ms);
+    }
+    async function refreshThanks(manual){
+      if(!thanksRecord||!thanksCheckout||thanksBusy||thanksError==='notfound') return;
+      thanksBusy=true;
+      const button=document.getElementById('thanksRefresh');
+      if(button){button.disabled=true;button.textContent=t('Actualizando…');}
+      try{
+        const response=await fetch(thanksStatusUrl(thanksCheckout,thanksRecord),{cache:'no-store'});
+        if(response.status===404){
+          thanksError='notfound';clearThanksPoll();return;
+        }
+        const data=await response.json().catch(()=>null);
+        if(response.ok&&data&&typeof data.status==='string'){
+          thanksRecord=Object.assign({},thanksRecord,statusSnapshot(data));
+          saveOrderRecord(thanksRecord);
+          trackThanksPurchase();
+        } else if(manual){
+          showToast(t('No pudimos consultar el estado. Reintenta.'));
+        }
+      }catch(e){
+        if(manual) showToast(t('No pudimos consultar el estado. Reintenta.'));
+      }finally{
+        thanksBusy=false;
+        if(button){button.disabled=false;button.textContent=t('Actualizar estado');}
+        renderThanks();
+        scheduleThanksPoll();
+      }
+    }
+    function openPaymentURL(url){
+      const link=document.createElement('a');
+      link.href=url;link.referrerPolicy='origin';
+      document.body.append(link);link.click();
+    }
+    async function retryThanksPayphone(){
+      if(!thanksRecord||!thanksCheckout||thanksBusy) return;
+      thanksBusy=true;
+      try{
+        const response=await fetch(ordersEndpoint(thanksCheckout,`/api/orders/${encodeURIComponent(thanksRecord.id)}/payphone`),{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({order_token:thanksRecord.token,idempotency_key:'retry-'+crypto.randomUUID()}),
+        });
+        const started=await response.json().catch(()=>null);
+        if(response.ok&&started&&started.payment_url){
+          thanksRecord.payment_status='pending';delete thanksRecord.retryable;saveOrderRecord(thanksRecord);
+          openPaymentURL(started.payment_url);return;
+        }
+        if(response.ok&&started&&started.status==='paid'){
+          thanksRecord.status='paid';thanksRecord.payment_status='paid';saveOrderRecord(thanksRecord);
+          await refreshThanks(true);return;
+        }
+        throw new Error(orderErrorMessage(response.status,started&&started.error));
+      }catch(error){
+        showToast(t((error&&error.message)||'No se pudo abrir Payphone. Reintenta.'));
+      }finally{
+        thanksBusy=false;renderThanks();
+      }
+    }
+    function initThanks(){
+      const section=document.getElementById('thanksPage');
+      document.body.classList.add('thanks-view');
+      if(!section) return;
+      section.hidden=false;
+      thanksCheckout=checkoutOrders(config);
+      const returned=parseOrderReturn(location.search);
+      let record=returned?loadOrderRecord(returned.id):loadOrderRecord('');
+      if(returned){
+        record=Object.assign({},record||{},{id:returned.id,token:returned.token});
+        if(!record.payment_method&&returned.payment) record.payment_method='payphone';
+        if(returned.payment==='pendiente'&&(!record.payment_status||record.payment_status==='pending')) record.payment_status='unknown';
+        if(returned.payment==='rechazado') record.payment_status='rejected';
+      }
+      if(!record||!record.id||!record.token||!thanksCheckout){renderThanksMissing();return;}
+      thanksRecord=record;
+      saveOrderRecord(record);
+      syncThanksUrl(record);
+      document.title=t('Pedido')+' · '+(config.store_name||'Munch');
+      renderThanks();
+      if(!thanksBound){
+        thanksBound=true;
+        document.addEventListener('visibilitychange',()=>{
+          if(!document.hidden&&thanksRecord&&!thanksPollFinal(String(thanksRecord.status||''))) refreshThanks(false);
+        });
+      }
+      refreshThanks(false);
+    }
+    function goToThanks(record){
+      const query=new URLSearchParams({pedido:record.id,token:record.token});
+      const url='/gracias?'+query.toString();
+      clearOrderPoll();
+      try{closeCart();}catch(e){}
+      try{history.pushState(null,'',url);}catch(e){location.assign(url);return;}
+      thanksRecord=record;thanksCheckout=checkoutOrders(config);thanksError='';
+      syncThanksUrl(record);
+      document.title=t('Pedido')+' · '+(config.store_name||'Munch');
+      renderThanks();
+      try{window.scrollTo(0,0);}catch(e){}
+      refreshThanks(false);
     }
     async function submitWebOrder(checkout){
       if(checkoutBusy) return;
       if(checkoutBlocked()){showToast((config.hours&&config.hours.closed_msg)||t('Estamos cerrados ahora'));return;}
-      const name=document.getElementById('fieldName').value.trim();
-      const phone=document.getElementById('fieldPhone').value.trim();
+      const cargo=billingValues();
+      if(!showBillingErrors(billingFieldErrors(cargo))){showToast(t('Revisa los datos de facturación'));return;}
       const mode=currentMode();
       const paymentMethod=document.getElementById('fieldPayment')?.value||'cash';
+      if(paymentMethod==='transfer'&&!transferInfo(config)){
+        showToast(t('Transferencia no disponible'));return;
+      }
       const address=mode==='delivery'?document.getElementById('fieldAddress').value.trim():'';
-      if(!name||!phone){showToast(t('Completa tu nombre y teléfono'));return;}
       if(mode==='delivery'&&!requireCoverage())return;
       if(mode==='delivery'&&!address){showToast(t('Ingresa tu dirección de entrega'));return;}
       const sedeId=selectedSede();
@@ -1333,7 +1791,11 @@
       const items=orderCartItems(cartItems,products);
       if(!items.length){showToast(t('Tu pedido está vacío'));return;}
       writeSede(sedeId);
-      const fingerprint=JSON.stringify({sede_id:sedeId,items,customer:{name,phone},delivery_mode:mode,payment_method:paymentMethod,address:address||null});
+      const customer={name:cargo.name,phone:cargo.phone,billing:{
+        document_type:cargo.document_type,document_number:cargo.document_number,
+        email:cargo.email,address:cargo.address,
+      }};
+      const fingerprint=JSON.stringify({sede_id:sedeId,items,customer,delivery_mode:mode,payment_method:paymentMethod,address:address||null});
       const key=await orderKey(fingerprint);
       const button=document.getElementById('btnConfirm'),label=button?.textContent;
       checkoutBusy=true;
@@ -1343,7 +1805,7 @@
       try{
         const response=await fetch(ordersEndpoint(checkout,'/api/orders'),{
           method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,
-          body:JSON.stringify({sede_id:sedeId,items,customer:{name,phone},delivery_mode:mode,payment_method:paymentMethod,
+          body:JSON.stringify({sede_id:sedeId,items,customer,delivery_mode:mode,payment_method:paymentMethod,
             address:address||undefined,idempotency_key:key}),
         });
         const receipt=await response.json().catch(()=>null);
@@ -1352,33 +1814,42 @@
           if(response.status===409) forgetOrderKey();
           throw new Error(orderErrorMessage(response.status,receipt&&receipt.error));
         }
-        if(paymentMethod==='payphone'){
-          const pay=await fetch(ordersEndpoint(checkout,`/api/orders/${encodeURIComponent(receipt.id)}/payphone`),{
-            method:'POST',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({order_token:receipt.order_token,idempotency_key:'web-'+receipt.id}),
-          });
-          const started=await pay.json().catch(()=>null);
-          if(!pay.ok||!started?.payment_url)throw new Error('Pedido recibido, pero Payphone no pudo abrirse. Muestra el número en caja.');
-          forgetOrderKey();
-          try{sessionStorage.setItem('munch_last_order',JSON.stringify({...receipt,sede_id:sedeId}));}catch(e){}
-          // Payphone valida el dominio de origen del navegador. La política global
-          // no-referrer protege el token del recibo; esta navegación envía solo el origen.
-          const paymentLink=document.createElement('a');
-          paymentLink.href=started.payment_url;
-          paymentLink.referrerPolicy='origin';
-          document.body.append(paymentLink);
-          paymentLink.click();
-          return;
-        }
+        const record=orderRecord(receipt,paymentMethod,sedeId);
         forgetOrderKey();
-        track('Purchase',{contents:cartItems,value:Number(receipt.total_cents)/100,order_id:receipt.id});
+        saveOrderRecord(record);
+        if(paymentMethod==='payphone'){
+          try{
+            const pay=await fetch(ordersEndpoint(checkout,`/api/orders/${encodeURIComponent(receipt.id)}/payphone`),{
+              method:'POST',headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({order_token:receipt.order_token,idempotency_key:'web-'+receipt.id}),
+            });
+            const started=await pay.json().catch(()=>null);
+            if(pay.ok&&started?.payment_url){
+              clearCart();
+              openPaymentURL(started.payment_url);
+              return;
+            }
+            record.status=started&&typeof started.status==='string'?started.status:record.status;
+            record.payment_status=started&&started.status==='paid'?'paid':'failed';
+            saveOrderRecord(record);
+            clearCart();
+            goToThanks(record);
+            return;
+          }catch(e){
+            record.payment_status='failed';
+            saveOrderRecord(record);
+            clearCart();
+            goToThanks(record);
+            return;
+          }
+        }
         clearCart();
-        showOrderReceipt(checkout,receipt,sedeId);
+        goToThanks(record);
       }catch(error){
         showToast(t(error&&error.name==='AbortError'?'La conexión tardó demasiado. Reintenta.':(error&&error.message)||'No se pudo enviar tu pedido. Reintenta.'));
       }finally{
         clearTimeout(timeout);checkoutBusy=false;
-        if(button){button.disabled=false;button.textContent=label;}
+        if(button&&!document.body.classList.contains('thanks-view')){button.disabled=false;button.textContent=label;}
       }
     }
 
@@ -1643,64 +2114,9 @@
     }
 
     /* ── INIT ── */
-    async function init(){
-      // Edge (Worker SSR): el config viene inyectado en el HTML → sin fetch, sin flash.
-      // Legacy (Pages estático): cae al fetch de config.json. Retrocompatible.
-      if(window.__CONFIG__){ config=window.__CONFIG__; panelCount(window,'view'); }
-      else{ try{const r=await fetch('config.json',{cache:'no-store'});if(r.ok) config=await r.json();}catch(e){} }
-      // Retorno de Payphone: consultar el estado con el token opaco y limpiar la URL.
-      const resultParams=new URLSearchParams(location.search);
-      const returnedId=resultParams.get('pedido'),returnedToken=resultParams.get('token');
-      if(returnedId&&returnedToken&&checkoutOrders(config)){
-        history.replaceState(null,'',location.pathname);
-        fetch(ordersEndpoint(checkoutOrders(config),`/api/orders/${encodeURIComponent(returnedId)}?token=${encodeURIComponent(returnedToken)}`),{cache:'no-store'})
-          .then(r=>r.ok?r.json():null).then(receipt=>{
-            if(!receipt)return;
-            const banner=document.createElement('div');banner.setAttribute('role','status');banner.className='payment-return';
-            banner.textContent=`Pedido #${String(receipt.number).padStart(6,'0')} · ${t(orderStatusLabel(receipt.status))}`;
-            document.body.prepend(banner);
-          }).catch(()=>{});
-      }
-      // Opt-in config.store_mode: tienda (no restaurante) → sin entrega "Mesa", nota e ícono genéricos.
-      if(config.store_mode) document.querySelector('.dtog-btn[data-mode="mesa"]')?.remove();
-      renderExtraFields();
-      renderTableField();
-      // Checkout nativo: seis sedes → `?sede=` o selector; sin modo Mesa (lo atiende el mesero).
-      if(checkoutOrders(config)){
-        document.querySelector('.dtog-btn[data-mode="mesa"]')?.remove();
-        document.querySelector('.dtog-btn[data-mode="delivery"]')?.remove();
-        const toggle=document.getElementById('deliveryToggle');if(toggle)toggle.style.display='none';
-        const pickup=document.querySelector('.dtog-btn[data-mode="pickup"]');
-        if(pickup){
-          document.querySelectorAll('.dtog-btn').forEach(btn=>btn.classList.remove('active'));
-          pickup.classList.add('active');
-          const addressWrap=document.getElementById('fieldAddressWrap');
-          if(addressWrap) addressWrap.style.display='none';
-        }
-        renderSedeField();
-        const paymentWrap=document.getElementById('fieldPaymentWrap');if(paymentWrap)paymentWrap.hidden=false;
-        const payment=document.getElementById('fieldPayment');
-        const card=payment?.querySelector('option[value="payphone"]');
-        fetch(ordersEndpoint(checkoutOrders(config),'/api/payment-options'),{cache:'no-store'})
-          .then(r=>r.ok?r.json():null).then(options=>{if(card&&options?.payphone){card.disabled=false;card.textContent='Tarjeta con Payphone (pruebas)';}})
-          .catch(()=>{});
-        payment?.addEventListener('change',()=>{
-          const hint=document.getElementById('paymentHint');if(!hint)return;
-          hint.textContent=payment.value==='payphone'?'Serás dirigido a Payphone para pagar con tarjeta.':
-            payment.value==='transfer'?'Presenta tu comprobante en caja para confirmar el pago.':
-            'Paga en caja; el pedido se prepara después del cobro.';
-        });
-      }
-      if(needsCoverage()){
-        try{
-          if(!window.CraftGeo)await new Promise((resolve,reject)=>{
-            const script=document.createElement('script');script.src=geoScriptURL;
-            script.onload=resolve;script.onerror=reject;document.head.append(script);
-          });
-          coverage=window.CraftGeo.create(config,{mount:document.getElementById('fieldAddressWrap')});
-        }catch{showToast(t('No se pudo cargar el selector de ubicación. Recarga para reintentar.'));}
-      }
-
+    const isThanksPath=()=>String((typeof location!=='undefined'&&location.pathname)||'').replace(/\/+$/,'')==='/gracias';
+    // Tema, marca, fuentes, favicon y footer: común al menú y al recibo /gracias.
+    function applyBranding(){
       // Tema: aplica tokens de config.theme (objeto) + claves legacy theme_primary/accent.
       // El esqueleto (catalog.css) consume estas CSS vars; lo que un token no cubra va en theme.css.
       const root=document.documentElement.style;
@@ -1713,17 +2129,18 @@
       for(const k in theme){ if(T[k]&&theme[k]!=null&&theme[k]!=='') root.setProperty(T[k],theme[k]); }
 
       const store=config.store_name||'Catálogo';
-      document.getElementById('brandName').textContent=store;
+      const brandName=document.getElementById('brandName');if(brandName)brandName.textContent=store;
       // Logo desde config (shell genérico del Worker edge). Legacy trae el src en el index → no lo pisa si config.logo está vacío.
       const brandLogo=document.getElementById('brandLogo');
       if(brandLogo&&config.logo) brandLogo.src=config.logo;
       document.title=config.site_title||store;
-      document.getElementById('footerText').innerHTML=
+      const footer=document.getElementById('footerText');
+      if(footer) footer.innerHTML=
         `© ${new Date().getFullYear()} <strong>${store}</strong>`+
         `<span class="footer-sep">|</span><a href="#" id="lnkTerms">${t('Términos y condiciones')}</a>`+
         `<span class="footer-sep">|</span><a href="#" id="lnkPrivacy">${t('Política de privacidad')}</a>`+
         `<br><span class="footer-credit">Powered by <a href="https://craft-systems.com" target="_blank" rel="noopener">Craft Systems</a></span>`;
-      if(config.hero_title) document.getElementById('heroTitle').innerHTML=config.hero_title;
+      if(config.hero_title){const heroTitle=document.getElementById('heroTitle');if(heroTitle)heroTitle.innerHTML=config.hero_title;}
 
       // Personalizaciones opcionales desde config (edge y legacy). Si la clave no está,
       // se respeta lo que traiga el index del cliente (retrocompat). Crea el elemento si falta.
@@ -1747,6 +2164,45 @@
         const d=document.createElement('div'); d.className='hero-divider'; beforeHero(d);
       }
       if(config.search_placeholder){ const si=document.getElementById('searchInput'); if(si) si.placeholder=config.search_placeholder; }
+    }
+
+    async function init(){
+      // Edge (Worker SSR): el config viene inyectado en el HTML → sin fetch, sin flash.
+      // Legacy (Pages estático): cae al fetch de config.json. Retrocompatible.
+      if(window.__CONFIG__){ config=window.__CONFIG__; if(!isThanksPath()) panelCount(window,'view'); }
+      else{ try{const r=await fetch('config.json',{cache:'no-store'});if(r.ok) config=await r.json();}catch(e){} }
+
+      applyBranding();
+
+      // /gracias: recibo por token opaco. No carga catálogo, carrito ni horario.
+      if(isThanksPath()){ initThanks(); return; }
+
+      // Retorno viejo de Payphone a "/": mover a /gracias conservando id, token y resultado.
+      const returned=parseOrderReturn(location.search);
+      if(returned&&checkoutOrders(config)){
+        const query=new URLSearchParams({pedido:returned.id,token:returned.token});
+        if(returned.payment) query.set('pago',returned.payment);
+        location.replace('/gracias?'+query.toString());
+        return;
+      }
+
+      // Opt-in config.store_mode: tienda (no restaurante) → sin entrega "Mesa", nota e ícono genéricos.
+      if(config.store_mode) document.querySelector('.dtog-btn[data-mode="mesa"]')?.remove();
+      const nativeCheckout=checkoutOrders(config);
+      if(!nativeCheckout) renderExtraFields(); // los campos extra legacy viajan solo por WhatsApp
+      renderTableField();
+      // Checkout nativo: seis sedes → `?sede=` o selector; sin modo Mesa (lo atiende el mesero).
+      if(nativeCheckout) setupNativeCheckout(nativeCheckout);
+      else restoreLegacyCta();
+      if(needsCoverage()){
+        try{
+          if(!window.CraftGeo)await new Promise((resolve,reject)=>{
+            const script=document.createElement('script');script.src=geoScriptURL;
+            script.onload=resolve;script.onerror=reject;document.head.append(script);
+          });
+          coverage=window.CraftGeo.create(config,{mount:document.getElementById('fieldAddressWrap')});
+        }catch{showToast(t('No se pudo cargar el selector de ubicación. Recarga para reintentar.'));}
+      }
 
       // Burbuja de WhatsApp: número dinámico desde config (no hardcodear en el index).
       const waFloat=document.querySelector('.wa-float'),waBubble=(config.whatsapp_number||'').replace(/\D/g,'');
