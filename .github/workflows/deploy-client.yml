@@ -74,6 +74,9 @@ jobs:
           # Bendo: credenciales por comercio (nunca en Git) y modo/entorno por vars.
           BENDO_CLIENT_ID: ${{ secrets.BENDO_CLIENT_ID }}
           BENDO_CLIENT_SECRET: ${{ secrets.BENDO_CLIENT_SECRET }}
+          # Facturón: facturación electrónica (la emisión además exige config en KV).
+          FACTURON_API_KEY: ${{ secrets.FACTURON_API_KEY }}
+          FACTURON_WEBHOOK_SECRET: ${{ secrets.FACTURON_WEBHOOK_SECRET }}
           ENGINE_ORIGIN: ${{ vars.ENGINE_ORIGIN }}
           MENU_PUBLIC_URL: ${{ vars.MENU_PUBLIC_URL }}
           BENDO_MODE: ${{ vars.BENDO_MODE }}

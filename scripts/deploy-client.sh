@@ -18,6 +18,7 @@
 #   BENDO_MODE (disabled por defecto), BENDO_ENV (staging por defecto),
 #   BENDO_POINT_OF_SALE (uuid; vacío = se resuelve vía API de Bendo),
 #   BENDO_CLIENT_ID / BENDO_CLIENT_SECRET (secrets del panel; se conservan si faltan)
+#   FACTURON_API_KEY / FACTURON_WEBHOOK_SECRET (facturación; se conservan si faltan)
 set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -133,6 +134,9 @@ put_secret ADMIN_TOKEN
 # Bendo: credenciales por comercio (staging o producción según BENDO_ENV). Nunca en Git.
 put_secret BENDO_CLIENT_ID
 put_secret BENDO_CLIENT_SECRET
+# Facturón: API key (fec_…) y secreto del webhook (whsec_…). Nunca en Git.
+put_secret FACTURON_API_KEY
+put_secret FACTURON_WEBHOOK_SECRET
 
 # 4) Menú con sus assets locales /v1.
 log "desplegando menú ($MENU_WORKER_NAME)"

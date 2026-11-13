@@ -5,10 +5,10 @@ import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import { makeEnv } from "./helpers.mjs";
 import {
-  INVOICE_SCHEMA, adapterFor, createEcuafactAdapter, createFactuplanAdapter, createMockAdapter,
-  handleGetInvoice, handleInvoiceWebhook, handleRetryInvoice, invoiceDraftFromOrder, isPaidOrder,
+  INVOICE_SCHEMA, adapterFor, createFacturonAdapter, createMockAdapter,
+  handleGetInvoice, handleInvoiceRide, handleInvoiceWebhook, handleRetryInvoice, invoiceDraftFromOrder, isPaidOrder,
   loadInvoiceConfig, normalizeInvoiceConfig, prepareInvoice, publicInvoice, refreshInvoice,
-  retryInvoice, submitInvoice, verifyEcuafactSignature,
+  retryInvoice, submitInvoice, verifyFacturonSignature,
 } from "../src/invoices.js";
 
 const SLUG = "pizza";
@@ -18,8 +18,10 @@ const ACCESS_KEY = "1".repeat(49);
 const SESSION = { email: "dueno@pizza.ec" };
 
 const config = (overrides = {}) => ({
-  provider: "ecuafact",
+  provider: "facturon",
   environment: "sandbox",
+  companyId: 3,
+  emissionPointId: 7,
   emitEnabled: true,
   fiscalValidated: true,
   productionApproved: false,
@@ -54,7 +56,7 @@ const posOrder = (overrides = {}) => ({
 
 const envWith = (cfg = config(), extra = {}) => {
   const env = makeEnv({ [`${SLUG}:invoices`]: cfg });
-  env.ECUAFACT_API_KEY = "test-ecuafact-key";
+  env.FACTURON_API_KEY = "fec_test";
   return Object.assign(env, extra);
 };
 const rowOf = (env, orderId) =>
@@ -68,10 +70,7 @@ const jsonRequest = (body, headers = {}) => new Request("https://pizza.craft-sys
   headers: { "content-type": "application/json", ...headers },
   body: typeof body === "string" ? body : JSON.stringify(body),
 });
-const sign = (body, secret, timestamp) => {
-  const v1 = createHmac("sha256", secret).update(`${timestamp}.${body}`).digest("hex");
-  return `t=${timestamp},v1=${v1}`;
-};
+const hmac = (body, secret, timestamp) => createHmac("sha256", secret).update(`${timestamp}.${body}`).digest("hex");
 
 /* ── Borrador neutral ─────────────────────────────────────────────────────── */
 
@@ -303,7 +302,7 @@ test("prepareInvoice: sin proveedor, sin credenciales o sin configuración fisca
   assert.equal(rowOf(noProvider, "ord-1").failure_code, "provider_not_configured");
   assert.equal(manualProvider.invoice.requires_action, true);
 
-  const noKeys = envWith(config(), { ECUAFACT_API_KEY: undefined });
+  const noKeys = envWith(config(), { FACTURON_API_KEY: undefined });
   const manualKeys = await prepareInvoice(noKeys, { slug: SLUG, order: posOrder(), config: config(), now: NOW });
   assert.equal(manualKeys.invoice.status, "manual");
   assert.equal(rowOf(noKeys, "ord-1").failure_code, "provider_credentials_missing");
@@ -476,7 +475,7 @@ test("guardas de producción: mock prohibido, validación fiscal y aprobación e
   assert.equal(productionMock.calls().emitCalls, 0);
 
   const fake = {
-    name: "ecuafact", environment: "production", emitted: 0,
+    name: "facturon", environment: "production", emitted: 0,
     async emit() { this.emitted++; return { accepted: true, kind: "processing", operationId: "prod-op" }; },
     async fetchStatus() { return { state: "processing" }; },
   };
@@ -514,130 +513,166 @@ test("guardas de producción: mock prohibido, validación fiscal y aprobación e
 
 /* ── Adaptadores ──────────────────────────────────────────────────────────── */
 
-test("Ecuafact: payload oficial, ambiente sandbox y consulta de operación", async () => {
-  const draft = invoiceDraftFromOrder({ order: posOrder(), config: config(), now: NOW });
+// fetch simulado de Facturón: responde según método y ruta.
+const facturonFetch = (routes, calls) => async (url, init = {}) => {
+  const path = url.replace("https://facturon.ec/api/v1/ext", "");
+  calls.push({ path, method: init.method || "GET", headers: init.headers, body: init.body ? JSON.parse(init.body) : null });
+  const handler = routes[`${init.method || "GET"} ${path.split("?")[0]}`];
+  const [status, body] = handler ? handler(calls.at(-1)) : [500, { success: false, error: "request_failed" }];
+  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+};
+const facturonAdapter = fetchImpl =>
+  createFacturonAdapter({ apiKey: "fec_test", companyId: 3, emissionPointId: 7, environment: "sandbox", fetchImpl });
+
+test("Facturón: busca o crea el cliente, emite con idempotencia y montos cuadrados", async () => {
+  const draft = invoiceDraftFromOrder({
+    order: posOrder({ payment_method: "bendo", invoice_customer: { identification: "0912345678", name: "Ana Pérez", email: "ana@x.ec" } }),
+    config: config(), now: NOW,
+  });
+  assert.equal(draft.ready, true);
   const calls = [];
-  const fetchImpl = async (url, init) => {
-    calls.push({ url: String(url), init });
-    return new Response(JSON.stringify({
-      estado: "recibido", codEstado: 1001, idOperacion: "3f1c8c1e-6f2a-4b7e-9c3d-2a1b0c9d8e7f",
-      numeroDocumento: "001-001-000000123", claveAcceso: null,
-    }), { status: 202, headers: { "content-type": "application/json" } });
-  };
-  const adapter = createEcuafactAdapter({ apiKey: "api-key-secreta", ruc: RUC, environment: "sandbox", fetchImpl });
+  const adapter = facturonAdapter(facturonFetch({
+    "GET /customers/lookup": () => [404, { success: false, error: "not_found", message: "Cliente no encontrado." }],
+    "POST /customers": () => [201, { success: true, data: { customer: { id: 25 } } }],
+    "POST /documents": () => [201, { success: true, data: { document: {
+      id: 812, status: "processing", environment: "1", document_number: "001-001-000000042", access_key: ACCESS_KEY,
+    } } }],
+  }, calls));
   const result = await adapter.emit(draft, { idempotencyKey: "invoice:pizza:ord-1:1", externalReference: "ORD-ord-1" });
-  assert.equal(result.accepted, true);
-  assert.equal(result.kind, "processing");
-  assert.equal(result.operationId, "3f1c8c1e-6f2a-4b7e-9c3d-2a1b0c9d8e7f");
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0].url, `https://staging-api.mynexusapi.com/v1/contribuyentes/${RUC}/facturas`);
-  assert.equal(calls[0].init.headers["X-Api-Key"], "api-key-secreta");
-  assert.equal(calls[0].init.headers["Idempotency-Key"], "invoice:pizza:ord-1:1");
-  const body = JSON.parse(calls[0].init.body);
-  assert.equal(body.origenReferencia, "craft-panel");
-  assert.equal(body.referenciaExterna, "ORD-ord-1");
-  assert.equal(body.infoTributaria.ruc, RUC);
-  assert.equal(body.infoTributaria.estab, "001");
-  assert.equal(body.infoTributaria.ptoEmi, "001");
-  assert.equal(body.infoTributaria.tipoDocumento, undefined);
-  assert.equal(body.info.totalSinImpuestos, 10);
-  assert.equal(body.info.totalDescuento, 0);
-  assert.equal(body.info.importeTotal, 11.5);
-  assert.equal(body.info.moneda, "DOLAR");
-  assert.deepEqual(body.info.pagos, [{ formaPago: "01", total: 11.5 }]);
-  assert.deepEqual(body.info.totalConImpuestos, [{ codigo: "2", codigoPorcentaje: "4", tarifa: 15, baseImponible: 10, valor: 1.5 }]);
-  assert.equal(body.detalles[0].codigoPrincipal, "p1");
-  assert.equal(body.detalles[0].precioUnitario, 8.7);
-  assert.equal(body.detalles[0].precioTotalSinImpuesto, 8.7);
-  assert.deepEqual(body.detalles[0].impuestos, [{ codigo: "2", codigoPorcentaje: "4", tarifa: 15, baseImponible: 8.7, valor: 1.3 }]);
+  assert.deepEqual(
+    { accepted: result.accepted, kind: result.kind, operationId: result.operationId, documentNumber: result.documentNumber },
+    { accepted: true, kind: "processing", operationId: "812", documentNumber: "001-001-000000042" },
+  );
+  assert.deepEqual(calls.map(c => `${c.method} ${c.path}`), [
+    "GET /customers/lookup?identification=0912345678", "POST /customers", "POST /documents",
+  ]);
+  assert.equal(calls[0].headers.Authorization, "Bearer fec_test");
+  assert.deepEqual(calls[1].body, { identification_type: "05", identification_number: "0912345678", name: "Ana Pérez", email: "ana@x.ec", phone: "0991234567" });
+  const doc = calls[2];
+  assert.equal(doc.headers["Idempotency-Key"], "invoice:pizza:ord-1:1");
+  assert.equal(doc.body.company_id, 3);
+  assert.equal(doc.body.emission_point_id, 7);
+  assert.equal(doc.body.customer_id, 25);
+  assert.equal(doc.body.document_type, "01");
+  assert.equal(doc.body.issue_date, "2026-11-10");
+  assert.equal(doc.body.external_reference, "ORD-ord-1");
+  assert.deepEqual(doc.body.payment_methods, [{ code: "19", amount: 11.5 }], "tarjeta → 19");
+  assert.equal(doc.body.subtotal_15, 10);
+  assert.equal(doc.body.total_tax, 1.5);
+  assert.equal(doc.body.total, 11.5);
+  assert.equal(doc.body.additional_info.Pedido, "ord-1");
+  // Facturón no recalcula: cada línea y el total deben cuadrar.
+  let base = 0, tax = 0;
+  for (const item of doc.body.items) {
+    assert.ok(Math.abs(item.quantity * item.unit_price - item.discount - item.subtotal) < 0.005, item.description);
+    assert.equal(item.tax_base, item.subtotal);
+    assert.equal(item.tax_percentage_code, "4");
+    base += item.subtotal; tax += item.tax_value;
+  }
+  assert.equal(Number((base + tax).toFixed(2)), doc.body.total);
 
-  const statusCalls = [];
-  const statusFetch = async (url, init) => {
-    statusCalls.push({ url: String(url), init });
-    return new Response(JSON.stringify({
-      estado: "autorizado", codEstado: 2001, claveAcceso: ACCESS_KEY,
-      numeroDocumento: "001-001-000000123",
-    }), { status: 200, headers: { "content-type": "application/json" } });
-  };
-  const statusAdapter = createEcuafactAdapter({ apiKey: "api-key-secreta", ruc: RUC, environment: "sandbox", fetchImpl: statusFetch });
-  const status = await statusAdapter.fetchStatus({ operationId: "3f1c8c1e-6f2a-4b7e-9c3d-2a1b0c9d8e7f" });
-  assert.equal(status.state, "authorized");
-  assert.equal(status.accessKey, ACCESS_KEY);
-  assert.equal(status.authorizationNumber, ACCESS_KEY);
-  assert.equal(statusCalls[0].url, "https://staging-api.mynexusapi.com/v1/operaciones/3f1c8c1e-6f2a-4b7e-9c3d-2a1b0c9d8e7f");
-
-  const invalid = await statusAdapter.fetchStatus({ operationId: "no-es-uuid" });
-  assert.equal(invalid.state, "unknown");
-  assert.equal(statusCalls.length, 1);
-
-  assert.throws(() => createEcuafactAdapter({ apiKey: "k", ruc: "123", environment: "sandbox" }), /RUC/);
-  assert.throws(() => createEcuafactAdapter({ apiKey: "k", ruc: RUC, environment: "otro" }), /ambiente/);
+  // Cliente existente: no se crea; consumidor final con 9999999999999.
+  const cfCalls = [];
+  const cf = facturonAdapter(facturonFetch({
+    "GET /customers/lookup": () => [200, { success: true, data: { customer: { id: 1 } } }],
+    "POST /documents": () => [201, { success: true, data: { document: { id: 900, status: "authorized", environment: "1" } } }],
+  }, cfCalls));
+  const cfDraft = invoiceDraftFromOrder({ order: posOrder(), config: config(), now: NOW });
+  const cfResult = await cf.emit(cfDraft, { idempotencyKey: "k-1", externalReference: "ORD-ord-1" });
+  assert.equal(cfResult.kind, "authorized");
+  assert.equal(cfCalls[0].path, "/customers/lookup?identification=9999999999999");
+  assert.equal(cfCalls.length, 2);
+  assert.deepEqual(cfCalls[1].body.payment_methods, [{ code: "01", amount: 11.5 }], "efectivo → 01");
 });
 
-test("Ecuafact: 5007 y 5001 no confirman ni rechazan; se conserva submitted", async () => {
+test("Facturón: errores, ambiente distinto y consulta de estado", async () => {
+  const draft = invoiceDraftFromOrder({ order: posOrder(), config: config(), now: NOW });
+  const emitWith = async (status, body) => facturonAdapter(facturonFetch({
+    "GET /customers/lookup": () => [200, { success: true, data: { customer: { id: 1 } } }],
+    "POST /documents": () => [status, body],
+  }, [])).emit(draft, { idempotencyKey: "k", externalReference: "ORD-ord-1" });
+
+  assert.equal((await emitWith(422, { success: false, error: "validation_error", message: "Datos inválidos", errors: { sri: ["Total no cuadra"] } })).kind, "rejected");
+  const reused = await emitWith(409, { success: false, error: "idempotency_key_reused", message: "x" });
+  assert.equal(reused.kind, "conflict");
+  assert.equal((await emitWith(409, { success: false, error: "idempotency_in_progress", message: "x" })).kind, "uncertain");
+  assert.equal((await emitWith(409, { success: false, error: "send_failed", message: "sin firma" })).kind, "configuration");
+  assert.equal((await emitWith(403, { success: false, error: "plan_limit_reached", message: "x" })).kind, "configuration");
+  assert.equal((await emitWith(429, { success: false, error: "rate_limit_exceeded", message: "x" })).kind, "uncertain");
+  assert.equal((await emitWith(503, null)).kind, "uncertain");
+  const wrongEnv = await emitWith(201, { success: true, data: { document: { id: 5, status: "processing", environment: "2" } } });
+  assert.equal(wrongEnv.kind, "conflict");
+  assert.equal(wrongEnv.code, "environment_mismatch");
+  assert.equal(wrongEnv.operationId, "5");
+  const rejectedMsg = await emitWith(422, { success: false, error: "validation_error", message: "Datos inválidos", errors: { sri: ["Total no cuadra"] } });
+  assert.equal(rejectedMsg.message, "Datos inválidos | Total no cuadra");
+
+  const statusOf = async (status, body) => facturonAdapter(facturonFetch({
+    "GET /documents/812/status": () => [status, body],
+  }, [])).fetchStatus({ operationId: "812" });
+  const ok = await statusOf(200, { success: true, data: { status: "authorized", authorization_number: ACCESS_KEY } });
+  assert.equal(ok.state, "authorized");
+  assert.equal(ok.authorizationNumber, ACCESS_KEY);
+  assert.equal((await statusOf(200, { success: true, data: { status: "sent", contingency_active: true } })).state, "processing");
+  const rejected = await statusOf(200, { success: true, data: { status: "rejected", sri_messages: [{ tipo: "ERROR", identificador: "56", mensaje: "ESTABLECIMIENTO CERRADO" }] } });
+  assert.equal(rejected.state, "rejected");
+  assert.equal(rejected.message, "56 ESTABLECIMIENTO CERRADO");
+  assert.equal((await statusOf(200, { success: true, data: { status: "voided" } })).state, "cancelled");
+  assert.equal((await statusOf(401, { success: false, error: "invalid_api_key" })).state, "configuration");
+  assert.equal((await statusOf(500, null)).state, "unknown");
+  assert.equal((await facturonAdapter(async () => { throw new Error("no"); }).fetchStatus({ operationId: "abc" })).code, "operation_id_invalid");
+
+  // Tarifa sin campo de subtotal en Facturón (14 %): no se envía nada.
+  const calls = [];
+  const odd = invoiceDraftFromOrder({ order: posOrder(), config: config({ defaultTaxRateBp: 1400 }), now: NOW });
+  const oddResult = await facturonAdapter(facturonFetch({}, calls)).emit(odd, { idempotencyKey: "k", externalReference: "R" });
+  assert.equal(oddResult.code, "payload_invalid");
+  assert.equal(calls.length, 0);
+
+  assert.throws(() => createFacturonAdapter({ apiKey: "k", companyId: 0, emissionPointId: 1 }), /companyId/);
+  assert.throws(() => createFacturonAdapter({ apiKey: "k", companyId: 1, emissionPointId: 1, environment: "otro" }), /ambiente/);
+});
+
+test("Facturón: el ambiente distinto conserva el documento y exige conciliación", async () => {
   const env = envWith();
   await prepareInvoice(env, { slug: SLUG, order: posOrder(), config: config(), now: NOW });
-  const mock = createMockAdapter({
-    emissions: [{ accepted: true, kind: "processing", operationId: "mock-op-5007" }],
-    statuses: [{ state: "unknown", code: 5007, message: "resultado no confirmado" }],
-  });
-  const result = await submitInvoice(env, { slug: SLUG, orderId: "ord-1", config: config(), adapter: mock, now: NOW });
-  assert.equal(result.ok, false);
-  assert.equal(result.code, "resultado_no_confirmado");
-  assert.equal(result.invoice.status, "submitted");
-  assert.equal(rowOf(env, "ord-1").sri_status, "unknown");
-  assert.equal(rowOf(env, "ord-1").failure_code, "resultado_no_confirmado");
-  assert.equal(mock.calls().emitCalls, 1);
+  const adapter = createMockAdapter({ emissions: [{ accepted: false, kind: "conflict", code: "environment_mismatch", operationId: "44", message: "otro ambiente" }] });
+  const result = await submitInvoice(env, { slug: SLUG, orderId: "ord-1", config: config(), adapter, now: NOW });
+  assert.equal(result.code, "idempotency_conflict");
+  const row = rowOf(env, "ord-1");
+  assert.equal(row.status, "failed");
+  assert.equal(row.provider_operation_id, "44");
+  assert.equal(row.provider_status, "environment_mismatch");
 });
 
-test("Factuplan: devReference, sin header de idempotencia y tarifas soportadas", async () => {
-  const draft = invoiceDraftFromOrder({ order: posOrder(), config: config(), now: NOW });
+test("cron de facturas: reconsulta las enviadas y reintenta las inciertas con la misma clave", async () => {
+  const env = envWith();
+  await prepareInvoice(env, { slug: SLUG, order: posOrder(), config: config(), now: NOW });
+  await prepareInvoice(env, { slug: SLUG, order: posOrder({ id: "ord-2" }), config: config(), now: NOW });
+  await submitInvoice(env, { slug: SLUG, orderId: "ord-1", config: config(), now: NOW,
+    adapter: createMockAdapter({ emissions: [{ accepted: true, kind: "processing", operationId: "10" }], statuses: [{ state: "processing" }] }) });
+  await submitInvoice(env, { slug: SLUG, orderId: "ord-2", config: config(), now: NOW,
+    adapter: createMockAdapter({ emissions: [{ accepted: false, kind: "uncertain", code: 503 }] }) });
+  assert.equal(rowOf(env, "ord-2").failure_code, "provider_uncertain");
+
   const calls = [];
-  const fetchImpl = async (url, init) => {
-    calls.push({ url: String(url), init });
-    return new Response(JSON.stringify({
-      data: { id: "receipt-1", status: "DRAFT", sequential: "000000001", accessKey: null },
-      meta: { requestId: "req-1" },
-    }), { status: 201, headers: { "content-type": "application/json" } });
-  };
-  const adapter = createFactuplanAdapter({
-    apiKey: "ak_test_factuplan", ruc: RUC, environment: "sandbox", fetchImpl,
-  });
-  const result = await adapter.emit(draft, { idempotencyKey: "ignorada", externalReference: "ORD-ord-1" });
-  assert.equal(result.accepted, true);
-  assert.equal(result.kind, "processing");
-  assert.equal(result.operationId, "receipt-1");
-  assert.equal(calls[0].url, "https://api-rest.factuplan.com.ec/v1/developer/invoices");
-  assert.equal(calls[0].init.headers["X-API-Key"], "ak_test_factuplan");
-  assert.equal(calls[0].init.headers["x-taxpayer-ruc"], RUC);
-  assert.equal(calls[0].init.headers["X-Idempotency-Key"], undefined, "Factuplan ignora cabeceras de idempotencia");
-  const body = JSON.parse(calls[0].init.body);
-  assert.equal(body.devReference, "ORD-ord-1");
-  assert.equal(body.customer.identificationType, "FINAL_CONSUMER");
-  assert.equal(body.customer.phone, undefined, "no envía teléfonos fuera de E.164");
-  assert.equal(body.items[0].taxType, "IVA_RATE");
-  assert.equal(body.items[0].tax, 15);
-  assert.equal(body.__environmentPrefix, undefined);
-
-  const statusFetch = async () => new Response(JSON.stringify({
-    data: { status: "AUTHORIZED", authorizationNumber: ACCESS_KEY, sequential: "000000001" },
-  }), { status: 200, headers: { "content-type": "application/json" } });
-  const statusAdapter = createFactuplanAdapter({ apiKey: "ak_test_x", ruc: RUC, environment: "sandbox", fetchImpl: statusFetch });
-  const status = await statusAdapter.fetchStatus({ operationId: "receipt-1" });
-  assert.equal(status.state, "authorized");
-  assert.equal(status.authorizationNumber, ACCESS_KEY);
-
-  const thirteen = normalizeInvoiceConfig(config({ defaultTaxRateBp: 1300 }));
-  const draft13 = invoiceDraftFromOrder({ order: posOrder(), config: thirteen, now: NOW });
-  assert.equal(draft13.ready, true);
-  const unsupported = await adapter.emit(draft13, { externalReference: "ORD-13" });
-  assert.equal(unsupported.accepted, false);
-  assert.equal(unsupported.kind, "configuration");
-  assert.equal(unsupported.code, "payload_invalid");
-
-  assert.throws(() => createFactuplanAdapter({ apiKey: "ak_live_x", ruc: RUC, environment: "sandbox" }), /ak_test_/);
-  assert.throws(() => createFactuplanAdapter({ apiKey: "ak_test_x", ruc: "123", environment: "sandbox" }), /RUC/);
-  assert.throws(() => createFactuplanAdapter({ apiKey: "ak_test_x", ruc: RUC, environment: "otro" }), /ambiente/);
+  env.FACTURON_API_KEY = "fec_test";
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = facturonFetch({
+    "GET /documents/10/status": () => [200, { success: true, data: { status: "authorized", authorization_number: ACCESS_KEY } }],
+    "GET /customers/lookup": () => [200, { success: true, data: { customer: { id: 1 } } }],
+    "POST /documents": () => [201, { success: true, data: { document: { id: 11, status: "processing", environment: "1" } } }],
+    "GET /documents/11/status": () => [200, { success: true, data: { status: "processing" } }],
+  }, calls);
+  try {
+    const { reconcileInvoices } = await import("../src/invoices.js");
+    assert.deepEqual(await reconcileInvoices(env, NOW + 30_000), { checked: 0 }, "espera un minuto");
+    assert.deepEqual(await reconcileInvoices(env, NOW + 120_000), { checked: 2 });
+  } finally { globalThis.fetch = realFetch; }
+  assert.equal(rowOf(env, "ord-1").status, "issued");
+  assert.equal(rowOf(env, "ord-2").status, "submitted");
+  const post = calls.find(c => c.path === "/documents" && c.method === "POST");
+  assert.equal(post.headers["Idempotency-Key"], rowOf(env, "ord-2").idempotency_key);
 });
 
 test("adaptador mock y selección por configuración", async () => {
@@ -648,122 +683,91 @@ test("adaptador mock y selección por configuración", async () => {
   assert.deepEqual(mock.buildPayload({ orderId: "ord-1" }), { mock: true, orderId: "ord-1" });
 
   const env = envWith();
-  assert.equal(adapterFor(env, config()).name, "ecuafact");
-  assert.equal(adapterFor(env, config({ emitEnabled: false })).name, "ecuafact", "consulta no depende de emitir");
+  assert.equal(adapterFor(env, config()).name, "facturon");
+  assert.equal(adapterFor(env, config({ emitEnabled: false })).name, "facturon", "consulta no depende de emitir");
   assert.equal(adapterFor(env, config({ environment: null })), null);
-  assert.equal(adapterFor(env, config({ provider: "factuplan" })), null, "falta FACTUPLAN_API_KEY");
-  env.FACTUPLAN_API_KEY = "ak_test_x";
-  assert.equal(adapterFor(env, config({ provider: "factuplan" })).name, "factuplan");
-  delete env.ECUAFACT_API_KEY;
+  assert.equal(adapterFor(env, config({ companyId: null })), null, "falta la empresa emisora");
+  assert.equal(adapterFor(env, config({ provider: "ecuafact" })), null, "proveedor retirado");
+  delete env.FACTURON_API_KEY;
   assert.equal(adapterFor(env, config()), null);
 });
 
 /* ── Webhooks firmados ────────────────────────────────────────────────────── */
 
-test("webhook Ecuafact: firma HMAC sobre cuerpo crudo, tolerancia y reconsulta", async () => {
-  const env = envWith(config(), { ECUAFACT_WEBHOOK_SECRET: "secreto-webhook" });
+test("webhook Facturón: firma HMAC sobre timestamp.cuerpo, tolerancia, prueba y reconsulta", async () => {
+  const env = envWith(config(), { FACTURON_WEBHOOK_SECRET: "whsec_prueba" });
   await prepareInvoice(env, { slug: SLUG, order: posOrder(), config: config(), now: NOW });
-  const submitMock = createMockAdapter({ statuses: [{ state: "processing" }] });
+  const submitMock = createMockAdapter({ emissions: [{ accepted: true, kind: "processing", operationId: "812" }], statuses: [{ state: "processing" }] });
   await submitInvoice(env, { slug: SLUG, orderId: "ord-1", config: config(), adapter: submitMock, now: NOW });
-  assert.equal(rowOf(env, "ord-1").provider_operation_id, "mock-op-1");
 
-  const body = JSON.stringify({
-    eventType: "document.authorized", resourceId: "mock-op-1", idOperacion: "mock-op-1",
-    estado: "autorizado", codEstado: 2001, claveAcceso: ACCESS_KEY, errores: [],
-  });
   const timestamp = Math.floor(NOW / 1000);
-  const signature = sign(body, "secreto-webhook", timestamp);
-  const refreshMock = createMockAdapter({
-    statuses: [{ state: "authorized", accessKey: ACCESS_KEY, authorizationNumber: ACCESS_KEY }],
+  const headersFor = (body, ts = timestamp, secret = "whsec_prueba") => ({
+    "X-Webhook-Signature": hmac(body, secret, ts), "X-Webhook-Timestamp": String(ts),
+    "X-Webhook-Id": "8d6f0e1c-0000-4000-8000-000000000000", "X-Webhook-Event": "document.authorized",
   });
+  const body = JSON.stringify({
+    id: "8d6f0e1c-0000-4000-8000-000000000000", event: "document.authorized", timestamp, test: false,
+    data: { document_id: 812, external_reference: "ORD-ord-1", status: "authorized" },
+  });
+  const refreshMock = createMockAdapter({ statuses: [{ state: "authorized", authorizationNumber: ACCESS_KEY }] });
+  const call = (b, headers, now = NOW) => handleInvoiceWebhook(jsonRequest(b, headers), env, { slug: SLUG }, { adapter: refreshMock, now });
 
-  const valid = await handleInvoiceWebhook(
-    jsonRequest(body, { "Ecuafact-Signature": signature }), env, { slug: SLUG }, { adapter: refreshMock, now: NOW },
-  );
+  assert.equal((await call(body, { ...headersFor(body), "X-Webhook-Signature": hmac(body, "otro", timestamp) })).status, 401);
+  assert.equal((await call(body, headersFor(body), NOW + 301_000)).status, 401, "fuera de 5 minutos");
+  assert.equal((await call(body, {})).status, 401);
+  assert.equal(refreshMock.calls().statusCalls, 0, "sin firma válida no reconsulta");
+
+  const valid = await call(body, headersFor(body));
   assert.equal(valid.status, 200);
   assert.deepEqual(await valid.json(), { received: true, matched: true, status: "issued" });
   assert.equal(rowOf(env, "ord-1").status, "issued");
 
-  const invalid = await handleInvoiceWebhook(
-    jsonRequest(body, { "Ecuafact-Signature": signature.replace(/.$/, "0") }), env, { slug: SLUG }, { adapter: refreshMock, now: NOW },
-  );
-  assert.equal(invalid.status, 401);
-  assert.deepEqual(await invalid.json(), { error: "firma_invalida" });
-
-  const stale = await handleInvoiceWebhook(
-    jsonRequest(body, { "Ecuafact-Signature": signature }), env, { slug: SLUG }, { adapter: refreshMock, now: NOW + 301_000 },
-  );
-  assert.equal(stale.status, 401);
-
-  const missing = await handleInvoiceWebhook(jsonRequest(body), env, { slug: SLUG }, { adapter: refreshMock, now: NOW });
-  assert.equal(missing.status, 401);
-
-  const unknownBody = JSON.stringify({ eventType: "document.authorized", resourceId: "otro", idOperacion: "otro" });
-  const unknown = await handleInvoiceWebhook(
-    jsonRequest(unknownBody, { "Ecuafact-Signature": sign(unknownBody, "secreto-webhook", timestamp) }),
-    env, { slug: SLUG }, { adapter: refreshMock, now: NOW },
-  );
-  assert.equal(unknown.status, 200);
-  assert.deepEqual(await unknown.json(), { received: true, matched: false });
-
+  const ping = JSON.stringify({ id: "x", event: "webhook.test", test: true, data: {} });
+  assert.deepEqual(await (await call(ping, headersFor(ping))).json(), { received: true, test: true });
+  const other = JSON.stringify({ event: "document.authorized", data: { document_id: 999, external_reference: "OTRA" } });
+  assert.deepEqual(await (await call(other, headersFor(other))).json(), { received: true, matched: false });
   const badJson = "{no es json";
-  const bad = await handleInvoiceWebhook(
-    jsonRequest(badJson, { "Ecuafact-Signature": sign(badJson, "secreto-webhook", timestamp) }),
-    env, { slug: SLUG }, { adapter: refreshMock, now: NOW },
-  );
-  assert.equal(bad.status, 400);
-
-  const getResponse = await handleInvoiceWebhook(
-    new Request("https://pizza.craft-systems.com/panel/webhooks/invoices"), env, { slug: SLUG },
-  );
-  assert.equal(getResponse.status, 405);
-
-  const huge = "x".repeat(9000);
-  const hugeResponse = await handleInvoiceWebhook(
-    jsonRequest(huge, { "Ecuafact-Signature": sign(huge, "secreto-webhook", timestamp) }), env, { slug: SLUG },
-  );
-  assert.equal(hugeResponse.status, 413);
-});
-
-test("webhook Factuplan: token propio y reconsulta obligatoria", async () => {
-  const cfg = config({ provider: "factuplan" });
-  const env = envWith(cfg, { INVOICE_WEBHOOK_TOKEN: "token-interno", FACTUPLAN_API_KEY: "ak_test_x" });
-  await prepareInvoice(env, { slug: SLUG, order: posOrder(), config: cfg, now: NOW });
-  env.DB.raw.prepare("UPDATE invoices SET provider_operation_id = ? WHERE slug = ? AND order_id = ?")
-    .run("factuplan-op-1", SLUG, "ord-1");
-
-  const body = JSON.stringify({ eventType: "invoice.authorized", devReference: "ORD-ord-1" });
-  const refreshMock = createMockAdapter({
-    statuses: [{ state: "authorized", accessKey: ACCESS_KEY, authorizationNumber: ACCESS_KEY }],
-  });
-  const missingToken = await handleInvoiceWebhook(jsonRequest(body), env, { slug: SLUG }, { adapter: refreshMock, now: NOW });
-  assert.equal(missingToken.status, 401);
-
-  const valid = await handleInvoiceWebhook(
-    jsonRequest(body, { "x-webhook-token": "token-interno" }), env, { slug: SLUG }, { adapter: refreshMock, now: NOW },
-  );
-  assert.equal(valid.status, 200);
-  assert.deepEqual(await valid.json(), { received: true, matched: true, status: "issued" });
-
-  const unconfigured = await handleInvoiceWebhook(
-    jsonRequest(body, { "x-webhook-token": "token-interno" }), makeEnv(), { slug: SLUG }, { adapter: refreshMock, now: NOW },
-  );
+  assert.equal((await call(badJson, headersFor(badJson))).status, 400);
+  const huge = "x".repeat(70_000);
+  assert.equal((await call(huge, headersFor(huge))).status, 413);
+  const get = await handleInvoiceWebhook(new Request("https://pizza.craft-systems.com/panel/webhooks/invoices"), env, { slug: SLUG });
+  assert.equal(get.status, 405);
+  const unconfigured = await handleInvoiceWebhook(jsonRequest(body, headersFor(body)), makeEnv(), { slug: SLUG }, { now: NOW });
   assert.equal(unconfigured.status, 503);
 });
 
-test("verifyEcuafactSignature: vector propio, firma alterada y tiempo fuera de tolerancia", async () => {
-  const secret = "s3cr3t";
-  const body = JSON.stringify({ hola: "mundo" });
-  const timestamp = 1_700_000_000;
-  const header = sign(body, secret, timestamp);
-  assert.equal(await verifyEcuafactSignature({ secret, header, body, now: timestamp }), true);
-  assert.equal(await verifyEcuafactSignature({ secret, header, body, now: timestamp + 300 }), true);
-  assert.equal(await verifyEcuafactSignature({ secret, header, body, now: timestamp + 301 }), false);
-  assert.equal(await verifyEcuafactSignature({ secret: "otro", header, body, now: timestamp }), false);
-  assert.equal(await verifyEcuafactSignature({ secret, header, body: body + " ", now: timestamp }), false);
-  assert.equal(await verifyEcuafactSignature({ secret, header: "t=abc,v1=123", body, now: timestamp }), false);
-  assert.equal(await verifyEcuafactSignature({ secret: "", header, body, now: timestamp }), false);
-  assert.equal(await verifyEcuafactSignature({ secret, header: "", body, now: timestamp }), false);
+test("verifyFacturonSignature: vector propio, alteraciones y tolerancia", async () => {
+  const secret = "whsec_s3cr3t", body = JSON.stringify({ hola: "mundo" }), timestamp = 1_700_000_000;
+  const signature = hmac(body, secret, timestamp);
+  const ok = over => verifyFacturonSignature({ secret, signature, timestamp, body, now: timestamp, ...over });
+  assert.equal(await ok({}), true);
+  assert.equal(await ok({ signature: signature.toUpperCase() }), true);
+  assert.equal(await ok({ now: timestamp + 300 }), true);
+  assert.equal(await ok({ now: timestamp + 301 }), false);
+  assert.equal(await ok({ secret: "otro" }), false);
+  assert.equal(await ok({ body: body + " " }), false);
+  assert.equal(await ok({ timestamp: "abc" }), false);
+  assert.equal(await ok({ secret: "" }), false);
+  assert.equal(await ok({ signature: "" }), false);
+});
+
+test("RIDE: solo facturas autorizadas, con sesión, redirige a la URL temporal", async () => {
+  const env = envWith();
+  env.FACTURON_API_KEY = "fec_test";
+  await prepareInvoice(env, { slug: SLUG, order: posOrder(), config: config(), now: NOW });
+  const req = new Request("https://pizza.craft-systems.com/panel/api/invoices/ord-1/ride");
+  assert.equal((await handleInvoiceRide(req, env, { slug: SLUG }, null, "ord-1")).status, 401);
+  assert.equal((await handleInvoiceRide(req, env, { slug: SLUG }, SESSION, "ord-1")).status, 404, "aún no autorizada");
+  env.DB.raw.prepare("UPDATE invoices SET status = 'issued', provider_operation_id = '812' WHERE order_id = 'ord-1'").run();
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = facturonFetch({
+    "GET /documents/812/ride": () => [200, { success: true, data: { url: "https://facturon.ec/tmp/ride.pdf", filename: "f.pdf" } }],
+  }, []);
+  try {
+    const res = await handleInvoiceRide(req, env, { slug: SLUG }, SESSION, "ord-1");
+    assert.equal(res.status, 302);
+    assert.equal(res.headers.get("location"), "https://facturon.ec/tmp/ride.pdf");
+  } finally { globalThis.fetch = realFetch; }
 });
 
 /* ── Rutas para el integrador ─────────────────────────────────────────────── */

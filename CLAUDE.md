@@ -42,7 +42,7 @@ node scripts/seed-client.mjs --dry-run
 - La sede (`sede-01`…`sede-06`) se congela en cada pedido; la geolocalización nunca cambia una sede elegida por QR.
 - La comanda llega a cocina **solo tras cobro confirmado**. Pagos y creación de pedidos son idempotentes (`idempotency_key`; misma clave con otro cuerpo → 409). Un pago con tarjeta en estado `unknown` exige conciliación; nunca asumirlo rechazado.
 - Las categorías de reporte (`sushi`, `fastfood`, `tradicional`, `postres`) se congelan por línea; los reportes suman solo pedidos cobrados.
-- Facturación: `issued` solo con autorización confirmada del proveedor/SRI. La emisión real está desactivada. Plan de emisión directa al SRI: `docs/FACTURACION-SRI-DIRECTO.md`; la firma/P12 solo como secreto del Worker del cliente.
+- Facturación por **Facturón** (`docs/FACTURACION.md`): `issued` solo con autorización confirmada del SRI vía `GET /documents/{id}/status`; el webhook solo dispara la reconsulta. La emisión real exige config en KV `{slug}:invoices` + `FACTURON_API_KEY`; el ambiente SRI lo fija la empresa en Facturón, no la URL.
 - Pago con tarjeta por Bendo: la fuente de verdad es `GET /links/{id}`; el retorno del navegador y el webhook solo disparan la verificación. Payphone quedó archivado en `integraciones/payphone/` (no se despliega) y `payphone` solo sigue válido en BD para filas históricas.
 
 ## Datos y media

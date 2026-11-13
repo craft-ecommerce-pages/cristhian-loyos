@@ -1,11 +1,11 @@
 # Facturación electrónica — módulo del panel
 
-Estado: **implementado y probado en local; no habilitado para emisión real**. El módulo vive aislado en `panel/src/invoices.js` y no se activa solo: el integrador debe llamarlo después de un pago confirmado y aplicar la migración `0007`.
+Estado: **proveedor elegido: Facturón** (decisión de Juan Carlos, 13-nov-2026). Implementado y probado en local; **no habilitado para emisión real** hasta cargar credenciales y la configuración en KV. Tras cada cobro confirmado, `orders.js#afterPaid` prepara la factura y, si la configuración lo permite, la envía. Los adaptadores Ecuafact y Factuplan se retiraron (quedan en el historial de Git).
 
 ## 1. Alcance y límites
 
 - Propiedad: `panel/src/invoices.js`, `panel/migrations/0007_invoices.sql`, `panel/test/invoices.test.mjs` y este documento.
-- No modifica pagos, pedidos, UI, `api.js` ni `index.js`. Las rutas y el webhook se conectan en el handoff (`.ops/invoices-handoff.md`).
+- La factura es derivada: nunca revierte ni bloquea el cobro, la orden o la comanda.
 - No guarda certificados, claves ni secretos en Git, D1 ni KV.
 - No emite por defecto. Sin configuración explícita, la factura queda en `manual`.
 - La emisión real exige, además de credenciales, `emitEnabled`, `fiscalValidated` y `productionApproved`; en `production` el adaptador `mock` está prohibido.
@@ -17,8 +17,7 @@ Se contrastó la investigación `.ops/facturacion-investigacion.md` con document
 - El SRI **no certifica software**: valida cada comprobante. “Autorizado por el SRI” en el marketing de un proveedor no equivale a una habilitación formal del sistema.
 - La obligación depende del **régimen real del RUC**, no del rubro. RIMPE Negocio Popular puede usar nota de venta; RIMPE Emprendedor debe emitir comprobantes electrónicos. El estado del RUC manda.
 - La ficha técnica vigente consultada es la **v2.34** (esquema offline). La clave de acceso tiene 49 dígitos y la firma es XAdES-BES.
-- **Ecuafact** documenta sandbox y producción, emisión, consulta de operación y webhooks firmados. Es el adaptador preferente.
-- **Factuplan** documenta emisión, consulta de estado e idempotencia por `devReference`; **no documenta firma HMAC** para webhooks. Se implementó como alternativa con token propio y reconsulta obligatoria.
+- Proveedores evaluados: Ecuafact y Factuplan (adaptadores retirados) y **Facturón** (elegido el 13-nov-2026: documenta idempotencia, estado SRI en vivo, webhooks HMAC y RIDE por API).
 - La investigación inicial mencionaba seis sedes. **No está confirmado**: el RUC del titular indica un solo establecimiento. El módulo no asume seis sedes ni crea establecimientos; si la configuración declara más de uno, el borrador queda bloqueado hasta validación fiscal.
 - No se pudo hacer un smoke real: no hay credenciales ni sandbox contratado. Todo lo que depende de la cuenta del cliente queda **PENDIENTE DE VERIFICAR**.
 
@@ -87,14 +86,16 @@ Un conflicto de idempotencia pasa a `failed` con `idempotency_conflict` y exige 
 
 | Clave | Valor |
 |---|---|
-| `provider` | `ecuafact` o `factuplan`; en minúsculas |
-| `environment` | `sandbox` o `production` |
+| `provider` | `facturon` (cualquier otro valor = sin proveedor) |
+| `environment` | `sandbox` o `production`; debe coincidir con el ambiente SRI de la empresa en Facturón |
+| `companyId` | `id` de la empresa emisora (`GET /companies`) |
+| `emissionPointId` | `id` del punto de emisión (`GET /companies` → `branches[].emission_points[]`) |
 | `emitEnabled` | `true` solo cuando se autoriza emisión |
 | `fiscalValidated` | `true` solo tras validación fiscal del titular |
 | `productionApproved` | `true` solo con aprobación explícita para producción |
-| `ruc` | RUC de 13 dígitos del emisor |
+| `ruc` | RUC de 13 dígitos del emisor (referencia; Facturón lo toma de la empresa) |
 | `legalName` | Razón social |
-| `establishment` | Código de establecimiento, 3 dígitos |
+| `establishment` | Código de establecimiento, 3 dígitos (debe coincidir con la serie de `emissionPointId`) |
 | `emissionPoint` | Punto de emisión, 3 dígitos |
 | `establishments` | Lista; más de uno bloquea hasta validación fiscal |
 | `currency` | `USD` |
@@ -103,7 +104,7 @@ Un conflicto de idempotencia pasa a `failed` con `idempotency_conflict` y exige 
 | `taxRatesByCategory` | Mapa categoría → puntos base |
 | `allowFinalConsumer` | `true` para permitir consumidor final |
 | `finalConsumerMaxCents` | Límite en centavos; por defecto `5000` |
-| `paymentMethod` | Dos dígitos; por defecto `01` |
+| `paymentMethod` | Forma de pago SRI para métodos sin mapeo; por defecto `01`. Mapeo fijo: efectivo `01`, transferencia `20`, tarjeta (Bendo link o datáfono) `19` |
 | `supplierRuc` | RUC del proveedor del sistema, si se exige en información adicional |
 | `additionalInfo` | Objeto o lista de hasta 20 pares |
 | `legacyPricesAreCurrency` | `true` solo para pedidos legacy con precios en dólares |
@@ -114,58 +115,48 @@ Un conflicto de idempotencia pasa a `failed` con `idempotency_conflict` y exige 
 
 | Secreto | Uso |
 |---|---|
-| `ECUAFACT_API_KEY` | Cabecera `X-Api-Key` de Ecuafact |
-| `ECUAFACT_WEBHOOK_SECRET` | Firma HMAC `Ecuafact-Signature` |
-| `FACTUPLAN_API_KEY` | Cabecera `X-API-Key` de Factuplan |
-| `INVOICE_WEBHOOK_TOKEN` | Token propio para webhooks de Factuplan |
+| `FACTURON_API_KEY` | `Authorization: Bearer fec_…`. Alcances mínimos: `documents:read`, `documents:write`, `customers:read`, `customers:write` |
+| `FACTURON_WEBHOOK_SECRET` | Secreto `whsec_…` del webhook (se muestra una sola vez en Facturón) |
 
-Configurar con `wrangler secret put`; nunca en KV, D1, `.env` versionado, logs ni capturas.
+Se cargan como secrets de GitHub (`deploy-client.yml` → `put_secret`) o con `wrangler secret put`; nunca en KV, D1, `.env` versionado, logs ni capturas. Si la API key expira (30/90/365 días), Facturón responde `expired_api_key` y la factura queda `manual` con `provider_configuration`.
 
-## 7. Adaptadores
+## 7. Adaptador Facturón
 
-### 7.1 Ecuafact (preferente)
+Referencia: <https://facturon.ec/docs/api> y `openapi.yaml` 1.0.0. Base `https://facturon.ec/api/v1/ext`.
 
-- Sandbox: `https://staging-api.mynexusapi.com`.
-- Producción: `https://api.mynexusapi.com`.
-- Emisión: `POST /v1/contribuyentes/{ruc}/facturas` con `X-Api-Key` e `Idempotency-Key`.
-- Seguimiento: `GET /v1/operaciones/{idOperacion}`.
-- `issued` solo si el estado es autorizado, `codEstado` 2001 y hay `claveAcceso`.
-- `5007` y `5001` se tratan como resultado no confirmado: no se declara `issued` ni `failed`, y no se reemite.
-- Webhook: `Ecuafact-Signature` con HMAC-SHA256 sobre `<timestamp>.<cuerpo_crudo>`, tolerancia de 300 s; el evento solo identifica la operación, nunca cambia el estado por sí solo.
-- El RIDE requiere `X-Api-Key`; por eso `pdf_url` queda `null` hasta que exista un proxy autenticado.
+- **Un solo host para pruebas y producción.** El ambiente SRI lo fija la empresa emisora en Facturón (Configuración → Datos del emisor: `1` pruebas, `2` producción). Cada documento devuelto trae `environment`; si no coincide con `environment` de la configuración, la factura pasa a `failed` con `environment_mismatch`, conserva el id del documento y exige conciliación. **La misma API key emite en producción si la empresa está en producción**: durante las pruebas, la empresa debe estar en ambiente de pruebas.
+- **Cliente:** `customer_id` es obligatorio. Se busca con `GET /customers/lookup?identification=` y, si da 404, se crea con `POST /customers` (si la creación choca con otra simultánea, se vuelve a buscar). Consumidor final: tipo `07`, identificación `9999999999999`, hasta USD 50.
+- **Emisión:** `POST /documents` con `Idempotency-Key` = `invoice:<slug>:<pedido>:<intento>` y `external_reference` = `ORD-<pedido>` (máx. 64). Facturón no recalcula: se envían `subtotal_<tarifa>`, `total_tax`, `total_discount`, `total`, `payment_methods` e ítems con `tax_code` `2`, `tax_percentage_code`, `tax_base` y `tax_value` ya calculados en centavos. La tarifa 14 % no tiene campo de subtotal en Facturón: el borrador se bloquea antes de llamar.
+- **Respuestas:** `201` → `submitted` (o `authorized`); `422 validation_error` → `failed` con el mensaje del SRI; `409 idempotency_key_reused` → conflicto (conciliar); `409 idempotency_in_progress`, `429`, `5xx` o red → incierto, se reintenta con la misma clave; `409 send_failed`, `401`, `403` (incluye `plan_limit_reached`) → `manual`.
+- **Estado:** `GET /documents/{id}/status`. `authorized` + `authorization_number` → `issued`; `draft/processing/signed/sent` (incluida contingencia) → `submitted`; `rejected/failed` → `failed` con `sri_messages`; `voided` → anulada.
+- **RIDE:** `GET /panel/api/invoices/:pedido/ride` (con sesión) redirige a la URL temporal de 30 min que da `GET /documents/{id}/ride?url=1`. La API key nunca llega al navegador.
+- Límite de 60 peticiones/minuto en plan Negocio: una factura usa 2–4 llamadas (búsqueda, alta del cliente si es nuevo, emisión, estado).
 
-### 7.2 Factuplan (alternativa)
-
-- Base: `https://api-rest.factuplan.com.ec`.
-- Emisión: `POST /v1/developer/invoices` con `X-API-Key` y `x-taxpayer-ruc`.
-- Idempotencia: solo por `devReference`; no se envía cabecera de idempotencia.
-- Seguimiento: `GET /v1/developer/receipts/{id}/status`.
-- API keys: `ak_test_*` en sandbox y `ak_live_*` en producción; el adaptador exige el prefijo correcto.
-- `issued` solo con `AUTHORIZED` o `COMPLETED`.
-- No hay firma HMAC documentada: el webhook exige `x-webhook-token` y **siempre** reconsulta el comprobante.
-
-### 7.3 Mock
+### 7.1 Mock
 
 `createMockAdapter` existe solo para pruebas locales. No se selecciona por configuración y está prohibido en producción.
 
-## 8. Webhooks
+## 8. Webhooks y conciliación
 
-`handleInvoiceWebhook` recibe `POST`, limita el cuerpo a 8 KB y exige:
+`POST /panel/webhooks/invoices` (registrar en Facturón → Configuración → Webhooks, eventos `document.*`). Límite de 64 KB. Exige:
 
-- Ecuafact: firma HMAC válida, comparación en tiempo constante y tolerancia temporal.
-- Factuplan: token propio válido; aun así, reconsulta obligatoria.
+- `X-Webhook-Signature` = `hex(HMAC-SHA256(FACTURON_WEBHOOK_SECRET, "{X-Webhook-Timestamp}.{cuerpo crudo}"))`, comparada en tiempo constante, y `X-Webhook-Timestamp` a menos de 5 minutos.
+- `webhook.test` responde `{received:true, test:true}` sin tocar nada.
 
-El payload solo se usa para localizar la factura por `idOperacion`/`resourceId` o por referencia externa. El estado final siempre sale de `refreshInvoice`. Un evento no reconocido responde `{received:true, matched:false}` sin cambiar nada.
+El payload solo localiza la factura por `data.document_id` o `data.external_reference`; el estado final siempre sale de `GET /documents/{id}/status`. Reintentos de Facturón con el mismo `X-Webhook-Id` son inocuos porque solo disparan una reconsulta.
+
+El cron del panel (cada minuto) reconsulta hasta 10 facturas `submitted` de los últimos 7 días y reintenta, con la misma clave, las `pending` inciertas de las últimas 23 h (la idempotencia de Facturón dura 24 h). Así el estado se resuelve aunque el webhook no llegue.
 
 ## 9. Rutas y migración
 
-Rutas que debe montar el integrador:
+Rutas montadas:
 
 - `GET /panel/api/invoices/:orderId` → requiere sesión; devuelve solo datos públicos.
 - `POST /panel/api/invoices/:orderId/retry` → requiere sesión; acepta `{confirm_new_attempt:true}`.
-- `POST /panel/webhooks/invoices` → sin sesión, protegido por firma o token.
+- `GET /panel/api/invoices/:orderId/ride` → requiere sesión; redirige al PDF del RIDE de una factura `issued`.
+- `POST /panel/webhooks/invoices` → sin sesión, protegido por firma HMAC.
 
-La creación y el envío no tienen ruta propia: el POS debe llamar `prepareInvoice()` tras confirmar el pago y, si corresponde, `submitInvoice()`. El detalle exacto está en `.ops/invoices-handoff.md`.
+La creación y el envío no tienen ruta propia: `orders.js#afterPaid` llama `prepareInvoice()` tras confirmar el pago y, si corresponde, `submitInvoice()`.
 
 Migración `panel/migrations/0007_invoices.sql`:
 
@@ -189,32 +180,30 @@ Migración `panel/migrations/0007_invoices.sql`:
 node --test panel/test/invoices.test.mjs
 ```
 
-Cobertura: borrador neutral, bloqueos fiscales, normalización de configuración, idempotencia y conflicto de snapshot, estados, guardas de producción, payloads de Ecuafact/Factuplan, firma HMAC, webhooks, rutas y datos públicos.
+Cobertura: borrador neutral, bloqueos fiscales, normalización de configuración, idempotencia y conflicto de snapshot, estados, guardas de producción, payload y respuestas de Facturón (cliente, montos, errores, ambiente), cron de conciliación, firma HMAC, webhooks, RIDE, rutas y datos públicos.
 
 ## 12. Activación (checklist)
 
-1. Confirmar con el titular y el contador: régimen RIMPE, obligación de facturar, tarifas, comprador final y establecimiento/punto de emisión. El RUC solo confirma un establecimiento; no asumir seis.
-2. Verificar que el proveedor elegido figure en el listado del SRI y que su API permita el RUC del proveedor en información adicional.
-3. Contratar sandbox y obtener credenciales; cargarlas con `wrangler secret put`.
-4. Aplicar `0007_invoices.sql` en D1 con backup previo.
-5. Configurar KV `${slug}:invoices` en `sandbox`, primero con `emitEnabled:false`, y validar un pedido de punta a punta.
-6. Probar aceptación, rechazo, timeout, reconsulta y RIDE en sandbox.
-7. Solo con aprobación explícita: `environment:"production"`, `fiscalValidated:true`, `productionApproved:true` y `emitEnabled:true`.
+1. Confirmar con el titular y el contador: régimen RIMPE, obligación de facturar, tarifa de IVA (`defaultTaxRateBp`, `pricesIncludeTax`), formas de pago y establecimiento/punto de emisión. El RUC solo confirma un establecimiento; no asumir seis.
+2. Contratar en Facturón un plan con API y webhooks (Negocio o superior). Cargar la firma electrónica (P12) de la empresa **en Facturón**, con la empresa en **ambiente de pruebas**.
+3. Crear una API key con los cuatro alcances de 6.2 y registrar el webhook `https://<dominio>/panel/webhooks/invoices`. Guardar `FACTURON_API_KEY` y `FACTURON_WEBHOOK_SECRET` como secrets de GitHub.
+4. Obtener `companyId` y `emissionPointId` con `GET /companies`.
+5. Configurar KV `${slug}:invoices` con `provider:"facturon"`, `environment:"sandbox"`, ids, tarifas y `emitEnabled:true`. Probar: consumidor final, cédula, RUC, pedido con tarjeta, rechazo (p. ej. identificación inválida), webhook de prueba y RIDE.
+6. Solo con aprobación explícita: cambiar la empresa a producción en Facturón **y a la vez** `environment:"production"`, `fiscalValidated:true`, `productionApproved:true` en KV. Si solo se cambia uno de los dos, las facturas quedan en conciliación (`environment_mismatch`) o bloqueadas.
 
 ## 13. Pendientes verificables
 
 - Régimen y estado del RUC del titular, y si la factura electrónica es obligatoria u opcional.
 - Establecimientos y puntos de emisión reales; la investigación inicial no los confirma.
-- Credenciales sandbox y smoke real de Ecuafact o Factuplan.
-- RIDE: definir proxy autenticado antes de exponer `pdf_url`.
-- Contingencia si el SRI o el proveedor caen: quién emite nota de venta y cómo se concilia.
-- Decidir si el POS prepara la factura automáticamente al cobrar o solo a pedido del cliente.
+- La caja y el modo mesero no capturan datos fiscales: los pedidos de mostrador salen a consumidor final (≤ USD 50) o quedan `manual` si superan el límite. La web sí los captura en el checkout.
+- No hay vista de facturas en el panel: el estado se consulta por API (`GET /panel/api/invoices/:pedido`) o en Facturón.
+- Anulación: Facturón no anula ante el SRI por API; se anula en el portal del SRI o con nota de crédito.
+- Contingencia si Facturón cae más de 23 h: las facturas inciertas quedan `pending` y se reintentan a mano con `retry`.
 
 ## 14. Referencias
 
 - SRI — facturación electrónica: <https://www.sri.gob.ec/facturacion-electronica>
 - SRI — RIMPE: <https://www.sri.gob.ec/rimpe>
 - SRI — resoluciones: <https://www.sri.gob.ec/doc-gaceta-tributaria?biblioteca=Resoluciones>
-- Ecuafact: <https://docsapi.ecuafact.com/>
-- Factuplan: <https://factuplan.com.ec/docs/api>
+- Facturón API: <https://facturon.ec/docs/api> (OpenAPI: <https://facturon.ec/docs/openapi.yaml>)
 - Investigación base: `.ops/facturacion-investigacion.md` (contrastada; corregida en este documento donde afirmaba seis sedes sin verificación).

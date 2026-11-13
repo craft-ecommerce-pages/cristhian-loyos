@@ -11,7 +11,7 @@ import { handleAdmin } from "./admin.js";
 import { handleDemo, isDemo } from "./demo.js";
 import { renderCajaPage } from "./caja.js";
 import { handleEvent } from "./events.js";
-import { handleInvoiceWebhook } from "./invoices.js";
+import { handleInvoiceWebhook, reconcileInvoices } from "./invoices.js";
 import { renderKitchenPage } from "./kitchen.js";
 import { handleMedia } from "./media.js";
 import { renderMeseroPage } from "./mesero.js";
@@ -59,8 +59,8 @@ export default {
     return error("no_existe", 404);
   },
   // Cron (cada minuto): reconsulta los links de Bendo en `pending/unknown` de las
-  // últimas 2 h. Nunca recobra ni publica dos comandas.
+  // últimas 2 h (nunca recobra ni publica dos comandas) y las facturas en proceso.
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(reconcilePendingBendo(env));
+    ctx.waitUntil(Promise.all([reconcilePendingBendo(env), reconcileInvoices(env).catch(() => null)]));
   },
 };

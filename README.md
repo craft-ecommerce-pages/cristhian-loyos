@@ -43,7 +43,7 @@ Despliegue y migraciones: `docs/DESPLIEGUE.md`. Nunca compilar ni desplegar desd
 ## Configuración y secretos (por nombre, nunca en Git)
 
 - Secrets de GitHub Actions: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `CLIENT_SLUG`, `MENU_WORKER_NAME`, `PANEL_WORKER_NAME`, `KV_MENUS_ID`, `D1_DATABASE_NAME`, `D1_DATABASE_ID`, `R2_BUCKET_NAME`, `RATELIMIT_NAMESPACE_ID`, `SESSION_SECRET`, `ADMIN_TOKEN`.
-- Secrets del Worker del panel: `SESSION_SECRET`, `ADMIN_TOKEN`, `BENDO_CLIENT_ID`/`BENDO_CLIENT_SECRET` para tarjeta, y facturación solo con proveedor validado (`ECUAFACT_*`/`FACTUPLAN_*`).
+- Secrets del Worker del panel: `SESSION_SECRET`, `ADMIN_TOKEN`, `BENDO_CLIENT_ID`/`BENDO_CLIENT_SECRET` para tarjeta, y facturación con Facturón (`FACTURON_API_KEY`/`FACTURON_WEBHOOK_SECRET`; ver `docs/FACTURACION.md`).
 - `MEDIA_ORIGIN` es opcional: vacío publica rutas relativas `/media/...` servidas por el Worker.
 
 ## Límites conocidos

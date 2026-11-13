@@ -17,7 +17,7 @@ import {
   payCash, payDatafono, payTransfer, posOrderRow, posPaymentByRef, printKitchenOrder, printMeseroOrder, publicSedes, rejectPosOrder,
   sedesAllowed, sedesFor, setMeseroOrderStatus, setOrderStatus, transferInfo, upsertSedes,
 } from "./orders.js";
-import { handleGetInvoice, handleRetryInvoice } from "./invoices.js";
+import { handleGetInvoice, handleInvoiceRide, handleRetryInvoice } from "./invoices.js";
 import { handleTurnosApi } from "./turnos.js";
 import {
   bendoAvailable, handleBendoMock, handleBendoReturn, handleBendoWebhook, reconcileBendo, startBendo, startPublicBendo,
@@ -85,6 +85,8 @@ export async function handleApi(request, env, ctx, site) {
   // Facturas: lectura y reintento autenticados (nunca ruta pública).
   const invoice = /^invoices\/([^/]+)$/.exec(path);
   if (invoice && request.method === "GET") return handleGetInvoice(request, env, site, session, invoice[1]);
+  const invoiceRide = /^invoices\/([^/]+)\/ride$/.exec(path);
+  if (invoiceRide && request.method === "GET") return handleInvoiceRide(request, env, site, session, invoiceRide[1]);
   const invoiceRetry = /^invoices\/([^/]+)\/retry$/.exec(path);
   if (invoiceRetry && request.method === "POST") return handleRetryInvoice(request, env, site, session, invoiceRetry[1]);
   // Conciliación de un pago `pending/unknown`: reconsulta sin recobrar. Se

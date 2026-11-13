@@ -7,25 +7,27 @@
 //  - submitInvoice() habla con el proveedor solo si la configuración lo habilita de forma
 //    explícita. Sin proveedor queda `manual`; nunca se emite en producción por defecto.
 //  - refreshInvoice() confirma el estado en el proveedor/SRI antes de pasar a `issued`.
-//  - handleInvoiceWebhook() solo acepta firmas verificadas o, en proveedores sin firma,
-//    un token compartido y SIEMPRE reconsulta; el payload nunca cambia el estado por sí solo.
+//  - handleInvoiceWebhook() solo acepta firmas HMAC verificadas y SIEMPRE reconsulta;
+//    el payload nunca cambia el estado por sí solo.
 //
-// Secretos: solo desde env (`ECUAFACT_API_KEY`, `ECUAFACT_WEBHOOK_SECRET`,
-// `FACTUPLAN_API_KEY`, `INVOICE_WEBHOOK_TOKEN`). Nunca se escriben en D1, KV, logs ni Git.
+// Proveedor: Facturón (https://facturon.ec/docs/api). Secretos solo desde env
+// (`FACTURON_API_KEY`, `FACTURON_WEBHOOK_SECRET`). Nunca se escriben en D1, KV, logs ni Git.
 import { error, json } from "./contract.js";
 
 export const INVOICE_SCHEMA = "invoice-draft.v1";
 export const INVOICE_STATUSES = Object.freeze(["pending", "manual", "submitted", "issued", "failed"]);
 
 const ENCODER = new TextEncoder();
-const MAX_WEBHOOK_BYTES = 8 * 1024;
+const MAX_WEBHOOK_BYTES = 64 * 1024;
 const SUBMIT_LOCK_MS = 5 * 60 * 1000;
 const SIGNATURE_TOLERANCE_SECONDS = 300;
-const ECON_FINAL_CONSUMER_MAX_CENTS = 5000; // USD 50.00, límite documentado por Ecuafact/SRI
+const ECON_FINAL_CONSUMER_MAX_CENTS = 5000; // USD 50.00, límite del SRI para consumidor final
 const SRI_IVA_CODE_BY_RATE_BP = new Map([
   [0, "0"], [500, "5"], [800, "8"], [1200, "2"], [1300, "10"], [1400, "3"], [1500, "4"],
 ]);
-const FACTUPLAN_TAX_RATES_BP = new Set([0, 500, 800, 1200, 1400, 1500]);
+// Forma de pago SRI según cómo se cobró el pedido (01 sin sistema financiero,
+// 19 tarjeta de crédito, 20 otros con sistema financiero). `paymentMethod` cubre el resto.
+const SRI_PAYMENT_BY_ORDER_METHOD = Object.freeze({ cash: "01", transfer: "20", bendo: "19", payphone: "19" });
 const IDENTIFICATION_TYPES = new Map([
   ["RUC", "04"], ["CEDULA", "05"], ["CÉDULA", "05"], ["PASSPORT", "06"], ["PASAPORTE", "06"],
   ["FINAL_CONSUMER", "07"], ["CONSUMIDOR_FINAL", "07"], ["EXTERIOR", "08"],
@@ -104,11 +106,13 @@ export function normalizeInvoiceConfig(input) {
       if (Number.isSafeInteger(value) && value >= 0 && value <= 10000) categories[clampText(key, 60)] = value;
     }
   }
-  const provider = ["ecuafact", "factuplan"].includes(raw.provider) ? raw.provider : null;
+  const provider = raw.provider === "facturon" ? "facturon" : null;
   const environment = ["sandbox", "production"].includes(raw.environment) ? raw.environment : null;
   return {
     provider,
     environment,
+    companyId: isPositiveInt(raw.companyId) ? raw.companyId : null,
+    emissionPointId: isPositiveInt(raw.emissionPointId) ? raw.emissionPointId : null,
     emitEnabled: raw.emitEnabled === true,
     fiscalValidated: raw.fiscalValidated === true,
     productionApproved: raw.productionApproved === true,
@@ -241,7 +245,7 @@ export function invoiceDraftFromOrder({ order, config, now = Date.now() } = {}) 
       totalCents: computedTotal,
     },
     taxes: [...groups.values()],
-    payment: { method: cfg.paymentMethod, amountCents: computedTotal },
+    payment: { method: SRI_PAYMENT_BY_ORDER_METHOD[order?.payment_method] || cfg.paymentMethod, amountCents: computedTotal },
     establishment: cfg.establishment,
     emissionPoint: cfg.emissionPoint,
     additionalInfo: additionalInfo.slice(0, 20),
@@ -464,9 +468,7 @@ function manualReason(env, cfg, draft) {
 }
 
 function providerCredentials(env, cfg) {
-  if (cfg.provider === "ecuafact") return typeof env?.ECUAFACT_API_KEY === "string" && env.ECUAFACT_API_KEY.length > 0;
-  if (cfg.provider === "factuplan") return typeof env?.FACTUPLAN_API_KEY === "string" && env.FACTUPLAN_API_KEY.length > 0;
-  return false;
+  return cfg.provider === "facturon" && typeof env?.FACTURON_API_KEY === "string" && env.FACTURON_API_KEY.length > 0;
 }
 
 export async function prepareInvoice(env, { slug, order, config, now = Date.now() } = {}) {
@@ -568,17 +570,11 @@ export function adapterFor(env, cfg) {
   // La construcción no autoriza emisión: `emissionGuard` sigue exigiendo emitEnabled.
   // Así una consulta de estado o un webhook pueden confirmar aunque la emisión esté apagada.
   if (!config.environment) return null;
-  if (config.provider === "ecuafact" && providerCredentials(env, config)) {
+  if (config.provider === "facturon" && providerCredentials(env, config)) {
     try {
-      return createEcuafactAdapter({
-        apiKey: env.ECUAFACT_API_KEY, ruc: config.ruc, environment: config.environment,
-      });
-    } catch { return null; }
-  }
-  if (config.provider === "factuplan" && providerCredentials(env, config)) {
-    try {
-      return createFactuplanAdapter({
-        apiKey: env.FACTUPLAN_API_KEY, ruc: config.ruc, environment: config.environment,
+      return createFacturonAdapter({
+        apiKey: env.FACTURON_API_KEY, companyId: config.companyId,
+        emissionPointId: config.emissionPointId, environment: config.environment,
       });
     } catch { return null; }
   }
@@ -683,7 +679,7 @@ export async function submitInvoice(env, {
       provider_status: result.kind || "processing",
       sri_status: result.accessKey ? "authorized_unconfirmed" : "processing",
       failure_code: result.operationId ? null : "authorization_unconfirmed",
-      failure_message: result.operationId ? null : "El proveedor no devolvió idOperacion",
+      failure_message: result.operationId ? null : "El proveedor no devolvió el id del documento",
       submitted_at: now,
     }, now, { kind: "submitted", detail: result.kind || "processing" });
 
@@ -719,6 +715,9 @@ export async function submitInvoice(env, {
   if (result.kind === "conflict") {
     row = await patchInvoice(env, row, {
       status: "failed", provider: chosen.name, environment: chosen.environment,
+      provider_operation_id: result.operationId || row.provider_operation_id || null,
+      document_number: result.documentNumber || row.document_number || null,
+      access_key: result.accessKey || row.access_key || null,
       provider_status: result.code ? String(result.code) : "idempotency_conflict",
       failure_code: "idempotency_conflict", failure_message: message,
     }, now, { kind: "conflict", detail: String(result.code || "conflict") });
@@ -849,297 +848,189 @@ export async function retryInvoice(env, {
   return submitInvoice(env, { slug, orderId, config: cfg, adapter, now, forceNewAttempt });
 }
 
-// ── Adaptadores ──────────────────────────────────────────────────────────────
+// ── Adaptador Facturón (https://facturon.ec/docs/api, OpenAPI 1.0.0) ─────────
+// Un solo host para pruebas y producción: el ambiente SRI lo fija la empresa emisora
+// en Facturón (Configuración → Datos del emisor). Por eso cada documento devuelto se
+// compara con el ambiente configurado aquí; si no coincide, se exige conciliación.
 
-const ECUAFACT_SANDBOX = "https://staging-api.mynexusapi.com";
-const ECUAFACT_PRODUCTION = "https://api.mynexusapi.com";
-const FACTUPLAN_API = "https://api-rest.factuplan.com.ec";
+const FACTURON_API = "https://facturon.ec/api/v1/ext";
+const FACTURON_SRI_ENV = Object.freeze({ sandbox: "1", production: "2" });
+const FACTURON_SUBTOTAL_FIELD = new Map([
+  [0, "subtotal_0"], [500, "subtotal_5"], [800, "subtotal_8"], [1200, "subtotal_12"],
+  [1300, "subtotal_13"], [1500, "subtotal_15"],
+]);
 
-export function createEcuafactAdapter({
-  apiKey, ruc, environment = "sandbox", fetchImpl = globalThis.fetch,
+export function createFacturonAdapter({
+  apiKey, companyId, emissionPointId, environment = "sandbox", fetchImpl = globalThis.fetch,
 } = {}) {
-  if (typeof apiKey !== "string" || !apiKey) throw new Error("ECUAFACT_API_KEY ausente");
-  if (!/^\d{13}$/.test(String(ruc ?? ""))) throw new Error("RUC de 13 dígitos requerido");
+  if (typeof apiKey !== "string" || !apiKey) throw new Error("FACTURON_API_KEY ausente");
+  if (!isPositiveInt(companyId) || !isPositiveInt(emissionPointId)) throw new Error("companyId y emissionPointId requeridos");
+  if (!FACTURON_SRI_ENV[environment]) throw new Error("ambiente Facturón inválido");
   if (typeof fetchImpl !== "function") throw new Error("fetch no disponible");
-  const baseUrl = environment === "production" ? ECUAFACT_PRODUCTION
-    : environment === "sandbox" ? ECUAFACT_SANDBOX : null;
-  if (!baseUrl) throw new Error("ambiente Ecuafact inválido");
+
+  const call = async (path, { method = "GET", body, headers = {} } = {}) => {
+    const response = await fetchImpl(`${FACTURON_API}${path}`, {
+      method,
+      headers: {
+        Authorization: `Bearer ${apiKey}`, Accept: "application/json",
+        ...(body ? { "Content-Type": "application/json" } : {}), ...headers,
+      },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
+    return { http: Number(response?.status) || 0, data: await safeJson(response) };
+  };
+
+  // customer_id es obligatorio: se busca por identificación y se crea si no existe.
+  async function customerId(customer) {
+    const lookup = () => call(`/customers/lookup?identification=${encodeURIComponent(customer.identification)}`);
+    const found = res => (res.http === 200 || res.http === 201) && isPositiveInt(res.data?.data?.customer?.id)
+      ? res.data.data.customer.id : null;
+    let res = await lookup();
+    if (found(res)) return { id: found(res) };
+    if (res.http !== 404) return { error: res };
+    res = await call("/customers", { method: "POST", body: facturonCustomer(customer) });
+    if (found(res)) return { id: found(res) };
+    if (res.http === 422) {
+      // Otra petición pudo crearlo a la vez (identificación única por cuenta).
+      const again = await lookup();
+      if (found(again)) return { id: found(again) };
+    }
+    return { error: res };
+  }
 
   return {
-    name: "ecuafact",
+    name: "facturon",
     environment,
-    buildPayload: (draft, reference) => ecuafactPayload(draft, ruc, reference),
+    buildPayload: (draft, reference, customer = 0) =>
+      facturonPayload(draft, { companyId, emissionPointId, customerId: customer, reference }),
     async emit(draft, { idempotencyKey: key, externalReference: reference } = {}) {
       if (!/^[A-Za-z0-9._:/-]{1,128}$/.test(String(key ?? ""))) {
         return { accepted: false, kind: "configuration", code: "idempotency_key_invalid", message: "Clave de idempotencia inválida" };
       }
       let body;
       try {
-        body = ecuafactPayload(draft, ruc, reference);
-      } catch {
-        return { accepted: false, kind: "configuration", code: "payload_invalid", message: "Borrador o referencia inválida" };
+        body = facturonPayload(draft, { companyId, emissionPointId, customerId: 1, reference });
+      } catch (err) {
+        return { accepted: false, kind: "configuration", code: "payload_invalid", message: clampText(err?.message, 300) };
       }
-      const response = await fetchImpl(`${baseUrl}/v1/contribuyentes/${encodeURIComponent(ruc)}/facturas`, {
-        method: "POST",
-        headers: {
-          "X-Api-Key": apiKey, "Idempotency-Key": key, "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-      });
-      return ecuafactEmissionResult(response, await safeJson(response));
+      const customer = await customerId(draft.customer);
+      if (customer.error) return facturonEmissionResult(customer.error, environment);
+      body.customer_id = customer.id;
+      const res = await call("/documents", { method: "POST", body, headers: { "Idempotency-Key": key } });
+      return facturonEmissionResult(res, environment);
     },
     async fetchStatus({ operationId } = {}) {
-      if (!/^[0-9a-f-]{36}$/i.test(String(operationId ?? ""))) {
-        return { state: "unknown", code: "operation_id_invalid" };
-      }
-      const response = await fetchImpl(`${baseUrl}/v1/operaciones/${encodeURIComponent(operationId)}`, {
-        headers: { "X-Api-Key": apiKey },
-      });
-      return ecuafactStatusResult(response, await safeJson(response));
+      if (!/^\d{1,18}$/.test(String(operationId ?? ""))) return { state: "unknown", code: "operation_id_invalid" };
+      return facturonStatusResult(await call(`/documents/${operationId}/status`));
+    },
+    // URL temporal (30 min) del RIDE en PDF; nunca expone la API key.
+    async rideUrl(operationId) {
+      if (!/^\d{1,18}$/.test(String(operationId ?? ""))) return null;
+      const res = await call(`/documents/${operationId}/ride?url=1`);
+      const url = res.http === 200 ? res.data?.data?.url : null;
+      return typeof url === "string" && url.startsWith("https://") ? url : null;
     },
   };
 }
 
-function ecuafactPayload(draft, ruc, externalReference) {
-  if (!draft?.ready) throw new Error("borrador bloqueado");
-  const reference = clampText(externalReference || draft.externalReference || "", 128);
-  if (!reference) throw new Error("referenciaExterna requerida");
-  const taxes = (draft.taxes || []).map(group => ({
-    codigo: "2",
-    codigoPorcentaje: group.code,
-    tarifa: group.rateBp / 100,
-    baseImponible: amount(group.baseCents),
-    valor: amount(group.taxCents),
-  }));
+function facturonCustomer(customer) {
   return {
-    origenReferencia: draft.origin || "craft-panel",
-    referenciaExterna: reference,
-    infoTributaria: {
-      ruc,
-      estab: draft.establishment,
-      ptoEmi: draft.emissionPoint,
-    },
-    info: {
-      fechaEmision: draft.date,
-      tipoIdentificacionComprador: draft.customer.identificationType,
-      identificacionComprador: draft.customer.identification,
-      razonSocialComprador: draft.customer.name,
-      ...(draft.customer.address ? { direccionComprador: draft.customer.address } : {}),
-      ...(draft.customer.phone ? { telefono: draft.customer.phone } : {}),
-      ...(draft.customer.email ? { correo: draft.customer.email } : {}),
-      totalSinImpuestos: amount(draft.totals.subtotalCents),
-      totalDescuento: amount(draft.totals.discountCents),
-      totalConImpuestos: taxes,
-      propina: 0,
-      importeTotal: amount(draft.totals.totalCents),
-      moneda: "DOLAR",
-      pagos: [{ formaPago: draft.payment.method, total: amount(draft.payment.amountCents) }],
-    },
-    detalles: draft.lines.map(line => ({
-      codigoPrincipal: line.code,
-      descripcion: line.description,
-      cantidad: line.quantity,
-      precioUnitario: line.netUnitAmount,
-      descuento: amount(line.discountCents),
-      precioTotalSinImpuesto: amount(line.baseCents),
-      impuestos: [{
-        codigo: "2",
-        codigoPorcentaje: line.taxCode,
-        tarifa: line.taxRateBp / 100,
-        baseImponible: amount(line.baseCents),
-        valor: amount(line.taxCents),
-      }],
-    })),
-    ...(draft.additionalInfo?.length
-      ? { infoAdicional: draft.additionalInfo.map(item => ({ nombre: item.name, valor: item.value })) }
-      : {}),
+    identification_type: customer.identificationType,
+    identification_number: customer.identification,
+    name: customer.name,
+    ...(customer.email ? { email: customer.email } : {}),
+    ...(customer.phone ? { phone: customer.phone } : {}),
+    ...(customer.address ? { address: customer.address } : {}),
   };
 }
 
-function ecuafactEmissionResult(response, data) {
-  const http = Number(response?.status) || 0;
-  const estado = data?.estado;
-  const code = data?.codEstado;
-  const base = {
-    operationId: data?.idOperacion || null,
-    documentNumber: data?.numeroDocumento || null,
-    accessKey: data?.claveAcceso || null,
-    code,
-    message: providerMessage(data),
-  };
-  if (http >= 200 && http < 300) {
-    if (estado === "autorizado") return { ...base, accepted: true, kind: "authorized" };
-    if (estado === "recibido") return { ...base, accepted: true, kind: "processing" };
-    if (estado === "rechazo_configuracion") return { ...base, accepted: false, kind: "configuration" };
-    if (estado === "rechazado" || estado === "cancelado") return { ...base, accepted: false, kind: "rejected" };
-    if (estado === "error") return { ...base, accepted: false, kind: "uncertain" };
-    return { ...base, accepted: false, kind: "uncertain", message: base.message || "Respuesta no reconocida" };
+export function facturonPayload(draft, { companyId, emissionPointId, customerId, reference }) {
+  if (!draft?.ready || !draft.customer) throw new Error("borrador bloqueado");
+  const ref = clampText(reference || "", 64);
+  if (!ref) throw new Error("external_reference requerida");
+  const subtotalCents = {};
+  for (const group of draft.taxes || []) {
+    const field = FACTURON_SUBTOTAL_FIELD.get(group.rateBp);
+    if (!field) throw new Error(`tarifa ${group.rateBp / 100} % no soportada por Facturón`);
+    subtotalCents[field] = (subtotalCents[field] || 0) + group.baseCents;
   }
-  if (http === 409 && Number(code) === 3005) return { ...base, accepted: false, kind: "conflict" };
-  if (http === 401 || http === 403) return { ...base, accepted: false, kind: "configuration" };
-  if (http === 422) return { ...base, accepted: false, kind: "rejected" };
-  if (http === 400 && Number(code) === 3003) return { ...base, accepted: false, kind: "rejected" };
-  return { ...base, accepted: false, kind: "uncertain" };
-}
-
-function ecuafactStatusResult(response, data) {
-  const http = Number(response?.status) || 0;
-  if (http === 404) return { state: "unknown", code: 3013, message: "Operación no encontrada" };
-  if (http === 401 || http === 403) return { state: "configuration", code: data?.codEstado, message: providerMessage(data) };
-  if (http >= 500) return { state: "unknown", code: data?.codEstado, message: providerMessage(data) };
-  const code = Number(data?.codEstado);
-  const estado = data?.estado;
-  const normalized = {
-    code: data?.codEstado || null,
-    message: providerMessage(data),
-    accessKey: data?.claveAcceso || null,
-    authorizationNumber: data?.claveAcceso || null,
-    documentNumber: data?.numeroDocumento || null,
-  };
-  if (estado === "autorizado" && code === 2001) return { state: "authorized", ...normalized };
-  if (estado === "recibido") return { state: "processing", ...normalized };
-  if (estado === "rechazado") return { state: "rejected", ...normalized };
-  if (estado === "rechazo_configuracion") return { state: "configuration", ...normalized };
-  if (estado === "cancelado") return { state: "cancelled", ...normalized };
-  if (estado === "error") {
-    if (code === 5007 || code === 5001) return { state: "unknown", ...normalized };
-    return { state: "unknown", ...normalized };
-  }
-  return { state: "unknown", ...normalized };
-}
-
-export function createFactuplanAdapter({
-  apiKey, ruc, environment = "sandbox", fetchImpl = globalThis.fetch,
-} = {}) {
-  if (typeof apiKey !== "string" || !apiKey) throw new Error("FACTUPLAN_API_KEY ausente");
-  if (!/^\d{13}$/.test(String(ruc ?? ""))) throw new Error("RUC de 13 dígitos requerido");
-  if (typeof fetchImpl !== "function") throw new Error("fetch no disponible");
-  if (environment !== "sandbox" && environment !== "production") throw new Error("ambiente Factuplan inválido");
-  const keyPrefix = environment === "sandbox" ? "ak_test_" : "ak_live_";
-  if (!apiKey.startsWith(keyPrefix)) throw new Error(`FACTUPLAN_API_KEY debe empezar con ${keyPrefix}`);
-
+  const [day, month, year] = String(draft.date).split("/");
+  const additional = Object.fromEntries((draft.additionalInfo || []).map(item => [item.name, item.value]));
   return {
-    name: "factuplan",
-    environment,
-    buildPayload: (draft, reference) => factuplanPayload(draft, reference),
-    async emit(draft, { externalReference: reference } = {}) {
-      let body;
-      try {
-        body = factuplanPayload(draft, reference);
-      } catch {
-        return {
-          accepted: false, kind: "configuration", code: "payload_invalid",
-          message: "Borrador, referencia o tarifa no soportada por Factuplan",
-        };
-      }
-      const response = await fetchImpl(`${FACTUPLAN_API}/v1/developer/invoices`, {
-        method: "POST",
-        headers: { "X-API-Key": apiKey, "x-taxpayer-ruc": ruc, "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      return factuplanEmissionResult(response, await safeJson(response));
-    },
-    async fetchStatus({ operationId } = {}) {
-      if (!operationId) return { state: "unknown", code: "operation_id_invalid" };
-      const response = await fetchImpl(`${FACTUPLAN_API}/v1/developer/receipts/${encodeURIComponent(operationId)}/status`, {
-        headers: { "X-API-Key": apiKey, "x-taxpayer-ruc": ruc },
-      });
-      return factuplanStatusResult(response, await safeJson(response));
-    },
-  };
-}
-
-function factuplanPayload(draft, externalReference) {
-  if (!draft?.ready) throw new Error("borrador bloqueado");
-  const reference = clampText(externalReference || draft.externalReference || "", 100);
-  if (!reference) throw new Error("devReference requerida");
-  for (const line of draft.lines) {
-    if (!FACTUPLAN_TAX_RATES_BP.has(line.taxRateBp)) throw new Error("tarifa no soportada por Factuplan");
-  }
-  const customer = draft.customer;
-  const identificationType = customer.identificationType === "04" ? "RUC"
-    : customer.identificationType === "05" ? "CEDULA"
-      : customer.identificationType === "06" ? "PASSPORT"
-        : customer.identificationType === "07" ? "FINAL_CONSUMER" : "EXTERIOR";
-  const items = draft.lines.map(line => {
-    const rate = line.taxRateBp / 100;
-    const taxType = line.taxCode === "6" ? "NOT_TAXABLE"
-      : line.taxCode === "7" ? "EXEMPT"
-        : line.taxRateBp === 0 ? "IVA_0" : "IVA_RATE";
-    return {
-      quantity: line.quantity,
-      code: line.code,
+    company_id: companyId,
+    emission_point_id: emissionPointId,
+    customer_id: customerId,
+    document_type: "01",
+    issue_date: `${year}-${month}-${day}`,
+    ...Object.fromEntries(Object.entries(subtotalCents).map(([field, cents]) => [field, amount(cents)])),
+    total_discount: amount(draft.totals.discountCents),
+    total_tax: amount(draft.totals.taxCents),
+    total: amount(draft.totals.totalCents),
+    payment_methods: [{ code: draft.payment.method, amount: amount(draft.payment.amountCents) }],
+    items: draft.lines.map(line => ({
+      main_code: line.code,
       description: line.description,
-      unitPrice: line.netUnitAmount,
+      quantity: line.quantity,
+      unit_price: line.netUnitAmount,
       discount: amount(line.discountCents),
-      taxType,
-      ...(taxType === "IVA_RATE" ? { tax: rate } : {}),
-    };
-  });
-  const additional = {};
-  for (const item of draft.additionalInfo || []) additional[item.name] = item.value;
-  return {
-    customer: {
-      identificationType,
-      identification: customer.identification,
-      legalName: customer.name,
-      ...(customer.email ? { email: customer.email } : {}),
-      ...(customer.address ? { address: customer.address } : {}),
-      ...(/^\+[1-9]\d{6,14}$/.test(customer.phone || "") ? { phone: customer.phone } : {}),
-    },
-    items,
-    establishment: draft.establishment,
-    emissionPoint: draft.emissionPoint,
-    ...(Object.keys(additional).length ? { additionalInfo: additional } : {}),
-    sendEmail: false,
-    devReference: reference,
-    payments: [{ method: draft.payment.method, amount: amount(draft.payment.amountCents) }],
+      subtotal: amount(line.baseCents),
+      tax_code: "2",
+      tax_percentage_code: line.taxCode,
+      tax_rate: line.taxRateBp / 100,
+      tax_base: amount(line.baseCents),
+      tax_value: amount(line.taxCents),
+    })),
+    ...(Object.keys(additional).length ? { additional_info: additional } : {}),
+    external_reference: ref,
   };
 }
 
-function factuplanEmissionResult(response, data) {
-  const http = Number(response?.status) || 0;
-  const payload = data?.data;
-  const errorCode = data?.error?.code;
-  const status = String(payload?.status || "").toUpperCase();
+function facturonEmissionResult({ http, data }, environment) {
+  const doc = isPlainObject(data?.data?.document) ? data.data.document : null;
   const base = {
-    operationId: payload?.id || null,
-    documentNumber: payload?.sequential || null,
-    accessKey: payload?.accessKey || null,
-    code: errorCode || payload?.status || http,
+    operationId: doc?.id != null ? String(doc.id) : null,
+    documentNumber: doc?.document_number || null,
+    accessKey: doc?.access_key || null,
+    code: data?.error || doc?.status || http || null,
     message: providerMessage(data),
   };
-  if (http >= 200 && http < 300) {
-    if (status === "AUTHORIZED" || status === "COMPLETED") return { ...base, accepted: true, kind: "authorized" };
-    if (status === "REJECTED" || status === "VOIDED") return { ...base, accepted: false, kind: "rejected" };
-    if (status === "ERROR") return { ...base, accepted: false, kind: "uncertain" };
-    return { ...base, accepted: true, kind: "processing" };
+  if (doc?.environment && doc.environment !== FACTURON_SRI_ENV[environment]) {
+    return {
+      ...base, accepted: false, kind: "conflict", code: "environment_mismatch",
+      message: "Facturón emitió en otro ambiente SRI que el configurado; revisar la empresa emisora",
+    };
   }
-  if (http === 409) return { ...base, accepted: false, kind: "conflict" };
+  if ((http === 200 || http === 201) && doc && base.operationId) {
+    if (doc.status === "rejected" || doc.status === "failed") return { ...base, accepted: false, kind: "rejected" };
+    return { ...base, accepted: true, kind: doc.status === "authorized" ? "authorized" : "processing" };
+  }
+  if (http === 422) return { ...base, accepted: false, kind: "rejected" };
+  if (http === 409 && data?.error === "idempotency_key_reused") return { ...base, accepted: false, kind: "conflict" };
+  if (http === 409 && data?.error === "send_failed") return { ...base, accepted: false, kind: "configuration" };
   if (http === 401 || http === 403) return { ...base, accepted: false, kind: "configuration" };
-  if (http === 400 || http === 422) return { ...base, accepted: false, kind: "rejected" };
+  // 429, 5xx, idempotency_in_progress, red: no se sabe si se emitió; se reintenta con la misma clave.
   return { ...base, accepted: false, kind: "uncertain" };
 }
 
-function factuplanStatusResult(response, data) {
-  const http = Number(response?.status) || 0;
-  if (http === 401 || http === 403) return { state: "configuration", code: data?.error?.code, message: providerMessage(data) };
-  if (http === 404) return { state: "unknown", code: "not_found", message: "Comprobante no encontrado" };
-  if (http >= 500) return { state: "unknown", code: data?.error?.code, message: providerMessage(data) };
-  const payload = data?.data || {};
-  const status = String(payload.status || "").toUpperCase();
+function facturonStatusResult({ http, data }) {
+  if (http === 401 || http === 403) return { state: "configuration", code: data?.error, message: providerMessage(data) };
+  if (http !== 200 || !isPlainObject(data?.data)) return { state: "unknown", code: data?.error || http, message: providerMessage(data) };
+  const info = data.data;
+  const sri = Array.isArray(info.sri_messages)
+    ? info.sri_messages.map(item => [item?.identificador, item?.mensaje, item?.informacionAdicional].filter(Boolean).join(" ")).join(" | ")
+    : "";
   const normalized = {
-    code: payload.status || null,
-    message: providerMessage(data),
-    accessKey: payload.accessKey || payload.authorizationNumber || null,
-    authorizationNumber: payload.authorizationNumber || payload.accessKey || null,
-    documentNumber: payload.sequential || null,
+    code: info.status || null,
+    message: clampText(sri || info.contingency_message || "", 300),
+    authorizationNumber: info.authorization_number || null,
+    accessKey: info.access_key || null,
+    documentNumber: info.document_number || null,
   };
-  if (status === "AUTHORIZED" || status === "COMPLETED") return { state: "authorized", ...normalized };
-  if (status === "REJECTED") return { state: "rejected", ...normalized };
-  if (status === "VOIDED") return { state: "cancelled", ...normalized };
-  if (status === "ERROR") return { state: "unknown", ...normalized };
-  return { state: "processing", ...normalized };
+  if (info.status === "authorized") return { state: "authorized", ...normalized };
+  if (["draft", "processing", "signed", "sent"].includes(info.status)) return { state: "processing", ...normalized };
+  if (info.status === "rejected" || info.status === "failed") return { state: "rejected", ...normalized };
+  if (info.status === "voided") return { state: "cancelled", ...normalized };
+  return { state: "unknown", ...normalized };
 }
 
 async function safeJson(response) {
@@ -1147,13 +1038,14 @@ async function safeJson(response) {
 }
 
 function providerMessage(data) {
-  if (!data) return "";
+  if (!isPlainObject(data)) return "";
   const parts = [];
-  if (typeof data.msgError === "string") parts.push(data.msgError);
-  if (Array.isArray(data.errores)) parts.push(...data.errores.filter(item => typeof item === "string"));
-  if (typeof data.error?.message === "string") parts.push(data.error.message);
-  if (Array.isArray(data.error?.details?.validation)) parts.push(...data.error.details.validation);
-  if (Array.isArray(data.data?.messages)) parts.push(...data.data.messages.filter(item => typeof item === "string"));
+  if (data.success === false && typeof data.message === "string") parts.push(data.message);
+  if (isPlainObject(data.errors)) {
+    for (const list of Object.values(data.errors)) {
+      if (Array.isArray(list)) parts.push(...list.filter(item => typeof item === "string"));
+    }
+  }
   return clampText(parts.join(" | "), 300);
 }
 
@@ -1179,33 +1071,26 @@ export function createMockAdapter({ emissions = [], statuses = [], environment =
 
 // ── Webhooks: firma verificada + reconsulta obligatoria ──────────────────────
 
-export async function verifyEcuafactSignature({
-  secret, header, body, now = Math.floor(Date.now() / 1000), tolerance = SIGNATURE_TOLERANCE_SECONDS,
+// Facturón: X-Webhook-Signature = hex(HMAC-SHA256(secreto, "{X-Webhook-Timestamp}.{cuerpo crudo}")).
+export async function verifyFacturonSignature({
+  secret, signature, timestamp, body, now = Math.floor(Date.now() / 1000), tolerance = SIGNATURE_TOLERANCE_SECONDS,
 } = {}) {
-  if (typeof secret !== "string" || !secret || typeof header !== "string" || typeof body !== "string") return false;
-  let timestamp = null, signature = null;
-  for (const part of header.split(",")) {
-    const item = part.trim();
-    if (item.startsWith("t=")) timestamp = item.slice(2);
-    else if (item.startsWith("v1=")) signature = item.slice(3).toLowerCase();
-  }
-  if (!timestamp || !signature || !/^\d+$/.test(timestamp) || !/^[0-9a-f]{64}$/.test(signature)) return false;
+  if (typeof secret !== "string" || !secret || typeof signature !== "string" || typeof body !== "string") return false;
+  const sig = signature.trim().toLowerCase();
+  if (!/^\d+$/.test(String(timestamp ?? "")) || !/^[0-9a-f]{64}$/.test(sig)) return false;
   if (Math.abs(Number(now) - Number(timestamp)) > tolerance) return false;
   const key = await crypto.subtle.importKey(
     "raw", ENCODER.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
   );
   const digest = new Uint8Array(await crypto.subtle.sign("HMAC", key, ENCODER.encode(`${timestamp}.${body}`)));
   const expected = [...digest].map(byte => byte.toString(16).padStart(2, "0")).join("");
-  return timingEqual(expected, signature);
+  return timingEqual(expected, sig);
 }
 
 async function eventInvoice(env, slug, event) {
-  const operationIds = [event?.idOperacion, event?.resourceId, event?.data?.idOperacion, event?.data?.id]
-    .map(value => clampText(value, 80)).filter(Boolean);
-  const references = [event?.referenciaExterna, event?.devReference, event?.data?.devReference]
-    .map(value => clampText(value, 100)).filter(Boolean);
-  if (!operationIds.length && !references.length) return null;
-  const operation = operationIds[0] || null, reference = references[0] || null;
+  const operation = clampText(String(event?.data?.document_id ?? ""), 20) || null;
+  const reference = clampText(event?.data?.external_reference, 64) || null;
+  if (!operation && !reference) return null;
   return env.DB.prepare(
     "SELECT * FROM invoices WHERE slug = ? AND (provider_operation_id = ? OR external_reference = ?) LIMIT 1",
   ).bind(slug, operation, reference).first();
@@ -1216,36 +1101,51 @@ export async function handleInvoiceWebhook(request, env, site, { adapter = null,
   const raw = await request.text();
   if (ENCODER.encode(raw).byteLength > MAX_WEBHOOK_BYTES) return error("carga_excesiva", 413);
   const cfg = await loadInvoiceConfig(env, site.slug);
-  if (!cfg.provider) return error("facturacion_no_configurada", 503);
-
-  if (cfg.provider === "ecuafact") {
-    const valid = await verifyEcuafactSignature({
-      secret: env.ECUAFACT_WEBHOOK_SECRET,
-      header: request.headers.get("Ecuafact-Signature"),
-      body: raw,
-      now: Math.floor(now / 1000),
-    });
-    if (!valid) return error("firma_invalida", 401);
-  } else {
-    // Factuplan no documenta firma HMAC: se exige token propio y aun así se reconsulta.
-    const token = request.headers.get("x-webhook-token") || "";
-    if (!env.INVOICE_WEBHOOK_TOKEN || !timingEqual(token, env.INVOICE_WEBHOOK_TOKEN)) {
-      return error("firma_invalida", 401);
-    }
-  }
+  if (cfg.provider !== "facturon") return error("facturacion_no_configurada", 503);
+  const valid = await verifyFacturonSignature({
+    secret: env.FACTURON_WEBHOOK_SECRET,
+    signature: request.headers.get("X-Webhook-Signature"),
+    timestamp: request.headers.get("X-Webhook-Timestamp"),
+    body: raw,
+    now: Math.floor(now / 1000),
+  });
+  if (!valid) return error("firma_invalida", 401);
 
   let event;
   try { event = JSON.parse(raw); } catch { return error("evento_invalido", 400); }
   if (!isPlainObject(event)) return error("evento_invalido", 400);
+  if (event.test === true || event.event === "webhook.test") return json({ received: true, test: true });
   const row = await eventInvoice(env, site.slug, event);
   if (!row) return json({ received: true, matched: false });
 
+  // El evento solo identifica la factura: el estado sale de GET /documents/{id}/status.
   const chosen = adapter || adapterFor(env, cfg);
   if (!chosen) return error("proveedor_no_configurado", 503);
   const result = await refreshInvoice(env, {
     slug: site.slug, orderId: row.order_id, config: cfg, adapter: chosen, now,
   });
   return json({ received: true, matched: true, status: result.invoice?.status || row.status });
+}
+
+// Cron: reconsulta facturas en proceso y reintenta (misma clave) las que quedaron sin
+// respuesta del proveedor. Facturón guarda la idempotencia 24 h; pasado eso, queda manual.
+const RECONCILE_LIMIT = 10;
+export async function reconcileInvoices(env, now = Date.now()) {
+  if (!env?.DB) return { checked: 0 };
+  const rows = await env.DB.prepare(
+    "SELECT slug, order_id, status FROM invoices WHERE updated_at < ? AND (" +
+    "(status = 'submitted' AND created_at >= ?) OR " +
+    "(status = 'pending' AND failure_code = 'provider_uncertain' AND created_at >= ?)) " +
+    "ORDER BY updated_at ASC LIMIT ?",
+  ).bind(now - 60 * 1000, now - 7 * 24 * 3600 * 1000, now - 23 * 3600 * 1000, RECONCILE_LIMIT).all();
+  const list = rows.results || [];
+  for (const row of list) {
+    try {
+      if (row.status === "submitted") await refreshInvoice(env, { slug: row.slug, orderId: row.order_id, now });
+      else await submitInvoice(env, { slug: row.slug, orderId: row.order_id, now });
+    } catch { /* se reintenta en el próximo minuto */ }
+  }
+  return { checked: list.length };
 }
 
 // ── Rutas para el integrador (api.js/index.js) ───────────────────────────────
@@ -1258,6 +1158,19 @@ export async function handleGetInvoice(request, env, site, session, encodedOrder
   const row = await rowByOrder(env, site.slug, orderId);
   if (!row) return error("factura_no_existe", 404);
   return json(publicInvoice(row));
+}
+
+// RIDE (PDF) de una factura autorizada: redirige a la URL temporal de Facturón.
+export async function handleInvoiceRide(request, env, site, session, encodedOrderId) {
+  if (request.method !== "GET") return error("metodo_no_permitido", 405);
+  if (!session || typeof session.email !== "string") return error("sin_sesion", 401);
+  const orderId = decodeId(encodedOrderId);
+  const row = orderId ? await rowByOrder(env, site.slug, orderId) : null;
+  if (!row || row.status !== "issued" || !row.provider_operation_id) return error("factura_no_existe", 404);
+  const chosen = adapterFor(env, await loadInvoiceConfig(env, site.slug));
+  const url = chosen?.rideUrl ? await chosen.rideUrl(row.provider_operation_id).catch(() => null) : null;
+  if (!url) return error("ride_no_disponible", 502);
+  return Response.redirect(url, 302);
 }
 
 export async function handleRetryInvoice(request, env, site, session, encodedOrderId, {
