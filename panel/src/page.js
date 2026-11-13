@@ -462,6 +462,9 @@ function runtime() {
   // Sede elegida en la barra de caja de la sección de pedidos POS.
   let shiftSede = "";
   const paymentKeys = new Map();
+  // Clave propia del cobro con datáfono: si el cajero corrige la autorización,
+  // el cuerpo cambia y la clave también (misma clave + otro cuerpo = 409).
+  const datafonoKeys = new Map();
   const shiftKeys = new Map();
 
   /* ── utilidades ── */
@@ -538,7 +541,20 @@ function runtime() {
   const POS_SOURCE = { web: "Web", caja: "Caja", mesero: "Mesero", mesa: "Mesa" };
   // `payphone` solo aparece en filas históricas: la integración está archivada en
   // integraciones/payphone y no se ofrecen cobros nuevos con ese método.
-  const POS_PAYMENT = { cash: "efectivo", transfer: "transferencia", payphone: "tarjeta Payphone (histórico)", bendo: "tarjeta (Bendo)" };
+  const POS_PAYMENT = { cash: "efectivo", transfer: "transferencia", datafono: "datáfono", payphone: "tarjeta Payphone (histórico)", bendo: "tarjeta (Bendo)" };
+  // Etiquetas del reporte de turno (docs/DATAFONO-MANUAL.md): el listado usa
+  // minúscula dentro de "Pago: …"; el cierre y el ticket Z, nombres propios.
+  const REPORT_PAYMENT = { cash: "Efectivo", transfer: "Transferencia", datafono: "Datáfono", bendo: "Tarjeta (link)", payphone: "Payphone (histórico)" };
+  // "Pago: datáfono · aut. XXXX". El canal y la autorización llegan del listado
+  // cuando la API los expone; sin ellos se mantiene la etiqueta del método.
+  function posPaymentLabel(order) {
+    const method = String(order?.payment_method || "cash");
+    const channel = String(order?.payment_channel || order?.channel || "").trim();
+    const auth = String(order?.authorization || "").trim();
+    if (method === "datafono" || (method === "bendo" && (channel === "datafono" || auth)))
+      return "datáfono" + (auth ? " · aut. " + auth : "");
+    return POS_PAYMENT[method] || "efectivo";
+  }
   const isPosOrder = o => !!o && (o.sede_id != null || o.total_cents != null);
   const posMoney = o => Number.isFinite(Number(o?.total_cents)) ? money(Number(o.total_cents) / 100) : money(o?.total);
   const posName = o => String(o?.customer_name || o?.client_name || "").trim();
@@ -593,6 +609,11 @@ function runtime() {
     caja_cerrada: "Abre la caja de esta sede para cobrar.",
     caja_ya_abierta: "Esta sede ya tiene una caja abierta.",
     turno_cerrado: "Ese turno de caja ya se cerró.",
+    pago_en_curso: "Este pedido tiene un pago con tarjeta en curso. Verifícalo antes de cobrar con datáfono.",
+    orden_ya_pagada: "Ese pedido ya está pagado.",
+    idempotencia_conflicto: "Ese intento ya se usó con otros datos. Vuelve a intentar.",
+    autorizacion_invalida: "Revisa el número de autorización: 4 a 12 letras o números.",
+    tarjeta_invalida: "Los últimos 4 dígitos deben ser 4 números.",
   };
   const errMsg = (r, fallback) => {
     if (r && r.status === 0) return "No pudimos conectar. Revisa tu internet e intenta de nuevo.";
@@ -1300,6 +1321,8 @@ function runtime() {
     const actions = h("div", { class: "pos-actions" });
     // El link/QR del cobro con tarjeta se pinta aquí, dentro de la misma orden.
     const bendoBox = h("div", { class: "bendo-pay" });
+    // Formulario del cobro manual con datáfono (docs/DATAFONO-MANUAL.md).
+    const datafonoBox = h("div", { class: "datafono-pay" });
     const run = (action, ev) => posSetStatus(order, action, ev.currentTarget, reload);
     if (order.status === "pending") {
       actions.append(btn("Confirmar", "btn small", ev => run("confirm", ev)));
@@ -1318,6 +1341,14 @@ function runtime() {
       }
       actions.append(btn("Rechazar", "btn ghost small", ev => run("reject", ev)));
     }
+    // Datáfono: cobro manual para pedidos pending/confirmed de cualquier método
+    // (el servidor deja el pedido en `bendo`). Con un link de tarjeta en curso el
+    // propio servidor responde 409 pago_en_curso; aquí se explica sin falsearlo.
+    const waitingCard = order.status === "confirmed" &&
+      (order.payment_method === "bendo" || order.payment_method === "payphone");
+    if ((order.status === "pending" || order.status === "confirmed") && !waitingCard)
+      actions.append(btn("Cobrado con datáfono", "btn small",
+        () => openDatafonoForm(order, reload, datafonoBox, bendoBox)));
     if (order.status === "paid" || order.status === "ready") {
       actions.append(btn(Number(order.print_count) ? "Reimprimir comanda" : "Imprimir comanda", "btn small",
         ev => printPosOrder(order, sedeName, ev.currentTarget, reload)));
@@ -1335,13 +1366,14 @@ function runtime() {
         h("strong", { text: posMoney(order) })),
       h("p", { class: "pos-meta", text: [posName(order) || "Sin cliente", POS_SOURCE[order.source] || "", place, Number.isNaN(when.getTime()) ? "" : when.toLocaleString("es-EC", { dateStyle: "short", timeStyle: "short", timeZone: "America/Guayaquil" })].filter(Boolean).join(" · ") }),
       h("p", { class: "pos-meta", text: summary || "Sin ítems" }),
-      h("p", { class: "pos-meta", text: "Pago: " + (POS_PAYMENT[order.payment_method] || "efectivo") }),
+      h("p", { class: "pos-meta", text: "Pago: " + posPaymentLabel(order) }),
       h("span", { class: "order-state " + status, text: POS_STATE[status] }),
       order.status === "pending" ? h("p", { class: "hint", text: "Sin comanda: todavía no se envió a cocina." }) : null,
       order.status === "paid" ? h("p", { class: "hint", text: "Pago confirmado; la comanda ya está en cocina. Marca listo al entregar." }) : null,
       order.status === "ready" ? h("p", { class: "hint", text: "Listo. El aviso por WhatsApp se abre a mano; la app no envía mensajes automáticos." }) : null,
       actions,
-      bendoBox);
+      bendoBox,
+      datafonoBox);
   }
   // Confirmar no cobra: la comanda sale solo cuando el pago queda confirmado.
   function posSetStatus(order, action, buttonEl, reload) {
@@ -1388,6 +1420,85 @@ function runtime() {
       }
       toast((transfer ? "Transferencia confirmada." : "Cobrado.") + " La comanda ya está en cocina; imprímela desde Cocina o aquí.");
       paymentKeys.delete(order.id);
+      reload();
+    });
+  }
+  // Cobro manual con datáfono: el cajero cobra primero en el terminal de Bendo y
+  // aquí registra el número de autorización impreso en el voucher. El servidor
+  // valida el turno abierto, la idempotencia y que no haya un link en curso;
+  // esta pantalla nunca marca pagado por su cuenta.
+  function openDatafonoForm(order, reload, box, bendoBox) {
+    if (!box) return;
+    // Un solo formulario abierto por tarjeta: el QR del link no se mezcla.
+    if (bendoBox) bendoBox.replaceChildren();
+    const auth = h("input", { id: uid("aut"), type: "text", maxlength: "12", autocomplete: "off", autocapitalize: "characters", spellcheck: "false" });
+    const last4 = h("input", { id: uid("last4"), type: "text", inputmode: "numeric", maxlength: "4", autocomplete: "off" });
+    const err = h("p", { class: "err", role: "alert" });
+    const submit = h("button", { type: "submit", class: "btn primary small" }, "Registrar cobro");
+    const form = h("form", { class: "cashform", "aria-label": "Cobrado con datáfono" },
+      h("p", { class: "hint", text: "Cobra primero en el datáfono y copia el número de autorización del voucher." }),
+      field("Número de autorización", auth),
+      field("Últimos 4 dígitos (opcional)", last4),
+      h("div", { class: "actions" },
+        btn("Cancelar", "btn ghost small", () => box.replaceChildren()),
+        submit),
+      err);
+    form.addEventListener("submit", ev => {
+      ev.preventDefault();
+      const code = String(auth.value || "").trim();
+      if (!/^[A-Za-z0-9]{4,12}$/.test(code)) {
+        err.textContent = ERRORS.autorizacion_invalida;
+        if (auth.focus) auth.focus();
+        return;
+      }
+      const digits = String(last4.value || "").replace(/\s+/g, "");
+      if (digits && !/^[0-9]{4}$/.test(digits)) {
+        err.textContent = ERRORS.tarjeta_invalida;
+        if (last4.focus) last4.focus();
+        return;
+      }
+      submit.disabled = true;
+      payDatafonoOrder(order, code, digits, err, reload, box).finally(() => { submit.disabled = false; });
+    });
+    box.replaceChildren(form);
+    if (auth.focus) auth.focus();
+  }
+  function payDatafonoOrder(order, code, digits, errorEl, reload, box) {
+    // Reintentar con el mismo cuerpo reutiliza la clave; cambiarla al corregir
+    // la autorización evita el 409 idempotencia_conflicto.
+    const base = { authorization_code: code };
+    if (digits) base.card_last4 = digits;
+    const fingerprint = JSON.stringify(base);
+    const saved = datafonoKeys.get(order.id);
+    const key = saved && saved.fingerprint === fingerprint ? saved.key : uuid();
+    datafonoKeys.set(order.id, { key, fingerprint });
+    const body = Object.assign({ idempotency_key: key }, base);
+    return api("orders/" + encodeURIComponent(order.id) + "/pay-datafono", body, "POST").then(r => {
+      if (r.status === 401) return goLogin("Tu sesión venció. Vuelve a entrar.");
+      if (r.status === 404 || r.status === 405)
+        return toast("Esta versión del panel todavía no permite cobrar con datáfono. Actualiza el panel.", true);
+      if (r.status === 400) {
+        errorEl.textContent = errMsg(r, "Revisa el número de autorización y los últimos 4 dígitos.");
+        return;
+      }
+      if (r.status === 409) {
+        const code409 = r.data && r.data.error;
+        datafonoKeys.delete(order.id);
+        if (box) box.replaceChildren();
+        toast(code409 === "caja_cerrada" ? ERRORS.caja_cerrada
+          : code409 === "pago_en_curso" ? ERRORS.pago_en_curso
+          : code409 === "orden_ya_pagada" ? ERRORS.orden_ya_pagada
+          : code409 === "idempotencia_conflicto" ? ERRORS.idempotencia_conflicto
+          : "Esa orden ya cambió de estado.", true);
+        return reload();
+      }
+      if (r.status !== 200) {
+        errorEl.textContent = errMsg(r, "No pudimos registrar el cobro con datáfono.");
+        return;
+      }
+      datafonoKeys.delete(order.id);
+      if (box) box.replaceChildren();
+      toast("Cobrado con datáfono. La comanda ya está en cocina; imprímela desde Cocina o aquí.");
       reload();
     });
   }
@@ -1757,7 +1868,7 @@ function runtime() {
       sales.length ? h("div", { class: "table" },
         h("div", { class: "cash-line head" }, h("span", { text: "Método" }), h("span", { text: "Pagos" }), h("span", { text: "Total" })),
         ...sales.map(row => h("div", { class: "cash-line" },
-          h("span", { text: POS_PAYMENT[row.method] || String(row.method) }),
+          h("span", { text: REPORT_PAYMENT[row.method] || String(row.method) }),
           h("span", { class: "num", text: String(Number(row.count) || 0) }),
           h("span", { class: "num", text: centsText(row.total_cents) }))))
         : h("p", { class: "empty", text: "Sin cobros en el turno." }),
@@ -1788,7 +1899,7 @@ function runtime() {
     ];
     const difference = Number(report.difference_cents) || 0;
     const sales = (Array.isArray(report.sales) ? report.sales : []).map(row => h("tr", {},
-      h("td", { text: POS_PAYMENT[row.method] || String(row.method) }),
+      h("td", { text: REPORT_PAYMENT[row.method] || String(row.method) }),
       h("td", { class: "num", text: String(Number(row.count) || 0) }),
       h("td", { class: "num", text: centsText(row.total_cents) })));
     const movements = report.movements && typeof report.movements === "object" ? report.movements : {};

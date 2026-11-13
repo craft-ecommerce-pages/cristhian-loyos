@@ -203,8 +203,9 @@ export function shiftTicketLines(report, { store = "", width = 32, sedeName = ""
   const methodLabel = {
     cash: "Efectivo",
     transfer: "Transferencia",
-    bendo: "Tarjeta (Bendo)",
-    payphone: "Tarjeta (Payphone)",
+    datafono: "Datáfono",
+    bendo: "Tarjeta (link)",
+    payphone: "Payphone (histórico)",
   };
   const rule = () => lines.push("-".repeat(columns));
 

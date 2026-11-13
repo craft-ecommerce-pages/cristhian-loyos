@@ -380,7 +380,7 @@ test("el detalle del cierre muestra el reporte y las ventas por método", async 
   assert.match(doc.body.textContent, /Cierre de caja · Centro/);
   assert.match(doc.body.textContent, /Ventas por método/);
   assert.match(doc.body.textContent, /efectivo/);
-  assert.match(doc.body.textContent, /tarjeta \(Bendo\)/);
+  assert.match(doc.body.textContent, /Tarjeta \(link\)/);
   assert.match(doc.body.textContent, /Faltante/);
   assert.match(doc.body.textContent, /\$-0\.50/);
   assert.match(doc.body.textContent, /Depósito banco/);

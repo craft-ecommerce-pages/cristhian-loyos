@@ -528,6 +528,11 @@ function meseroRuntime() {
     motivo_invalido: "Escribe un motivo de 3 a 120 caracteres.",
     fondo_invalido: "Revisa el fondo inicial: no puede ser negativo.",
     conteo_invalido: "Escribe el efectivo contado para cerrar la caja.",
+    pago_en_curso:
+      "Este pedido tiene un pago con tarjeta en curso. Verifícalo antes de cobrar con datáfono.",
+    autorizacion_invalida:
+      "Revisa el número de autorización: 4 a 12 letras o números.",
+    tarjeta_invalida: "Los últimos 4 dígitos deben ser 4 números.",
   };
   let me = null,
     catalog = null,
@@ -1206,8 +1211,9 @@ function meseroRuntime() {
   const METHOD_LABEL = {
     cash: "Efectivo",
     transfer: "Transferencia",
-    bendo: "Tarjeta (Bendo)",
-    payphone: "Tarjeta (Payphone)",
+    datafono: "Datáfono",
+    bendo: "Tarjeta (link)",
+    payphone: "Payphone (histórico)",
   };
   // Estado de caja de la sede activa. El cajero ve el turno y sus movimientos,
   // nunca ventas, esperado ni diferencia antes de cerrar (arqueo ciego).
@@ -1839,6 +1845,9 @@ function meseroRuntime() {
         ),
       );
       actions.push(
+        button("Cobrado con datáfono", "btn small", () => datafonoSheet(order)),
+      );
+      actions.push(
         button("Rechazar", "btn danger small", (event) =>
           changeStatus(order, "reject", event.currentTarget),
         ),
@@ -1852,6 +1861,13 @@ function meseroRuntime() {
             transfer ? "Confirmar transferencia" : "Cobrar efectivo",
             "btn primary small",
             (event) => payOrder(order, event.currentTarget),
+          ),
+        );
+        // Cobro manual con datáfono: se cobra en el terminal y se registra la
+        // autorización del voucher (docs/DATAFONO-MANUAL.md).
+        actions.push(
+          button("Cobrado con datáfono", "btn small", () =>
+            datafonoSheet(order),
           ),
         );
         actions.push(
@@ -2603,6 +2619,142 @@ function meseroRuntime() {
       );
       render();
     });
+  }
+  // Cobro manual con datáfono: se cobra primero en el terminal de Bendo y aquí
+  // se registra el número de autorización del voucher. El servidor exige turno
+  // abierto, valida la orden y responde idempotente por clave; esta pantalla no
+  // marca nada como pagado por su cuenta.
+  function datafonoSheet(order) {
+    const auth = h("input", {
+      type: "text",
+      maxlength: "12",
+      autocomplete: "off",
+      autocapitalize: "characters",
+      spellcheck: "false",
+      placeholder: "Ej. A1B2C3",
+    });
+    const last4 = h("input", {
+      type: "text",
+      inputmode: "numeric",
+      maxlength: "4",
+      autocomplete: "off",
+      placeholder: "Opcional",
+    });
+    const error = h("p", { class: "err", role: "alert" });
+    const submit = h(
+      "button",
+      { type: "submit", class: "btn primary wide" },
+      "Registrar cobro",
+    );
+    const state = {};
+    const run = async () => {
+      const code = text(auth.value);
+      if (!/^[A-Za-z0-9]{4,12}$/.test(code)) {
+        error.textContent = MESSAGES.autorizacion_invalida;
+        auth.focus();
+        return;
+      }
+      const digits = text(last4.value).replace(/\s+/g, "");
+      if (digits && !/^[0-9]{4}$/.test(digits)) {
+        error.textContent = MESSAGES.tarjeta_invalida;
+        last4.focus();
+        return;
+      }
+      const base = { authorization_code: code };
+      if (digits) base.card_last4 = digits;
+      const body = { ...base, idempotency_key: idempotency(state, base) };
+      const result = await callRoot(
+        "orders/" + encodeURIComponent(order.id) + "/pay-datafono",
+        body,
+      );
+      if (result.status === 401) return sessionExpired();
+      if (result.status === 404 || result.status === 405) {
+        dismissSheet();
+        return toast(
+          "Esta versión del panel todavía no permite cobrar con datáfono. Actualiza el panel.",
+          true,
+        );
+      }
+      // 400: autorización o últimos 4 dígitos inválidos; se corrige en el formulario.
+      if (result.status === 400) {
+        error.textContent = message(
+          result,
+          "Revisa el número de autorización y los últimos 4 dígitos.",
+        );
+        return;
+      }
+      if (result.status === 409) {
+        dismissSheet();
+        // Una caja cerrada o un link en curso no es un cambio de estado del pedido.
+        await loadShift();
+        await loadOrders();
+        render();
+        return toast(
+          message(result, "Ese pedido ya cambió de estado. Actualiza la lista."),
+          true,
+        );
+      }
+      if (result.status !== 200) {
+        error.textContent = message(
+          result,
+          "No pudimos registrar el cobro con datáfono.",
+        );
+        return;
+      }
+      const updated = result.data?.order;
+      dismissSheet();
+      if (updated) upsert(updated);
+      else await loadOrders();
+      toast(
+        "Cobrado con datáfono. La comanda ya está en cocina; imprímela desde Cocina.",
+      );
+      render();
+    };
+    const form = h(
+      "form",
+      { novalidate: true },
+      h("h2", { text: "Cobrado con datáfono" }),
+      h("p", {
+        class: "hint",
+        text: "Cobra primero en el datáfono y copia el número de autorización del voucher.",
+      }),
+      h(
+        "label",
+        { class: "field" },
+        h("span", { text: "Número de autorización" }),
+        auth,
+      ),
+      h(
+        "label",
+        { class: "field" },
+        h("span", { text: "Últimos 4 dígitos (opcional)" }),
+        last4,
+      ),
+      submit,
+      error,
+    );
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      act(submit, run);
+    });
+    showSheet(
+      h(
+        "div",
+        {
+          class: "sheet",
+          role: "dialog",
+          "aria-modal": "true",
+          "aria-label": "Cobrado con datáfono",
+        },
+        h(
+          "div",
+          { class: "sheet-box" },
+          button("Cancelar", "btn link", dismissSheet),
+          form,
+        ),
+      ),
+    );
+    auth.focus();
   }
   // paid → ready: lo confirma el operador autorizado y queda con marca de tiempo.
   function markReady(order, buttonEl) {
