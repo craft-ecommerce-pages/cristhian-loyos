@@ -339,29 +339,33 @@ async function closeShift(request, env, site, session, encodedId) {
       ? json({ report: await shiftReport(env, site.slug, shift) })
       : error("turno_cerrado", 409);
   }
-  const report = await liveReport(env, site.slug, shift);
-  const expected = report.expected_cash_cents, difference = counted - expected;
+  // 1) Reclamar el cierre primero: al pasar a `closed` dejan de entrar pagos y
+  //    movimientos (sus INSERT se condicionan a `status = 'open'`), así el
+  //    reporte que se congela abajo ya no tiene ventana de carrera.
   const now = Date.now(), closedBy = String(session.staff_id || "");
-  // El snapshot es el mismo reporte que se devuelve: reimprimir el Z no recalcula.
-  const snapshot = {
-    ...report, status: "closed", closed_at: now, closed_by: closedBy,
-    counted_cash_cents: counted, difference_cents: difference, note,
-  };
-  const closed = await env.DB.prepare(
-    "UPDATE pos_shifts SET status = 'closed', closed_by = ?, closed_at = ?, close_key = ?, " +
-    "counted_cash_cents = ?, expected_cash_cents = ?, difference_cents = ?, totals = ?, note = ? " +
+  const claimed = await env.DB.prepare(
+    "UPDATE pos_shifts SET status = 'closed', closed_by = ?, closed_at = ?, close_key = ? " +
     "WHERE slug = ? AND id = ? AND status = 'open'",
-  ).bind(
-    closedBy, now, key, counted, expected, difference, JSON.stringify(snapshot),
-    note || null, site.slug, shift.id,
-  ).run();
-  const current = await shiftById(env, site.slug, shift.id);
-  if (!closed.meta.changes) {
-    return current?.status === "closed" && current.close_key === key
-      ? json({ report: await shiftReport(env, site.slug, current) })
+  ).bind(closedBy, now, key, site.slug, shift.id).run();
+  if (!claimed.meta.changes) {
+    const raced = await shiftById(env, site.slug, shift.id);
+    return raced?.status === "closed" && raced.close_key === key
+      ? json({ report: await shiftReport(env, site.slug, raced) })
       : error("turno_cerrado", 409);
   }
-  return json({ report: await shiftReport(env, site.slug, current) });
+  // 2) Reporte sobre el turno ya cerrado y snapshot inmutable.
+  const report = await liveReport(env, site.slug, await shiftById(env, site.slug, shift.id));
+  const expected = report.expected_cash_cents, difference = counted - expected;
+  const snapshot = {
+    ...report, status: "closed", counted_cash_cents: counted, difference_cents: difference, note,
+  };
+  await env.DB.prepare(
+    "UPDATE pos_shifts SET counted_cash_cents = ?, expected_cash_cents = ?, difference_cents = ?, totals = ?, note = ? " +
+    "WHERE slug = ? AND id = ? AND status = 'closed'",
+  ).bind(
+    counted, expected, difference, JSON.stringify(snapshot), note || null, site.slug, shift.id,
+  ).run();
+  return json({ report: await shiftReport(env, site.slug, await shiftById(env, site.slug, shift.id)) });
 }
 
 // GET turnos/:id — reporte para reimprimir el Z. El cajero solo ve turnos

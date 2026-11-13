@@ -1131,8 +1131,11 @@ async function payManual(env, site, session, encodedId, body, provider) {
   const results = await env.DB.batch([
     env.DB.prepare(
       "UPDATE pos_orders SET status = 'paid', status_at = ?, paid_at = ?, updated_at = ? " +
-      "WHERE slug = ? AND id = ? AND status IN ('pending', 'confirmed')",
-    ).bind(now, now, now, site.slug, order.id),
+      "WHERE slug = ? AND id = ? AND status IN ('pending', 'confirmed') " +
+      // El turno se revalida en el mismo batch: si se cerró entre la lectura y
+      // este INSERT, no se cobra y la caja responde 409 caja_cerrada.
+      "AND EXISTS (SELECT 1 FROM pos_shifts WHERE slug = ? AND sede_id = ? AND status = 'open')",
+    ).bind(now, now, now, site.slug, order.id, site.slug, order.sede_id),
     env.DB.prepare(
       "INSERT INTO pos_payments (id, slug, order_id, provider, idempotency_key, status, amount_cents, currency, " +
       "provider_ref, created_at, updated_at, paid_at, shift_id) " +
@@ -1151,6 +1154,8 @@ async function payManual(env, site, session, encodedId, body, provider) {
       await afterPaid(env, site.slug, current);
       return paidManualResponse(env, site, current, payment);
     }
+    // El turno pudo cerrarse entre la lectura y el batch: no se cobró nada.
+    if (!await openShiftFor(env, site.slug, order.sede_id)) return error("caja_cerrada", 409);
     return error("estado_invalido", 409);
   }
   const paid = await posOrderRow(env, site.slug, order.id);
