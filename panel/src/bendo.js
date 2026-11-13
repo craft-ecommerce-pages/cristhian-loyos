@@ -331,7 +331,9 @@ async function returnResponse(request, url, env, site, order, status, httpStatus
     ? env.MENU_PUBLIC_URL.replace(/\/+$/, "") : "";
   // El comprador vuelve a /gracias con el resultado ya conciliado en servidor:
   // solo viajan el id opaco y el token del pedido, nunca datos fiscales.
-  const target = order.source === "web" && menu
+  // También los cobros de caja por QR: quien vuelve es el celular del cliente,
+  // que debe ver su recibo y nunca el login del panel.
+  const target = menu
     ? `${menu}/gracias?pago=${state}&pedido=${encodeURIComponent(order.id)}&token=${encodeURIComponent(await orderToken(env, site.slug, order.id))}`
     : `${url.origin}/panel?pago=${state}&pedido=${encodeURIComponent(order.id)}`;
   return new Response(null, {
@@ -379,7 +381,9 @@ export async function handleBendoWebhook(request, env, site) {
   if (!REF_RE.test(ref) || !SIGNATURE_RE.test(signature)) return json({ ok: true });
   let expected;
   try { expected = await sellerWebhookSignature(env, ref); }
-  catch { return error("bendo_no_disponible", 503); }
+  // Sin SESSION_SECRET ninguna firma puede validarse: 200 sin trabajo para no
+  // provocar reintentos infinitos; return, caja y cron siguen conciliando.
+  catch { return json({ ok: true }); }
   if (!timingEqual(signature, expected)) return json({ ok: true });
   const payment = await posPaymentByRef(env, site.slug, ref);
   if (!payment || payment.provider !== "bendo" || !payment.provider_id) return json({ ok: true });

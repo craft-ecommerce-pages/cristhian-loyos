@@ -250,11 +250,13 @@ async function openShift(request, env, site, session) {
         "INSERT INTO pos_shifts (id, slug, sede_id, opened_by, opened_at, opening_float_cents, open_key) " +
         "VALUES (?, ?, ?, ?, ?, ?, ?)",
       ).bind(id, site.slug, sedeId, String(session.staff_id || ""), now, opening, key),
-      // Pagos ya cobrados sin turno (tarjeta conciliada con la caja cerrada):
-      // pasan al nuevo turno para que el arqueo y el reporte no los pierdan.
+      // Pagos con tarjeta conciliados con la caja cerrada: pasan al nuevo turno.
+      // Solo `bendo`: todo pago anterior a 0012 tiene shift_id NULL y, sin este
+      // filtro, el primer turno de la sede absorbería el efectivo histórico.
+      // Efectivo y transferencia nunca quedan sin turno (exigen caja abierta).
       env.DB.prepare(
         "UPDATE pos_payments SET shift_id = ? WHERE slug = ? AND shift_id IS NULL AND status = 'paid' " +
-        "AND order_id IN (SELECT id FROM pos_orders WHERE slug = ? AND sede_id = ?)",
+        "AND provider = 'bendo' AND order_id IN (SELECT id FROM pos_orders WHERE slug = ? AND sede_id = ?)",
       ).bind(id, site.slug, site.slug, sedeId),
     ]);
   } catch {

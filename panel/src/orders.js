@@ -972,7 +972,10 @@ export async function createPaymentAttempt(env, slug, order, key, provider) {
 
 export async function setPaymentPending(env, slug, paymentId, url) {
   await env.DB.prepare(
-    "UPDATE pos_payments SET status = 'pending', url = ?, updated_at = ? WHERE slug = ? AND id = ? AND status IN ('created', 'pending')",
+    // `failed` incluido: un reintento con la misma clave tras un fallo crea un
+    // link nuevo y debe quedar vigilado (cron, return, webhook), no huérfano.
+    "UPDATE pos_payments SET status = 'pending', url = ?, message = NULL, updated_at = ? " +
+    "WHERE slug = ? AND id = ? AND status IN ('created', 'pending', 'failed')",
   ).bind(url, Date.now(), slug, paymentId).run();
 }
 
@@ -1067,9 +1070,12 @@ export async function settlePaymentApproved(env, slug, order, payment, details =
       "UPDATE pos_payments SET shift_id = (SELECT id FROM pos_shifts WHERE slug = ? AND sede_id = ? AND status = 'open') " +
       "WHERE slug = ? AND id = ? AND shift_id IS NULL",
     ).bind(slug, order.sede_id, slug, payment.id),
+    // El método del pedido refleja cómo se cobró: una orden de caja creada como
+    // efectivo y pagada con tarjeta queda `bendo` en la caja y los reportes.
     env.DB.prepare(
-      "UPDATE pos_orders SET status = 'paid', status_at = ?, paid_at = ?, updated_at = ? WHERE slug = ? AND id = ? AND status IN ('pending', 'confirmed')",
-    ).bind(now, now, now, slug, order.id),
+      "UPDATE pos_orders SET status = 'paid', payment_method = ?, status_at = ?, paid_at = ?, updated_at = ? " +
+      "WHERE slug = ? AND id = ? AND status IN ('pending', 'confirmed')",
+    ).bind(payment.provider, now, now, now, slug, order.id),
     env.DB.prepare(
       "INSERT OR IGNORE INTO pos_comandas (slug, order_id, created_at, print_count) VALUES (?, ?, ?, 0)",
     ).bind(slug, order.id, now),
