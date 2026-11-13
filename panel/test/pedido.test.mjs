@@ -55,6 +55,11 @@ const webOrder = (overrides = {}) => ({
 });
 const rowOf = (env, id) => env.DB.raw.prepare("SELECT * FROM pos_orders WHERE id = ?").get(id);
 const comandas = (env, id) => env.DB.raw.prepare("SELECT COUNT(*) n FROM pos_comandas WHERE order_id = ?").get(id).n;
+// Desde 0012, efectivo y transferencia exigen un turno abierto en la sede.
+const openShift = (env, sede = "centro") => env.DB.raw.prepare(
+  "INSERT INTO pos_shifts (id, slug, sede_id, opened_by, opened_at, opening_float_cents, open_key) " +
+  "VALUES (?, ?, ?, 'test', ?, 0, ?)",
+).run(`turno-${sede}`, "pizza", sede, Date.now(), `turno-${sede}`);
 
 test("pedido web exige datos fiscales completos, válidos y normalizados", async () => {
   const env = pedidoEnv(), ctx = makeCtx();
@@ -131,6 +136,7 @@ test("transferencia: la caja confirma manualmente, con sede autorizada e idempot
   const before = await (await panel.fetch(request(`/api/orders/${created.id}?token=${created.order_token}`), env, ctx)).json();
   assert.equal(before.payment_status, "pending", "transferencia sin confirmar no se muestra pagada");
 
+  openShift(env);
   let response = await transfer();
   assert.equal(response.status, 200);
   const paid = await response.json();
@@ -179,6 +185,7 @@ test("estado público del pedido: efectivo pendiente y pagado, sin PII", async (
     assert.equal(JSON.stringify(status).includes(secret), false, `no expone ${secret}`);
   }
   const owner = await ownerCookie(env);
+  openShift(env);
   await panel.fetch(body(`/panel/api/orders/${created.id}/pay-cash`, { idempotency_key: "estado-cash" }, { headers: { cookie: owner } }), env, ctx);
   status = await read();
   assert.equal(status.status, "paid");
@@ -211,6 +218,7 @@ test("paid → ready: auth por sede, marca de tiempo e idempotencia", async () =
   let response = await panel.fetch(body(`/panel/api/orders/${created.id}/ready`, {}, { headers: { cookie } }), env, ctx);
   assert.equal(response.status, 409, "no se marca listo antes del cobro");
 
+  openShift(env);
   await panel.fetch(body(`/panel/api/orders/${created.id}/pay-cash`, { idempotency_key: "ready-cash" }, { headers: { cookie: owner } }), env, ctx);
   response = await panel.fetch(body(`/panel/api/orders/${created.id}/ready`, {}, { headers: { cookie } }), env, ctx);
   assert.equal(response.status, 200);
@@ -246,6 +254,7 @@ test("paid → ready: auth por sede, marca de tiempo e idempotencia", async () =
 
   // Operador de otra sede no puede marcar listo.
   const north = await (await panel.fetch(body("/api/orders", webOrder({ sede_id: "norte", idempotency_key: "ready-0002" })), env, ctx)).json();
+  openShift(env, "norte");
   await panel.fetch(body(`/panel/api/orders/${north.id}/pay-cash`, { idempotency_key: "ready-cash-2" }, { headers: { cookie: owner } }), env, ctx);
   response = await panel.fetch(body(`/panel/api/orders/${north.id}/ready`, {}, { headers: { cookie } }), env, ctx);
   assert.equal(response.status, 403);
