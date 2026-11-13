@@ -4,7 +4,10 @@
 // tests y se inyecta al navegador serializando la función, igual que loyalty/src/page.js.
 
 import { qrMatrix } from "../../shared/qr.js";
-import { ticketColumns, ticketLines, ticketPageHeight } from "../../shared/ticket.js";
+// Se importa el módulo completo para serializar también `shiftTicketLines` cuando la
+// parte E lo añada. Hoy puede no existir: el panel cae a un reporte HTML simple.
+import * as ticketKit from "../../shared/ticket.js";
+const { ticketColumns, ticketLines, ticketPageHeight } = ticketKit;
 export { qrMatrix };
 
 /* ── Fechas sugeridas de campañas ───────────────────────────────────────────
@@ -216,6 +219,33 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:0}
 .order-actions{display:flex;justify-content:flex-end;gap:10px;white-space:nowrap}
 .order-state.paid{color:#0f5c7a}
 .order-state.ready{color:var(--ok)}
+/* ── caja: barra de turno y cierres ── */
+.cash-wrap{margin:0 0 16px}
+.cashbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--soft)}
+.cash-id{display:flex;align-items:center;gap:8px;min-width:0;margin-right:auto}
+.cash-id strong{font-size:13.5px;white-space:nowrap}
+.cash-id select{width:auto;min-width:132px;padding:6px 10px;font-size:13px}
+.cash-state{font-size:13px;font-weight:600;color:var(--ink2)}
+.cash-state.abierta{color:var(--ok)}
+.cashbar .hint{flex-basis:100%;margin:0}
+.cashform{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 14px;width:100%;margin-top:4px;padding-top:10px;border-top:1px dashed var(--line2)}
+.cashform .field{margin:0 0 8px}
+.cashform .field .hint{margin-top:4px}
+.cashform .actions{grid-column:1/-1;margin-top:0}
+.cash-line{display:grid;grid-template-columns:minmax(0,1fr) 90px 110px;gap:12px;padding:9px 14px;border-bottom:1px solid var(--line)}
+.cash-line:last-child{border-bottom:0}
+.cash-line.head{background:var(--soft);border-bottom:1px solid var(--line);color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.num{font-variant-numeric:tabular-nums}
+.money-negative{color:var(--danger)}
+.table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:12px}
+.shift-head,.shift-row{display:grid;grid-template-columns:minmax(0,1fr) 96px 96px 82px 88px 88px 96px 82px 74px;gap:10px;align-items:center;padding:10px 14px;min-width:860px}
+.shift-head{background:var(--soft);border-bottom:1px solid var(--line);color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.shift-row{border-bottom:1px solid var(--line)}
+.shift-row:last-child{border-bottom:0}
+.shift-row:hover{background:#FBFAF8}
+.shift-main{display:flex;flex-direction:column;min-width:0}
+.shift-main strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.shift-head span,.shift-row .num{font-variant-numeric:tabular-nums}
 /* ── nueva orden: tarjetas con foto ── */
 .neworder{display:grid;gap:18px;grid-template-columns:minmax(0,1.45fr) minmax(280px,1fr);align-items:start}
 .neworder-main,.neworder-side{min-width:0}
@@ -403,6 +433,15 @@ input,select,textarea{font-size:16px;padding:10px 12px}
   body>*:not(.print-ticket){display:none!important}
   .print-ticket{display:block!important;margin:0;font-family:monospace;font-size:11px;line-height:1.25;white-space:pre}
 }
+/* ── cierre de caja impreso: reporte en HTML simple (sin shiftTicketLines) ── */
+@media screen{.print-sheet{display:none}}
+.print-sheet{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:12px;color:#000;white-space:normal}
+.print-sheet h4{margin:0 0 2px;font-size:15px}
+.print-sheet p{margin:2px 0}
+.print-sheet table{width:100%;border-collapse:collapse;margin:6px 0}
+.print-sheet th,.print-sheet td{padding:3px 6px;border-bottom:1px solid #ddd;text-align:left}
+.print-sheet td.num,.print-sheet th.num{text-align:right;font-variant-numeric:tabular-nums}
+@media print{.print-ticket.print-sheet{white-space:normal;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:12px}}
 `;
 
 /* Runtime del navegador: se serializa con String() y se inyecta sin build. */
@@ -420,7 +459,10 @@ function runtime() {
   let pendingOrders = 0, pendingNote = null;
   // Nueva orden POS: estado de pantalla (se conserva al cambiar de sección).
   let newOrder = null;
+  // Sede elegida en la barra de caja de la sección de pedidos POS.
+  let shiftSede = "";
   const paymentKeys = new Map();
+  const shiftKeys = new Map();
 
   /* ── utilidades ── */
   function h(tag, attrs, ...kids) {
@@ -548,6 +590,9 @@ function runtime() {
     limite_meseros: "Ya alcanzaste el máximo de meseros activos.",
     plan_requerido: "Tu tarjeta de fidelidad no está activa. Actívala para encender el club.",
     bendo_no_disponible: "El cobro con tarjeta no está disponible ahora.",
+    caja_cerrada: "Abre la caja de esta sede para cobrar.",
+    caja_ya_abierta: "Esta sede ya tiene una caja abierta.",
+    turno_cerrado: "Ese turno de caja ya se cerró.",
   };
   const errMsg = (r, fallback) => {
     if (r && r.status === 0) return "No pudimos conectar. Revisa tu internet e intenta de nuevo.";
@@ -802,6 +847,7 @@ function runtime() {
       ["waiters-tables", "Meseros y mesas", meserosTablesScreen, "Ventas"],
       ["stats", "Resultados", statsScreen, "Ventas"],
       ["reports", "Reportes", reportsScreen, "Ventas"],
+      ["cierres", "Cierres de caja", cierresScreen, "Ventas"],
       ["store", "Mi negocio", storeScreen, "Negocio"],
       ...(me.loyalty_available ? [["loyalty", "Fidelidad", loyaltyScreen, "Negocio"]] : []),
     ];
@@ -1331,7 +1377,13 @@ function runtime() {
       if (transfer && (r.status === 404 || r.status === 405))
         return toast("Esta versión del panel todavía no permite confirmar transferencias. Actualiza el panel.", true);
       if (r.status !== 200) {
-        if (r.status === 409) { toast("Esa orden ya cambió de estado.", true); return reload(); }
+        if (r.status === 409) {
+          // La caja cerrada bloquea el cobro manual (efectivo/transferencia):
+          // el cajero debe abrir el turno de esa sede primero.
+          const code = r.data && r.data.error;
+          toast(code === "caja_cerrada" ? ERRORS.caja_cerrada : "Esa orden ya cambió de estado.", true);
+          return reload();
+        }
         return toast(errMsg(r, "No pudimos registrar el cobro."), true);
       }
       toast((transfer ? "Transferencia confirmada." : "Cobrado.") + " La comanda ya está en cocina; imprímela desde Cocina o aquí.");
@@ -1477,6 +1529,409 @@ function runtime() {
     });
   }
 
+  /* ── Caja: turno compartido con el cajero ────────────────────────────────
+     Misma semántica que el modo mesero: abrir con fondo inicial, registrar
+     ingresos/retiros y cerrar con arqueo ciego. La diferencia (contado −
+     esperado) se muestra recién al cerrar. Montos en centavos enteros. */
+  const centsText = v => money((Number(v) || 0) / 100);
+  const guayaquil = ts => {
+    const d = new Date(Number(ts) - 5 * 60 * 60 * 1000);
+    return Number.isNaN(d.getTime()) ? null : d;
+  };
+  const two = n => String(n).padStart(2, "0");
+  const shiftClock = ts => {
+    const d = guayaquil(ts);
+    return d ? two(d.getUTCHours()) + ":" + two(d.getUTCMinutes()) : "—";
+  };
+  const shiftStamp = ts => {
+    const d = guayaquil(ts);
+    return d ? two(d.getUTCDate()) + "/" + two(d.getUTCMonth() + 1) + " " + two(d.getUTCHours()) + ":" + two(d.getUTCMinutes()) : "—";
+  };
+  const centsFromInput = value => {
+    const amount = priceValue(value);
+    return amount == null ? null : Math.round(amount * 100);
+  };
+  const shiftKey = scope => {
+    if (!shiftKeys.has(scope)) shiftKeys.set(scope, uuid());
+    return shiftKeys.get(scope);
+  };
+  const SHIFT_STATUS = { open: "Abierta", closed: "Cerrada" };
+
+  // Barra de estado de caja de una sede: el dueño abre, mueve efectivo y cierra.
+  // `sedes` y `sedeNames` salen de /panel/api/sedes; la API de turnos todavía
+  // puede no existir en esta rama (404) y entonces la barra lo dice sin inventar.
+  function cashBar(sedes, sedeNames) {
+    const wrap = h("div", { class: "cash-wrap" });
+    const bar = h("div", { class: "cashbar", role: "group", "aria-label": "Estado de la caja" });
+    const extra = h("div");
+    wrap.append(bar, extra);
+    const state = { shift: null, report: null, panel: "", loaded: false, unavailable: false };
+    const list = (Array.isArray(sedes) ? sedes : []).filter(s => s && s.id);
+    const selectId = uid("cashsede");
+    const select = h("select", { id: selectId, "aria-label": "Sede de la caja" },
+      ...list.map(s => h("option", { value: String(s.id), text: String(s.nombre || s.id) })));
+    const remembered = list.some(s => String(s.id) === shiftSede) ? shiftSede : (list[0] ? String(list[0].id) : "");
+    select.value = remembered;
+    shiftSede = remembered;
+    select.addEventListener("change", () => {
+      shiftSede = select.value;
+      state.shift = null; state.report = null; state.panel = ""; state.loaded = false;
+      paint();
+      load();
+    });
+    const place = () => sedeNameOf(select.value, id => sedeNames.get(id));
+
+    async function load() {
+      if (!select.value) { state.loaded = true; paint(); return; }
+      const r = await api("turnos/actual?sede_id=" + encodeURIComponent(select.value));
+      if (r.status === 401) return goLogin("Tu sesión venció. Vuelve a entrar.");
+      state.loaded = true;
+      state.unavailable = r.status === 404 || r.status === 405;
+      if (state.unavailable) return paint();
+      if (r.status !== 200) {
+        state.shift = null;
+        state.report = null;
+        return paint(errMsg(r, "No pudimos consultar la caja."));
+      }
+      state.shift = r.data && r.data.shift ? r.data.shift : null;
+      state.report = r.data && r.data.report && typeof r.data.report === "object" ? r.data.report : null;
+      paint();
+    }
+
+    function paint(errorText) {
+      const shift = state.shift;
+      const parts = [h("div", { class: "cash-id" },
+        h("strong", { text: "Caja · " + (place() || "sede") }), select)];
+      if (state.unavailable) {
+        parts.push(h("p", { class: "hint", text: "Esta versión del panel todavía no incluye turnos de caja." }));
+        bar.replaceChildren(...parts);
+        extra.replaceChildren();
+        return;
+      }
+      if (!list.length) {
+        parts.push(h("p", { class: "hint", text: "No hay sedes configuradas." }));
+        bar.replaceChildren(...parts);
+        extra.replaceChildren();
+        return;
+      }
+      if (!state.loaded) {
+        parts.push(h("p", { class: "hint", text: "Consultando la caja…" }));
+        bar.replaceChildren(...parts);
+        extra.replaceChildren();
+        return;
+      }
+      if (!shift) {
+        parts.push(h("span", { class: "cash-state cerrada", text: "Cerrada" }));
+        parts.push(btn("Abrir caja", "btn primary small", () => { state.panel = state.panel === "abrir" ? "" : "abrir"; paint(); }));
+        if (state.panel === "abrir") parts.push(openForm());
+      } else {
+        parts.push(h("span", { class: "cash-state abierta", text: "Caja abierta desde " + shiftClock(shift.opened_at) }));
+        parts.push(h("p", { class: "hint", text: "Fondo inicial " + centsText(shift.opening_float_cents) +
+          (state.report ? " · Ventas " + centsText(state.report.sales_total_cents) + " · Esperado en caja " + centsText(state.report.expected_cash_cents) : "") }));
+        parts.push(btn("Ingreso de efectivo", "btn small", () => { state.panel = state.panel === "in" ? "" : "in"; paint(); }));
+        parts.push(btn("Retiro de efectivo", "btn small", () => { state.panel = state.panel === "out" ? "" : "out"; paint(); }));
+        parts.push(btn("Cerrar caja", "btn primary small", () => { state.panel = state.panel === "cerrar" ? "" : "cerrar"; paint(); }));
+        if (state.panel === "in") parts.push(movementForm("in", shift));
+        if (state.panel === "out") parts.push(movementForm("out", shift));
+        if (state.panel === "cerrar") parts.push(closeForm(shift));
+      }
+      if (errorText) parts.push(h("p", { class: "err", role: "alert", text: errorText }));
+      bar.replaceChildren(...parts);
+      extra.replaceChildren(...(state.report && state.report.status === "closed" ? [reportCard(state.report, place())] : []));
+    }
+
+    function openForm() {
+      const amount = h("input", { type: "text", inputmode: "decimal", placeholder: "20.00", "aria-label": "Fondo inicial" });
+      const err = h("p", { class: "err", role: "alert" });
+      const submit = btn("Abrir caja", "btn primary small", async () => {
+        const opening = centsFromInput(amount.value);
+        if (opening == null || opening < 0) { err.textContent = "Escribe el fondo inicial (ej. 20.00)."; return; }
+        submit.disabled = true;
+        const scope = "abrir:" + select.value;
+        const r = await api("turnos/abrir", { sede_id: select.value, opening_float_cents: opening, idempotency_key: shiftKey(scope) });
+        submit.disabled = false;
+        if (r.status === 401) return goLogin("Tu sesión venció. Vuelve a entrar.");
+        if (r.status === 200 || r.status === 201) {
+          shiftKeys.delete(scope);
+          state.panel = "";
+          toast("Caja abierta con fondo de " + centsText(opening) + ".");
+          return load();
+        }
+        if (r.status === 409) {
+          toast(ERRORS.caja_ya_abierta, true);
+          state.panel = "";
+          return load();
+        }
+        err.textContent = errMsg(r, "No pudimos abrir la caja.");
+      });
+      return h("div", { class: "cashform" },
+        field("Fondo inicial", amount, "Efectivo con el que arranca el turno."),
+        h("div", { class: "actions" }, btn("Cancelar", "btn ghost small", () => { state.panel = ""; paint(); }), submit), err);
+    }
+
+    function movementForm(kind, shift) {
+      const amount = h("input", { type: "text", inputmode: "decimal", placeholder: "0.00", "aria-label": kind === "in" ? "Monto del ingreso" : "Monto del retiro" });
+      const reason = h("input", { type: "text", maxlength: "120", placeholder: "Motivo (3 a 120 caracteres)", "aria-label": "Motivo del movimiento" });
+      const err = h("p", { class: "err", role: "alert" });
+      const submit = btn(kind === "in" ? "Registrar ingreso" : "Registrar retiro", "btn primary small", async () => {
+        const amountCents = centsFromInput(amount.value);
+        const text = String(reason.value || "").trim();
+        if (amountCents == null || amountCents <= 0) { err.textContent = "Escribe un monto mayor a cero."; return; }
+        if (text.length < 3 || text.length > 120) { err.textContent = "Escribe un motivo de 3 a 120 caracteres."; return; }
+        submit.disabled = true;
+        const scope = "mov:" + shift.id;
+        const r = await api("turnos/" + encodeURIComponent(shift.id) + "/movimientos", { kind, amount_cents: amountCents, reason: text, idempotency_key: shiftKey(scope) });
+        submit.disabled = false;
+        if (r.status === 401) return goLogin("Tu sesión venció. Vuelve a entrar.");
+        if (r.status === 200 || r.status === 201) {
+          shiftKeys.delete(scope);
+          state.panel = "";
+          toast((kind === "in" ? "Ingreso" : "Retiro") + " de " + centsText(amountCents) + " registrado.");
+          return load();
+        }
+        if (r.status === 409) { toast(ERRORS.turno_cerrado, true); state.panel = ""; return load(); }
+        err.textContent = errMsg(r, "No pudimos registrar el movimiento.");
+      });
+      return h("div", { class: "cashform" },
+        field(kind === "in" ? "Monto del ingreso" : "Monto del retiro", amount),
+        field("Motivo", reason, "Ej. Cambio adicional, depósito al banco, pago a proveedor."),
+        h("div", { class: "actions" }, btn("Cancelar", "btn ghost small", () => { state.panel = ""; paint(); }), submit), err);
+    }
+
+    function closeForm(shift) {
+      const counted = h("input", { type: "text", inputmode: "decimal", placeholder: "0.00", "aria-label": "Efectivo contado" });
+      const note = h("input", { type: "text", maxlength: "200", placeholder: "Opcional", "aria-label": "Nota del cierre" });
+      const err = h("p", { class: "err", role: "alert" });
+      const submit = btn("Cerrar caja", "btn primary small", async () => {
+        const countedCents = centsFromInput(counted.value);
+        if (countedCents == null || countedCents < 0) { err.textContent = "Escribe el efectivo contado."; return; }
+        const scope = "cerrar:" + shift.id;
+        const body = { counted_cash_cents: countedCents, idempotency_key: shiftKey(scope) };
+        const text = String(note.value || "").trim();
+        if (text) body.note = text;
+        submit.disabled = true;
+        const r = await api("turnos/" + encodeURIComponent(shift.id) + "/cerrar", body);
+        submit.disabled = false;
+        if (r.status === 401) return goLogin("Tu sesión venció. Vuelve a entrar.");
+        if (r.status === 200 && r.data && r.data.report) {
+          shiftKeys.delete(scope);
+          state.shift = null; state.panel = ""; state.report = r.data.report;
+          paint();
+          const difference = Number(r.data.report.difference_cents) || 0;
+          return toast("Caja cerrada. Diferencia: " + centsText(difference) +
+            (difference < 0 ? " (faltante)." : difference > 0 ? " (sobrante)." : " (cuadra)."), difference !== 0);
+        }
+        if (r.status === 409) { toast(ERRORS.turno_cerrado, true); state.panel = ""; return load(); }
+        err.textContent = errMsg(r, "No pudimos cerrar la caja.");
+      });
+      return h("div", { class: "cashform" },
+        field("Efectivo contado", counted, "Arqueo ciego: cuenta el efectivo sin mirar el esperado; la diferencia aparece al cerrar."),
+        field("Nota (opcional)", note),
+        h("div", { class: "actions" }, btn("Cancelar", "btn ghost small", () => { state.panel = ""; paint(); }), submit), err);
+    }
+
+    paint();
+    load();
+    return wrap;
+  }
+
+  // Reporte de un turno: ventas por método, movimientos, arqueo y reimpresión.
+  function reportCard(report, place) {
+    const sales = Array.isArray(report.sales) ? report.sales : [];
+    const movements = report.movements && typeof report.movements === "object" ? report.movements : {};
+    const items = Array.isArray(movements.items) ? movements.items : [];
+    const pending = report.pending_payments && typeof report.pending_payments === "object" ? report.pending_payments : {};
+    const orders = report.orders && typeof report.orders === "object" ? report.orders : {};
+    const difference = Number(report.difference_cents) || 0;
+    const closed = report.status === "closed";
+    return h("section", { class: "card" },
+      h("div", { class: "page-head" }, h("div", {},
+        h("h2", { text: "Cierre de caja · " + (place || String(report.sede_id || "")) }),
+        h("p", { class: "muted small", text: (closed ? "Cerrado" : "Abierto") + " · apertura " + shiftStamp(report.opened_at) + (closed ? " · cierre " + shiftStamp(report.closed_at) : "") }))),
+      h("div", { class: "kpis" },
+        h("div", { class: "kpi" }, h("span", { class: "kpi-n", text: centsText(report.expected_cash_cents) }), h("span", { class: "kpi-l", text: "Efectivo esperado" })),
+        h("div", { class: "kpi" }, h("span", { class: "kpi-n", text: report.counted_cash_cents == null ? "—" : centsText(report.counted_cash_cents) }), h("span", { class: "kpi-l", text: "Efectivo contado" })),
+        h("div", { class: "kpi" }, h("span", { class: "kpi-n" + (difference < 0 ? " money-negative" : ""), text: report.difference_cents == null ? "—" : centsText(report.difference_cents) }), h("span", { class: "kpi-l", text: difference < 0 ? "Faltante" : difference > 0 ? "Sobrante" : "Diferencia" })),
+        h("div", { class: "kpi" }, h("span", { class: "kpi-n", text: centsText(report.sales_total_cents) }), h("span", { class: "kpi-l", text: "Ventas del turno" }))),
+      h("h2", { text: "Ventas por método" }),
+      sales.length ? h("div", { class: "table" },
+        h("div", { class: "cash-line head" }, h("span", { text: "Método" }), h("span", { text: "Pagos" }), h("span", { text: "Total" })),
+        ...sales.map(row => h("div", { class: "cash-line" },
+          h("span", { text: POS_PAYMENT[row.method] || String(row.method) }),
+          h("span", { class: "num", text: String(Number(row.count) || 0) }),
+          h("span", { class: "num", text: centsText(row.total_cents) }))))
+        : h("p", { class: "empty", text: "Sin cobros en el turno." }),
+      h("h2", { text: "Movimientos de efectivo" }),
+      items.length ? h("div", { class: "detail-list" }, ...items.map(item => h("div", { class: "detail-item" },
+        h("strong", { text: (item.kind === "in" ? "Ingreso" : "Retiro") + " · " + centsText(item.amount_cents) }),
+        h("span", { class: "prod-note", text: String(item.reason || "") + " · " + shiftStamp(item.created_at) }))))
+        : h("p", { class: "muted small", text: "Sin movimientos de efectivo." }),
+      h("p", { class: "hint", text: "Ingresos " + centsText(movements.in_cents) + " · Retiros " + centsText(movements.out_cents) +
+        (orders.paid != null || orders.rejected != null ? " · Pedidos pagados " + String(Number(orders.paid) || 0) + " · rechazados " + String(Number(orders.rejected) || 0) : "") }),
+      Number(pending.count) > 0 ? h("p", { class: "notice", text: "Aviso: " + Number(pending.count) + " pago(s) pendientes por " + centsText(pending.total_cents) + ". No entran en el cierre." }) : null,
+      report.note ? h("p", { class: "muted small", text: "Nota: " + String(report.note) }) : null,
+      h("div", { class: "actions" }, btn("Reimprimir cierre", "btn small", () => printShift(report, place))));
+  }
+
+  // Reporte Z en HTML simple. Se usa mientras `shared/ticket.js` no exporte
+  // `shiftTicketLines`; si la rama ya lo serializa (window.__panelShiftTicket),
+  // se imprime el ticket térmico de 32/48 columnas y este HTML queda de respaldo.
+  function shiftSheet(report, place, store) {
+    const rows = [
+      ["Apertura", shiftStamp(report.opened_at)],
+      ["Cierre", report.closed_at ? shiftStamp(report.closed_at) : "—"],
+      ["Fondo inicial", centsText(report.opening_float_cents)],
+      ["Ventas del turno", centsText(report.sales_total_cents)],
+      ["Efectivo esperado", centsText(report.expected_cash_cents)],
+      ["Efectivo contado", report.counted_cash_cents == null ? "—" : centsText(report.counted_cash_cents)],
+      ["Diferencia", report.difference_cents == null ? "—" : centsText(report.difference_cents)],
+    ];
+    const difference = Number(report.difference_cents) || 0;
+    const sales = (Array.isArray(report.sales) ? report.sales : []).map(row => h("tr", {},
+      h("td", { text: POS_PAYMENT[row.method] || String(row.method) }),
+      h("td", { class: "num", text: String(Number(row.count) || 0) }),
+      h("td", { class: "num", text: centsText(row.total_cents) })));
+    const movements = report.movements && typeof report.movements === "object" ? report.movements : {};
+    const items = Array.isArray(movements.items) ? movements.items : [];
+    return h("div", { class: "print-ticket print-sheet" },
+      h("h4", { text: store || "Mi negocio" }),
+      h("p", { text: "CIERRE DE CAJA · " + (place || String(report.sede_id || "")) }),
+      h("table", {}, h("tbody", {}, ...rows.map(([label, value]) => h("tr", {},
+        h("th", { text: label }),
+        h("td", { class: "num" + (label === "Diferencia" && difference < 0 ? " money-negative" : ""), text: value }))))),
+      sales.length ? h("table", {},
+        h("thead", {}, h("tr", {}, h("th", { text: "Método" }), h("th", { class: "num", text: "Pagos" }), h("th", { class: "num", text: "Total" }))),
+        h("tbody", {}, ...sales)) : null,
+      items.length ? h("table", {},
+        h("tbody", {},
+          ...items.map(item => h("tr", {},
+            h("td", { text: (item.kind === "in" ? "Ingreso" : "Retiro") + " · " + String(item.reason || "") }),
+            h("td", { class: "num", text: centsText(item.amount_cents) }))),
+          h("tr", {}, h("th", { text: "Ingresos / retiros" }),
+            h("td", { class: "num", text: centsText(movements.in_cents) + " / " + centsText(movements.out_cents) })))) : null,
+      report.note ? h("p", { text: "Nota: " + String(report.note) }) : null);
+  }
+
+  function printShift(report, place) {
+    const store = me?.store?.store_name || me?.store?.name || "";
+    const paper = paperWidth();
+    const width = typeof columnsFn === "function" ? columnsFn(paper) : 32;
+    const shiftFn = window.__panelShiftTicket;
+    let sheet = null;
+    if (typeof shiftFn === "function") {
+      let lines = null;
+      try { lines = shiftFn(report, { store, width, sedeName: place || String(report.sede_id || "") }); } catch { lines = null; }
+      if (Array.isArray(lines) && lines.length) sheet = h("pre", { class: "print-ticket", text: lines.join("\n") });
+    }
+    if (!sheet) sheet = shiftSheet(report, place, store);
+    document.body.append(sheet);
+    let opened = false;
+    try { window.print(); opened = true; } catch { opened = false; }
+    window.setTimeout(() => sheet.remove(), 1200);
+    if (!opened) toast("No pudimos abrir la impresión del cierre.", true);
+    return opened;
+  }
+
+  /* ── Cierres de caja (solo dueño): historial y diferencias ── */
+  async function cierresScreen() {
+    const token = ++viewToken;
+    loadingView("Cargando cierres de caja…");
+    const sedeR = await api("sedes");
+    if (token !== viewToken) return;
+    if (sedeR.status === 401) return goLogin("Tu sesión venció. Vuelve a entrar.");
+    const sedes = sedeR.status === 200 && Array.isArray(sedeR.data?.sedes) ? sedeR.data.sedes.filter(s => s && s.id) : [];
+    const sedeNames = new Map(sedes.map(s => [String(s.id), String(s.nombre || s.id)]));
+    const place = id => sedeNameOf(id, key => sedeNames.get(key));
+    const today = new Date(), weekAgo = new Date(Date.now() - 6 * 86400000);
+    const fromInput = h("input", { type: "date", value: isoDay(weekAgo), "aria-label": "Desde" });
+    const toInput = h("input", { type: "date", value: isoDay(today), "aria-label": "Hasta" });
+    const sedeSelect = h("select", { "aria-label": "Sede" },
+      h("option", { value: "", text: "Todas las sedes" }),
+      ...sedes.map(s => h("option", { value: String(s.id), text: String(s.nombre || s.id) })));
+    const result = h("div", { "aria-live": "polite" });
+    const error = h("p", { class: "err", role: "alert" });
+
+    const showShift = report => {
+      V.replaceChildren(h("section", { class: "screen" },
+        btn("← Cierres de caja", "back", cierresScreen),
+        h("div", { class: "page-head" }, h("div", {},
+          h("h1", { text: "Cierre de caja" }),
+          h("p", { class: "muted small", text: "Reporte del turno · hora de Ecuador" }))),
+        reportCard(report, place(report.sede_id))));
+    };
+
+    const openShift = async shift => {
+      const r = await api("turnos/" + encodeURIComponent(shift.id));
+      if (r.status === 401) return goLogin("Tu sesión venció. Vuelve a entrar.");
+      const report = r.status === 200 && r.data && r.data.report ? r.data.report : null;
+      if (!report) return toast(errMsg(r, "No pudimos cargar el cierre."), true);
+      showShift(report);
+    };
+
+    const render = data => {
+      const shifts = Array.isArray(data?.shifts) ? data.shifts : [];
+      const rows = shifts.map(shift => {
+        const closed = String(shift.status) === "closed";
+        const difference = Number(shift.difference_cents);
+        const missing = closed && shift.difference_cents != null && difference < 0;
+        return h("div", { class: "shift-row" },
+          h("div", { class: "shift-main" },
+            h("strong", { text: place(shift.sede_id) }),
+            h("span", { class: "prod-note", text: (SHIFT_STATUS[shift.status] || String(shift.status || "")) +
+              (shift.opened_by ? " · abrió " + String(shift.opened_by) : "") })),
+          h("span", { class: "num", text: shiftStamp(shift.opened_at) }),
+          h("span", { class: "num", text: closed ? shiftStamp(shift.closed_at) : "—" }),
+          h("span", { class: "num", text: centsText(shift.opening_float_cents) }),
+          h("span", { class: "num", text: closed && shift.expected_cash_cents != null ? centsText(shift.expected_cash_cents) : "—" }),
+          h("span", { class: "num", text: closed && shift.counted_cash_cents != null ? centsText(shift.counted_cash_cents) : "—" }),
+          h("span", { class: "num" + (missing ? " money-negative" : ""), text: closed && shift.difference_cents != null ? centsText(shift.difference_cents) : "—" }),
+          h("span", { class: "num", text: centsText(shift.total_cents) }),
+          h("div", { class: "prod-actions" }, btn("Detalle", "link", () => openShift(shift), { "aria-label": "Ver el cierre de " + place(shift.sede_id) })));
+      });
+      result.replaceChildren(
+        shifts.length
+          ? h("div", { class: "table-scroll" }, h("div", { class: "table" },
+            h("div", { class: "shift-head" }, ...["Turno", "Apertura", "Cierre", "Fondo", "Esperado", "Contado", "Diferencia", "Total", ""]
+              .map(title => h("span", { text: title }))),
+            ...rows))
+          : h("p", { class: "empty", text: "Sin turnos en el rango. Prueba con otras fechas o sede." }),
+        h("p", { class: "hint", text: "Diferencia = contado − esperado. Se muestra en rojo cuando falta dinero." }));
+    };
+
+    const consult = async () => {
+      error.textContent = "";
+      const from = fromInput.value, to = toInput.value, sede = sedeSelect.value;
+      if (!from || !to) { error.textContent = "Elige la fecha inicial y final."; return; }
+      const query = "turnos?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to) + "&limit=50" +
+        (sede ? "&sede_id=" + encodeURIComponent(sede) : "");
+      const r = await api(query);
+      if (r.status === 401) return goLogin("Tu sesión venció. Vuelve a entrar.");
+      if (r.status === 404 || r.status === 405) {
+        result.replaceChildren(h("p", { class: "empty", text: "Esta versión del panel todavía no incluye cierres de caja." }));
+        return;
+      }
+      if (r.status !== 200) {
+        error.textContent = errMsg(r, "No pudimos cargar los cierres. Revisa las fechas e intenta de nuevo.");
+        return;
+      }
+      render(r.data || {});
+    };
+
+    V.replaceChildren(h("section", { class: "screen" },
+      h("div", { class: "page-head" }, h("div", {},
+        h("h1", { text: "Cierres de caja" }),
+        h("p", { class: "muted small", text: "Turnos y diferencias de todas las sedes · hora de Ecuador" }))),
+      h("section", { class: "card" },
+        h("div", { class: "grid2" },
+          h("label", { class: "field" }, h("span", { text: "Desde" }), fromInput),
+          h("label", { class: "field" }, h("span", { text: "Hasta" }), toInput),
+          h("label", { class: "field" }, h("span", { text: "Sede" }), sedeSelect)),
+        h("div", { class: "form-actions" }, btn("Consultar", "btn primary small", consult)),
+        error),
+      result));
+    await consult();
+  }
+
   function ordersScreen() {
     let offset = 0, total = 0;
     const list = h("div", { class: "table" }), page = h("span", { class: "muted small" });
@@ -1487,13 +1942,15 @@ function runtime() {
     const prev = btn("Anterior", "btn ghost small", () => load(offset - 20));
     const next = btn("Siguiente", "btn ghost small", () => load(offset + 20));
     // Órdenes con sede (web y caja). Confirmar no cobra; el cobro libera la comanda.
+    // La barra de caja del dueño vive aquí: abrir, mover efectivo y cerrar la sede.
     const posBox = h("div", { class: "pos-cards" });
+    const cashBox = h("div");
     const posSection = h("section", {},
       h("div", { class: "page-head" }, h("div", {},
         h("h2", { text: "Órdenes con sede" }),
         h("p", { class: "muted small", text: "Web y caja. Confirmar no cobra; la comanda sale al quedar pagada. Los pedidos listos se avisan a mano por WhatsApp." }))),
+      cashBox,
       posBox);
-    posSection.hidden = true;
     function orderRow(o) {
       const date = new Date(Number(o.created_at)), phone = String(o.client_phone || "").replace(/\D/g, "");
       const status = ORDER_STATE[o.status] ? o.status : "pending", pending = status === "pending";
@@ -1564,7 +2021,8 @@ function runtime() {
         h("span", { text: "Total" }), h("span", { text: "Estado" }), h("span"));
       list.replaceChildren(head, ...rows);
       // El dueño ve todas las sedes; un operador autorizado ve las suyas. Sin sede: todas.
-      const sedeNames = new Map((sedeR.status === 200 && Array.isArray(sedeR.data?.sedes) ? sedeR.data.sedes : []).map(s => [s.id, s.nombre || s.id]));
+      const sedeList = sedeR.status === 200 && Array.isArray(sedeR.data?.sedes) ? sedeR.data.sedes : [];
+      const sedeNames = new Map(sedeList.map(s => [s.id, s.nombre || s.id]));
       const openPos = posR.status === 200 && Array.isArray(posR.data?.orders) ? posR.data.orders : [];
       const readyPos = readyR.status === 200 && Array.isArray(readyR.data?.orders) ? readyR.data.orders : [];
       const seenPos = new Set();
@@ -1573,8 +2031,9 @@ function runtime() {
         seenPos.add(o.id);
         return true;
       });
-      posBox.replaceChildren(...visiblePos.map(o => posOrderCard(o, () => load(offset), id => sedeNames.get(id) || id)));
-      posSection.hidden = !visiblePos.length;
+      cashBox.replaceChildren(cashBar(sedeList, sedeNames));
+      if (visiblePos.length) posBox.replaceChildren(...visiblePos.map(o => posOrderCard(o, () => load(offset), id => sedeNames.get(id) || id)));
+      else posBox.replaceChildren(h("p", { class: "empty", text: "Sin órdenes abiertas en caja." }));
       page.textContent = total ? (offset + 1) + "–" + Math.min(offset + orders.length, total) + " de " + total : "0 pedidos";
       prev.disabled = offset === 0; next.disabled = offset + orders.length >= total;
     }
@@ -3061,6 +3520,8 @@ const DATE_SRC = String(campaignDates);
 const TICKET_SRC = String(ticketLines);
 const COLUMNS_SRC = String(ticketColumns);
 const HEIGHT_SRC = String(ticketPageHeight);
+// `shiftTicketLines` es de la parte E y puede no existir todavía en esta rama.
+const SHIFT_SRC = typeof ticketKit.shiftTicketLines === "function" ? String(ticketKit.shiftTicketLines) : "";
 const MAIN_SRC = String(runtime);
 
 export function renderPage(site) {
@@ -3087,7 +3548,8 @@ export function renderPage(site) {
 var __dates=${DATE_SRC};window.__panelDates=__dates;
 var __ticket=${TICKET_SRC};window.__panelTicket=__ticket;
 var __columns=${COLUMNS_SRC};window.__panelColumns=__columns;
-var __height=${HEIGHT_SRC};window.__panelHeight=__height;</script>
+var __height=${HEIGHT_SRC};window.__panelHeight=__height;${SHIFT_SRC ? `
+var __shift=${SHIFT_SRC};window.__panelShiftTicket=__shift;` : ""}</script>
 <script id="panelMain">${MAIN_SRC}
 runtime();</script>
 </body>
