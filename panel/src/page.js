@@ -494,7 +494,7 @@ function runtime() {
   }
   const POS_STATE = { pending: "Pendiente · sin comanda", confirmed: "Confirmado · falta cobro", paid: "Pago confirmado", ready: "Listo para avisar", rejected: "Rechazado" };
   const POS_SOURCE = { web: "Web", caja: "Caja", mesero: "Mesero", mesa: "Mesa" };
-  const POS_PAYMENT = { cash: "efectivo", transfer: "transferencia", payphone: "tarjeta Payphone" };
+  const POS_PAYMENT = { cash: "efectivo", transfer: "transferencia", payphone: "tarjeta Payphone", bendo: "tarjeta (Bendo)" };
   const isPosOrder = o => !!o && (o.sede_id != null || o.total_cents != null);
   const posMoney = o => Number.isFinite(Number(o?.total_cents)) ? money(Number(o.total_cents) / 100) : money(o?.total);
   const posName = o => String(o?.customer_name || o?.client_name || "").trim();
@@ -545,6 +545,7 @@ function runtime() {
     pin_repetido: "Ese PIN ya está asignado a otro mesero activo.",
     limite_meseros: "Ya alcanzaste el máximo de meseros activos.",
     plan_requerido: "Tu tarjeta de fidelidad no está activa. Actívala para encender el club.",
+    bendo_no_disponible: "El cobro con tarjeta no está disponible ahora.",
   };
   const errMsg = (r, fallback) => {
     if (r && r.status === 0) return "No pudimos conectar. Revisa tu internet e intenta de nuevo.";
@@ -1249,19 +1250,25 @@ function runtime() {
     const summary = items.slice(0, 3).map(i => (i.qty || 1) + " × " + itemName(i)).join(" · ") + (items.length > 3 ? " +" + (items.length - 3) : "");
     const when = new Date(Number(order.created_at));
     const actions = h("div", { class: "pos-actions" });
+    // El link/QR del cobro con tarjeta se pinta aquí, dentro de la misma orden.
+    const bendoBox = h("div", { class: "bendo-pay" });
     const run = (action, ev) => posSetStatus(order, action, ev.currentTarget, reload);
     if (order.status === "pending") {
       actions.append(btn("Confirmar", "btn small", ev => run("confirm", ev)));
       actions.append(btn("Rechazar", "btn ghost small", ev => run("reject", ev)));
     }
     if (order.status === "confirmed") {
-      if (order.payment_method === "payphone") {
+      if (order.payment_method === "bendo") {
+        actions.append(h("span", { class: "hint", text: "Esperando confirmación de la tarjeta" }));
+      } else if (order.payment_method === "payphone") {
         actions.append(h("span", { class: "hint", text: "Esperando confirmación de Payphone" }));
       } else {
         const transfer = order.payment_method === "transfer";
         actions.append(btn(transfer ? "Confirmar transferencia" : "Cobrar efectivo", "btn primary small",
           ev => payPosOrder(order, transfer ? "transfer" : "cash", ev.currentTarget, reload)));
         if (order.source !== "web" && me?.payment_mode === "live") actions.append(btn("Payphone", "btn small", ev => payPosOrder(order, "payphone", ev.currentTarget, reload)));
+        // Tarjeta (Bendo): el ensamblador expone `me.bendo`; el pago se verifica aparte.
+        if (order.source !== "web" && me?.bendo === true) actions.append(btn("Cobrar con tarjeta", "btn small", ev => payBendoOrder(order, ev.currentTarget, reload, bendoBox)));
       }
       actions.append(btn("Rechazar", "btn ghost small", ev => run("reject", ev)));
     }
@@ -1287,7 +1294,8 @@ function runtime() {
       order.status === "pending" ? h("p", { class: "hint", text: "Sin comanda: todavía no se envió a cocina." }) : null,
       order.status === "paid" ? h("p", { class: "hint", text: "Pago confirmado; la comanda ya está en cocina. Marca listo al entregar." }) : null,
       order.status === "ready" ? h("p", { class: "hint", text: "Listo. El aviso por WhatsApp se abre a mano; la app no envía mensajes automáticos." }) : null,
-      actions);
+      actions,
+      bendoBox);
   }
   // Confirmar no cobra: la comanda sale solo cuando el pago queda confirmado.
   function posSetStatus(order, action, buttonEl, reload) {
@@ -1339,6 +1347,80 @@ function runtime() {
       } else toast((transfer ? "Transferencia confirmada." : "Cobrado.") + " La comanda ya está en cocina; imprímela desde Cocina o aquí.");
       paymentKeys.delete(order.id);
       reload();
+    });
+  }
+  // Cobro con tarjeta (Bendo): el panel genera un link de pago y lo muestra como
+  // QR y enlace copiable. NUNCA marca pagado por sí solo: el operador pulsa
+  // "Verificar pago" y el servidor reconsulta el link en la pasarela.
+  function payBendoOrder(order, buttonEl, reload, box) {
+    if (typeof window.confirm === "function" && !window.confirm(
+      "¿Generar el cobro con tarjeta para esta orden? La comanda sale solo cuando el banco confirme el pago.")) return;
+    const key = paymentKeys.get(order.id) || uuid();
+    paymentKeys.set(order.id, key);
+    buttonEl.disabled = true;
+    return api("orders/" + encodeURIComponent(order.id) + "/bendo", { idempotency_key: key }, "POST").then(r => {
+      buttonEl.disabled = false;
+      if (r.status === 401) return goLogin("Tu sesión venció. Vuelve a entrar.");
+      if (r.status === 404 || r.status === 405)
+        return toast("Esta versión del panel todavía no permite cobrar con tarjeta. Actualiza el panel.", true);
+      if (r.status === 409) { toast("Esa orden ya cambió de estado.", true); return reload(); }
+      if (r.status === 200 && r.data?.status === "paid") {
+        paymentKeys.delete(order.id);
+        toast("Pago confirmado. La comanda ya está en cocina.");
+        return reload();
+      }
+      const url = safeUrl(r.data?.payment_url), ref = String(r.data?.payment_id || "");
+      if (r.status !== 200 || !url || !ref) return toast(errMsg(r, "No pudimos generar el link de cobro."), true);
+      showBendoLink(box, order, url, ref, reload);
+      toast("Link de cobro generado. Escanéalo o compártelo; pulsa \"Verificar pago\" al terminar.");
+    });
+  }
+  function showBendoLink(box, order, url, ref, reload) {
+    if (!box) return;
+    const cv = h("canvas", { role: "img", "aria-label": "QR para pagar la orden " + orderCode(order) });
+    // El QR es una comodidad: si el navegador no puede dibujarlo queda el enlace.
+    try { drawQR(cv, url, false); } catch { cv.hidden = true; }
+    const input = h("input", { class: "url", type: "text", readonly: true, value: url, "aria-label": "Enlace de pago" });
+    box.replaceChildren(h("div", { class: "qr-item", role: "dialog", "aria-label": "Cobro con tarjeta" },
+      h("strong", { text: "Cobro con tarjeta" }),
+      cv,
+      input,
+      h("div", { class: "actions" },
+        btn("Copiar enlace", "btn small", () => copyBendoLink(url, input)),
+        btn("Verificar pago", "btn primary small", ev => verifyBendoPayment(order, ref, ev.currentTarget, reload))),
+      h("p", { class: "hint", text: "El cliente paga en el link. La comanda sale solo cuando la pasarela confirme: pulsa \"Verificar pago\"." })));
+  }
+  function copyBendoLink(text, input) {
+    const fallback = () => { try { input.focus(); input.select(); } catch {} toast("Copia el enlace para compartirlo.", true); };
+    try {
+      const nav = window.navigator;
+      if (nav && nav.clipboard && typeof nav.clipboard.writeText === "function") {
+        nav.clipboard.writeText(text).then(() => toast("Enlace copiado.")).catch(fallback);
+        return;
+      }
+    } catch { /* sin portapapeles: se ofrece seleccionar el enlace */ }
+    fallback();
+  }
+  function verifyBendoPayment(order, ref, buttonEl, reload) {
+    buttonEl.disabled = true;
+    return api("payments/" + encodeURIComponent(ref) + "/reconcile", {}, "POST").then(r => {
+      buttonEl.disabled = false;
+      if (r.status === 401) return goLogin("Tu sesión venció. Vuelve a entrar.");
+      if (r.status === 404 || r.status === 405)
+        return toast("Esta versión del panel todavía no permite verificar pagos con tarjeta.", true);
+      const status = r.data && r.data.status;
+      if (r.status === 200 && status === "aprobado") {
+        paymentKeys.delete(order.id);
+        toast("Pago aprobado. La comanda ya está en cocina.");
+        return reload();
+      }
+      if (r.status === 200 && status === "rechazado") {
+        paymentKeys.delete(order.id);
+        toast("La tarjeta no aprobó el pago. La comanda no salió a cocina.", true);
+        return reload();
+      }
+      if (r.status === 200) return toast("El pago sigue pendiente en la pasarela. Espera un momento y verifica de nuevo.");
+      return toast(errMsg(r, "No pudimos verificar el pago."), true);
     });
   }
   // paid → ready: solo el operador autorizado; el servidor pone la marca de tiempo.
