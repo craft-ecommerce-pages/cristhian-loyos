@@ -14,10 +14,13 @@ import { handleCatalog, load } from "./catalog.js";
 import {
   confirmPosOrder, createManualOrder, createPosOrder, createPublicPosOrder, editMeseroOrder, editPosOrder,
   getPosOrderStatus, listKitchenOrders, listMeseroOrders, listOrders, listPosOrders, markOrderReady, meseroOrders,
-  payCash, payTransfer, posOrderRow, printKitchenOrder, printMeseroOrder, publicSedes, rejectPosOrder,
+  payCash, payTransfer, posOrderRow, posPaymentByRef, printKitchenOrder, printMeseroOrder, publicSedes, rejectPosOrder,
   sedesAllowed, sedesFor, setMeseroOrderStatus, setOrderStatus, transferInfo, upsertSedes,
 } from "./orders.js";
 import { handleGetInvoice, handleRetryInvoice } from "./invoices.js";
+import {
+  bendoAvailable, handleBendoMock, handleBendoReturn, handleBendoWebhook, reconcileBendo, startBendo, startPublicBendo,
+} from "./bendo.js";
 import { handlePayphoneMock, handlePayphoneReturn, reconcilePayphone, startPayphone, startPublicPayphone } from "./payphone.js";
 import { salesReport } from "./reports.js";
 
@@ -35,20 +38,31 @@ export async function handlePublicApi(request, env, ctx, site) {
   if (request.method === "GET" && path === "payment-options") {
     // Transferencia solo si hay datos bancarios oficiales en config; nunca se
     // inventan cuentas. Los detalles son los únicos datos bancarios públicos.
+    // `bendo` solo se anuncia si el adaptador lo permite (mock, o live con credenciales).
     const transfer = await transferInfo(env, site.slug);
     return json({
       cash: true, transfer: Boolean(transfer), transfer_details: transfer,
       payphone: env.PAYPHONE_MODE === "live" && Boolean(env.PAYPHONE_TOKEN),
+      bendo: bendoAvailable(env),
     });
   }
   if (path === "orders" && request.method === "POST") return createPublicPosOrder(request, env, ctx, site);
   const publicPayment = /^orders\/([^/]+)\/payphone$/.exec(path);
   if (publicPayment && request.method === "POST" && isJson(request))
     return startPublicPayphone(request, env, site, publicPayment[1], await readJson(request));
+  // Tarjeta (Bendo): el comprador vuelve del checkout hospedado; el servidor verifica.
+  const publicBendo = /^orders\/([^/]+)\/bendo$/.exec(path);
+  if (publicBendo && request.method === "POST")
+    return startPublicBendo(request, env, site, publicBendo[1], await readJson(request));
   const status = /^orders\/([^/]+)$/.exec(path);
   if (status && request.method === "GET") return getPosOrderStatus(env, site, status[1], url.searchParams.get("token"));
   if (request.method === "GET" && path === "payphone/return") return handlePayphoneReturn(request, env, site);
   if (request.method === "GET" && path === "payphone/mock") return handlePayphoneMock(request, env);
+  if (request.method === "GET" && path === "bendo/return") return handleBendoReturn(request, env, site);
+  // Webhook de Bendo: no exige content-type JSON (lee el texto, máx. 16 KB) y se
+  // autentica con la firma HMAC propia de la query, no con el cuerpo.
+  if (request.method === "POST" && path === "bendo/webhook") return handleBendoWebhook(request, env, site);
+  if (request.method === "GET" && path === "bendo/mock") return handleBendoMock(request, env);
   return error("ruta_no_encontrada", 404);
 }
 
@@ -65,7 +79,7 @@ export async function handleApi(request, env, ctx, site) {
   if (path === "caja" || path.startsWith("caja/")) return handleCajaApi(request, env, site, path);
   // POS: acciones de pedido (confirmar/rechazar/cobrar/listo) y pantallas de caja/cocina.
   if (path === "pos/orders" || path === "kitchen" || path.startsWith("kitchen/") ||
-    /^orders\/[^/]+\/(confirm|reject|pay-cash|pay-transfer|payphone|ready)$/.test(path)) return handlePosApi(request, env, ctx, site, path);
+    /^orders\/[^/]+\/(confirm|reject|pay-cash|pay-transfer|payphone|bendo|ready)$/.test(path)) return handlePosApi(request, env, ctx, site, path);
 
   const session = await readSession(request, env, site.slug);
   if (!session) return error("sin_sesion", 401);
@@ -76,9 +90,10 @@ export async function handleApi(request, env, ctx, site) {
   if (invoice && request.method === "GET") return handleGetInvoice(request, env, site, session, invoice[1]);
   const invoiceRetry = /^invoices\/([^/]+)\/retry$/.exec(path);
   if (invoiceRetry && request.method === "POST") return handleRetryInvoice(request, env, site, session, invoiceRetry[1]);
-  // Conciliación de un pago Payphone `unknown`: reconsulta sin recobrar.
+  // Conciliación de un pago `pending/unknown`: reconsulta sin recobrar. Se
+  // despacha por proveedor: Bendo recibe el pago ya cargado por referencia.
   const reconcile = /^payments\/([^/]+)\/reconcile$/.exec(path);
-  if (reconcile && request.method === "POST") return reconcilePayphone(env, site, session, reconcile[1]);
+  if (reconcile && request.method === "POST") return reconcilePayment(env, site, session, reconcile[1]);
   if (request.method === "POST" && path === "upload") return upload(request, env, site);
   if (request.method === "POST" && path === "logout") return noContent({ "set-cookie": EXPIRED_COOKIE });
   if (request.method === "GET" && path === "me") return me(env, site, session);
@@ -123,7 +138,7 @@ async function handlePosApi(request, env, ctx, site, path) {
   if (request.method === "GET" && path === "kitchen/orders") return listKitchenOrders(env, site, session, request);
   const print = /^kitchen\/orders\/([^/]+)\/print$/.exec(path);
   if (print && request.method === "POST") return printKitchenOrder(env, site, session, print[1], await readJson(request));
-  const action = /^orders\/([^/]+)\/(confirm|reject|pay-cash|pay-transfer|payphone|ready)$/.exec(path);
+  const action = /^orders\/([^/]+)\/(confirm|reject|pay-cash|pay-transfer|payphone|bendo|ready)$/.exec(path);
   if (!action) return error("ruta_no_encontrada", 404);
   if (request.method !== "POST") return error("ruta_no_encontrada", 404);
   const [, encodedId, name] = action;
@@ -135,14 +150,25 @@ async function handlePosApi(request, env, ctx, site, path) {
     if (name === "pay-cash") return payCash(env, site, session, encodedId, await readJson(request));
     if (name === "pay-transfer") return payTransfer(env, site, session, encodedId, await readJson(request));
     if (name === "ready") return markOrderReady(env, site, session, encodedId);
+    if (name === "bendo") return startBendo(request, env, site, session, encodedId, await readJson(request));
     return startPayphone(request, env, site, session, encodedId, await readJson(request));
   }
   if (!panel) return error("sin_sesion", 401);
-  if (name === "pay-cash" || name === "pay-transfer" || name === "payphone" || name === "ready") return error("pedido_no_existe", 404);
+  if (name === "pay-cash" || name === "pay-transfer" || name === "payphone" || name === "bendo" || name === "ready") return error("pedido_no_existe", 404);
   return setOrderStatus(env, ctx, site, encodedId, name);
 }
 
 function decodedPosId(encoded) { try { return decodeURIComponent(encoded); } catch { return null; } }
+
+// Cada proveedor concilia a su manera (Payphone dentro de su ventana de 5 min,
+// Bendo sin ventana porque su link no revierte); el resto conserva su ruta.
+async function reconcilePayment(env, site, session, encodedRef) {
+  let ref;
+  try { ref = decodeURIComponent(encodedRef); } catch { return error("pago_invalido", 422); }
+  const payment = await posPaymentByRef(env, site.slug, ref);
+  if (payment?.provider === "bendo") return reconcileBendo(env, site, session, payment);
+  return reconcilePayphone(env, site, session, encodedRef);
+}
 
 async function updateSedes(request, env, slug) {
   const body = await readJson(request);
@@ -710,6 +736,8 @@ async function meData(env, site, user) {
     email: user.email,
     must_change_password: Boolean(user.must_change_password),
     payment_mode: env.PAYPHONE_MODE === "live" && typeof env.PAYPHONE_TOKEN === "string" && env.PAYPHONE_TOKEN ? "live" : "mock",
+    // Cobro con tarjeta (Bendo) disponible: la caja muestra "Cobrar con tarjeta".
+    bendo: bendoAvailable(env),
     store: {
       slug: site.slug, store_name: config.store_name || "", logo: config.logo || "",
       theme_primary: config.theme_primary || "", menu_url: publicMenuUrl(env.MENU_PUBLIC_URL),

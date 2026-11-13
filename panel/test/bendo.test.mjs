@@ -13,105 +13,9 @@ const host = "munch.example";
 const site = { slug: "munch", host };
 const origin = `https://${host}`;
 const owner = { staff_id: "l_dueno00001", owner: true };
-const jsonGet = { headers: { accept: "application/json" } };
 const request = (path, options = {}) => new Request(`${origin}${path}`, options);
 
 const product = { id: "margarita", name: "Margarita", type: "producto", price: "8.50", promo_price: "", sku: "", description: "", stock: null, active: true, catalog_visible: true, images: [], categories: [], variants: [], groups: [], packaging_id: null, packaging_cost: 0 };
-
-/* ── 0011 aún no existe en esta rama: la prueba habilita `bendo` en D1 ─────── */
-
-// eliminar cuando exista 0011 (parte B): reconstruye pos_orders y pos_payments
-// con el provider/payment_method `bendo` que añadirá la migración.
-function habilitarBendoEnD1(raw) {
-  raw.exec(`
-    CREATE TABLE pos_orders_bendo (
-      id                   TEXT    PRIMARY KEY,
-      slug                 TEXT    NOT NULL,
-      sede_id              TEXT    NOT NULL,
-      created_at           INTEGER NOT NULL,
-      updated_at           INTEGER NOT NULL,
-      number               INTEGER,
-      source               TEXT    NOT NULL CHECK (source IN ('web', 'caja', 'mesero')),
-      status               TEXT    NOT NULL DEFAULT 'pending'
-        CHECK (status IN ('pending', 'confirmed', 'paid', 'rejected')),
-      status_at            INTEGER,
-      currency             TEXT    NOT NULL,
-      subtotal_cents       INTEGER NOT NULL,
-      total_cents          INTEGER NOT NULL,
-      items                TEXT    NOT NULL,
-      customer_name        TEXT    NOT NULL DEFAULT '',
-      customer_phone       TEXT    NOT NULL DEFAULT '',
-      delivery_mode        TEXT    NOT NULL DEFAULT 'pickup',
-      address              TEXT,
-      table_no             TEXT,
-      note                 TEXT,
-      staff_id             TEXT,
-      idempotency_key      TEXT    NOT NULL,
-      idempotency_hash     TEXT    NOT NULL,
-      paid_at              INTEGER,
-      payment_method       TEXT    NOT NULL DEFAULT 'cash'
-        CHECK (payment_method IN ('cash', 'transfer', 'payphone', 'bendo')),
-      billing_document_type   TEXT,
-      billing_document_number TEXT,
-      billing_email           TEXT,
-      billing_address         TEXT,
-      ready_at                INTEGER,
-      UNIQUE (slug, idempotency_key)
-    );
-    INSERT INTO pos_orders_bendo (
-      id, slug, sede_id, created_at, updated_at, number, source, status, status_at, currency,
-      subtotal_cents, total_cents, items, customer_name, customer_phone, delivery_mode, address,
-      table_no, note, staff_id, idempotency_key, idempotency_hash, paid_at, payment_method,
-      billing_document_type, billing_document_number, billing_email, billing_address, ready_at
-    )
-    SELECT
-      id, slug, sede_id, created_at, updated_at, number, source, status, status_at, currency,
-      subtotal_cents, total_cents, items, customer_name, customer_phone, delivery_mode, address,
-      table_no, note, staff_id, idempotency_key, idempotency_hash, paid_at, payment_method,
-      billing_document_type, billing_document_number, billing_email, billing_address, ready_at
-    FROM pos_orders;
-    DROP TABLE pos_orders;
-    ALTER TABLE pos_orders_bendo RENAME TO pos_orders;
-    CREATE INDEX pos_orders_slug_sede_created ON pos_orders (slug, sede_id, created_at DESC);
-    CREATE INDEX pos_orders_slug_status ON pos_orders (slug, status);
-    CREATE INDEX pos_orders_slug_ready ON pos_orders (slug, ready_at);
-
-    CREATE TABLE pos_payments_bendo (
-      id              TEXT    PRIMARY KEY,
-      slug            TEXT    NOT NULL,
-      order_id        TEXT    NOT NULL,
-      provider        TEXT    NOT NULL CHECK (provider IN ('cash', 'transfer', 'payphone', 'bendo')),
-      idempotency_key TEXT    NOT NULL,
-      status          TEXT    NOT NULL DEFAULT 'created'
-        CHECK (status IN ('created', 'pending', 'paid', 'rejected', 'unknown', 'failed')),
-      amount_cents    INTEGER NOT NULL,
-      currency        TEXT    NOT NULL,
-      provider_ref    TEXT,
-      provider_id     TEXT,
-      url             TEXT,
-      authorization   TEXT,
-      message         TEXT,
-      attempts        INTEGER NOT NULL DEFAULT 0,
-      created_at      INTEGER NOT NULL,
-      updated_at      INTEGER NOT NULL,
-      paid_at         INTEGER,
-      UNIQUE (slug, order_id, idempotency_key),
-      UNIQUE (slug, provider_ref)
-    );
-    INSERT INTO pos_payments_bendo (
-      id, slug, order_id, provider, idempotency_key, status, amount_cents, currency, provider_ref,
-      provider_id, url, authorization, message, attempts, created_at, updated_at, paid_at
-    )
-    SELECT
-      id, slug, order_id, provider, idempotency_key, status, amount_cents, currency, provider_ref,
-      provider_id, url, authorization, message, attempts, created_at, updated_at, paid_at
-    FROM pos_payments;
-    DROP TABLE pos_payments;
-    ALTER TABLE pos_payments_bendo RENAME TO pos_payments;
-    CREATE INDEX pos_payments_ref ON pos_payments (slug, provider_ref);
-    CREATE INDEX pos_payments_order ON pos_payments (slug, order_id);
-  `);
-}
 
 /* ── Entorno y pedidos ───────────────────────────────────────────────────── */
 
@@ -124,11 +28,10 @@ function bendoEnv(mode = "mock", extra = {}) {
   Object.assign(env, extra);
   env.DB.raw.prepare("INSERT INTO catalogs (slug, doc, version, updated_at) VALUES (?, ?, 1, ?)")
     .run("munch", JSON.stringify({ categories: [], packagings: [], variant_groups: [], products: [product] }), Date.now());
-  habilitarBendoEnD1(env.DB.raw);
   return env;
 }
 
-// El método `bendo` en pos_orders lo añadirá la parte B; aquí basta con fijarlo.
+// El pedido se crea con efectivo y aquí se fija el método `bendo` (ya válido por 0011).
 function metodoBendo(env, orderId) {
   env.DB.raw.prepare("UPDATE pos_orders SET payment_method = 'bendo' WHERE id = ?").run(orderId);
 }

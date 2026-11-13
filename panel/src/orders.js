@@ -2,6 +2,7 @@
 // Al crear/confirmar un pedido web se avisa al club siempre en silencio.
 import { normalizeConfig } from "../../loyalty/src/contract.js";
 import { sha256hex, timingEqual } from "./auth.js";
+import { bendoAvailable } from "./bendo.js";
 import { OWNER_STAFF } from "./caja.js";
 import { load, slugify } from "./catalog.js";
 import { dayOf, error, json, noContent } from "./contract.js";
@@ -288,16 +289,6 @@ const PRODUCT_ID_RE = /^[A-Za-z0-9_-]{1,120}$/;
 const DELIVERY_MODES = new Set(["delivery", "pickup", "mesa"]);
 const PAYMENT_METHODS = new Set(["cash", "transfer", "payphone", "bendo"]);
 
-// Disponibilidad de Bendo para pedidos web. Esta rama aún no incluye `./bendo.js`:
-// el ensamblador debe sustituir esta función por el import de la parte A
-// (`import { bendoAvailable } from "./bendo.js"`) y llamar `bendoAvailable(env)`.
-// Semántica del contrato: `mock`, o `live` con BENDO_CLIENT_ID y BENDO_CLIENT_SECRET.
-function bendoAvailableInline(env) {
-  if (env?.BENDO_MODE === "mock") return true;
-  return env?.BENDO_MODE === "live" &&
-    typeof env.BENDO_CLIENT_ID === "string" && Boolean(env.BENDO_CLIENT_ID) &&
-    typeof env.BENDO_CLIENT_SECRET === "string" && Boolean(env.BENDO_CLIENT_SECRET);
-}
 // Facturación: identificación ecuatoriana normalizada. No se valida contra el
 // SRI; solo formato. La factura NO se emite por capturar estos datos.
 const DOCUMENT_TYPES = new Set(["cedula", "ruc"]);
@@ -704,7 +695,7 @@ export async function createPosOrder(env, site, body, options = {}) {
       !(env.PAYPHONE_MODE === "live" && typeof env.PAYPHONE_TOKEN === "string" && env.PAYPHONE_TOKEN)) {
     return error("payphone_no_disponible", 503);
   }
-  if (source === "web" && order.payment_method === "bendo" && !bendoAvailableInline(env)) {
+  if (source === "web" && order.payment_method === "bendo" && !bendoAvailable(env)) {
     return error("bendo_no_disponible", 503);
   }
   const currency = await currencyOf(env, site.slug);

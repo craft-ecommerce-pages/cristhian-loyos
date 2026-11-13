@@ -16,6 +16,7 @@ import { renderKitchenPage } from "./kitchen.js";
 import { handleMedia } from "./media.js";
 import { renderMeseroPage } from "./mesero.js";
 import { handleOrder, handleTableOrder } from "./orders.js";
+import { reconcilePendingBendo } from "./bendo.js";
 import { reconcilePendingPayments } from "./payphone.js";
 import { renderPage } from "./page.js";
 
@@ -58,9 +59,11 @@ export default {
       return new Response(renderPage(site), { headers: pageHeaders });
     return error("no_existe", 404);
   },
-  // Cron (cada minuto): concilia pagos Payphone `unknown` dentro de la ventana de
-  // 5 minutos reconsultando V2/Confirm. Nunca recobra ni publica dos comandas.
+  // Cron (cada minuto): concilia pagos pendientes de ambos proveedores. Payphone
+  // solo dentro de su ventana de 5 minutos (V2/Confirm); Bendo reconsulta el link
+  // de las últimas 2 h. Uno no bloquea al otro y ninguno recobra ni publica dos comandas.
   async scheduled(event, env, ctx) {
     ctx.waitUntil(reconcilePendingPayments(env));
+    ctx.waitUntil(reconcilePendingBendo(env));
   },
 };
