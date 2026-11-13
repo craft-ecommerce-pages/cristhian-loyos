@@ -1344,9 +1344,10 @@ function runtime() {
     // Datáfono: cobro manual para pedidos pending/confirmed de cualquier método
     // (el servidor deja el pedido en `bendo`). Con un link de tarjeta en curso el
     // propio servidor responde 409 pago_en_curso; aquí se explica sin falsearlo.
-    const waitingCard = order.status === "confirmed" &&
-      (order.payment_method === "bendo" || order.payment_method === "payphone");
-    if ((order.status === "pending" || order.status === "confirmed") && !waitingCard)
+    // Pedidos `bendo` incluidos: el cliente que no terminó el link puede pagar en
+    // el mostrador (si el link sigue en curso, el servidor responde pago_en_curso).
+    // Solo se excluye `payphone`, que es histórico.
+    if ((order.status === "pending" || order.status === "confirmed") && order.payment_method !== "payphone")
       actions.append(btn("Cobrado con datáfono", "btn small",
         () => openDatafonoForm(order, reload, datafonoBox, bendoBox)));
     if (order.status === "paid" || order.status === "ready") {

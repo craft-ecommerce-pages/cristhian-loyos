@@ -352,11 +352,21 @@ test("si el panel no expone pay-datafono avisa sin falsear otro cobro", async ()
   assert.equal(calls.some(call => call.path.includes("/pay-cash")), false, "no cae a efectivo");
 });
 
-test("un pedido con link de tarjeta en curso no ofrece datáfono", async () => {
+// Contrato, decisión 3: cualquier pedido pending/confirmed se cobra con datáfono.
+// Un cliente que no terminó el link paga en el mostrador; si el link sigue en
+// curso, el servidor responde 409 pago_en_curso (la UI no decide por él).
+test("un pedido con tarjeta por link sigue esperando, pero ofrece cobrar con datáfono", async () => {
   const { doc } = await openNewOrder({
     posOrders: [{ ...CONFIRMED, id: "o9", payment_method: "bendo" }],
   });
   assert.match(doc.body.textContent, /Esperando confirmación de la tarjeta/);
+  assert.equal(doc.body.textContent.includes("Cobrado con datáfono"), true);
+});
+
+test("un pedido histórico de Payphone no ofrece datáfono", async () => {
+  const { doc } = await openNewOrder({
+    posOrders: [{ ...CONFIRMED, id: "o9p", payment_method: "payphone" }],
+  });
   assert.equal(doc.body.textContent.includes("Cobrado con datáfono"), false);
 });
 
