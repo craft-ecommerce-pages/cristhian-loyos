@@ -58,6 +58,11 @@ const webOrder = (overrides = {}) => ({
   ...overrides,
 });
 const rowOf = (env, id) => env.DB.raw.prepare("SELECT * FROM pos_orders WHERE id = ?").get(id);
+// Desde 0012, efectivo y transferencia exigen un turno abierto en la sede.
+const openShift = (env, sede = "centro") => env.DB.raw.prepare(
+  "INSERT INTO pos_shifts (id, slug, sede_id, opened_by, opened_at, opening_float_cents, open_key) " +
+  "VALUES (?, ?, ?, 'test', ?, 0, ?)",
+).run(`turno-${sede}`, "pizza", sede, Date.now(), `turno-${sede}`);
 
 test("pedido web: sede obligatoria, precios del catálogo en centavos y token opaco", async () => {
   const env = posEnv();
@@ -216,6 +221,7 @@ test("flujo caja sin LOYALTY: PIN local, pending, confirmar y cobrar en efectivo
   kitchen = await (await panel.fetch(request("/panel/api/kitchen/orders?sede_id=centro", { headers: { cookie } }), env, ctx)).json();
   assert.deepEqual(kitchen.orders, [], "confirmar no libera comanda");
 
+  openShift(env);
   response = await panel.fetch(body(`/panel/api/orders/${created.id}/pay-cash`, { idempotency_key: "cash-0001" }, { headers: { cookie } }), env, ctx);
   assert.equal(response.status, 200);
   const paid = await response.json();
@@ -302,6 +308,7 @@ test("pedido pendiente editable por caja: recalcula y no toca los pagados", asyn
   assert.equal(edited.total_cents, 750);
   assert.equal(edited.note, "Sin hielo");
 
+  openShift(env);
   await panel.fetch(body(`/panel/api/orders/${created.id}/pay-cash`, { idempotency_key: "cash-edit" }, { headers: { cookie: owner } }), env, ctx);
   response = await panel.fetch(body(`/panel/api/mesero/orders/${created.id}`, {
     items: [{ product_id: "bebida", qty: 1 }],

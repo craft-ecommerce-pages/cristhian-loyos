@@ -7,6 +7,7 @@ import { OWNER_STAFF } from "./caja.js";
 import { load, slugify } from "./catalog.js";
 import { dayOf, error, json, noContent } from "./contract.js";
 import { prepareInvoice, submitInvoice } from "./invoices.js";
+import { openShiftFor } from "./turnos.js";
 
 const MAX_BYTES = 16 * 1024;
 const STATUS = { confirm: "confirmed", reject: "rejected" };
@@ -1060,6 +1061,12 @@ export async function settlePaymentApproved(env, slug, order, payment, details =
       "paid_at = ?, updated_at = ? WHERE slug = ? AND id = ? AND status <> 'paid'",
     ).bind(details.providerId == null ? null : String(details.providerId), details.authorization == null ? null : String(details.authorization),
       now, now, slug, payment.id),
+    // Tarjeta confirmada sin turno abierto: queda sin turno y el próximo que se
+    // abra en la sede la asigna (0012). Si ya hay turno, entra en el mismo batch.
+    env.DB.prepare(
+      "UPDATE pos_payments SET shift_id = (SELECT id FROM pos_shifts WHERE slug = ? AND sede_id = ? AND status = 'open') " +
+      "WHERE slug = ? AND id = ? AND shift_id IS NULL",
+    ).bind(slug, order.sede_id, slug, payment.id),
     env.DB.prepare(
       "UPDATE pos_orders SET status = 'paid', status_at = ?, paid_at = ?, updated_at = ? WHERE slug = ? AND id = ? AND status IN ('pending', 'confirmed')",
     ).bind(now, now, now, slug, order.id),
@@ -1116,6 +1123,10 @@ async function payManual(env, site, session, encodedId, body, provider) {
   }
   if (order.status === "paid") return error("orden_ya_pagada", 409);
   if (order.status === "rejected") return error("estado_invalido", 409);
+  // Caja cerrada no cobra: efectivo y transferencia exigen turno abierto en la
+  // sede del pedido. La tarjeta (Bendo) sí se confirma siempre y queda sin turno.
+  const shift = await openShiftFor(env, site.slug, order.sede_id);
+  if (!shift) return error("caja_cerrada", 409);
   const now = Date.now(), paymentId = crypto.randomUUID();
   const results = await env.DB.batch([
     env.DB.prepare(
@@ -1124,11 +1135,11 @@ async function payManual(env, site, session, encodedId, body, provider) {
     ).bind(now, now, now, site.slug, order.id),
     env.DB.prepare(
       "INSERT INTO pos_payments (id, slug, order_id, provider, idempotency_key, status, amount_cents, currency, " +
-      "provider_ref, created_at, updated_at, paid_at) " +
-      "SELECT ?, ?, ?, ?, ?, 'paid', ?, ?, NULL, ?, ?, ? " +
+      "provider_ref, created_at, updated_at, paid_at, shift_id) " +
+      "SELECT ?, ?, ?, ?, ?, 'paid', ?, ?, NULL, ?, ?, ?, ? " +
       "WHERE EXISTS (SELECT 1 FROM pos_orders WHERE slug = ? AND id = ? AND status = 'paid' AND paid_at = ?)",
     ).bind(paymentId, site.slug, order.id, provider, key, Number(order.total_cents), order.currency, now, now, now,
-      site.slug, order.id, now),
+      shift.id, site.slug, order.id, now),
     env.DB.prepare("INSERT OR IGNORE INTO pos_comandas (slug, order_id, created_at, print_count) VALUES (?, ?, ?, 0)")
       .bind(site.slug, order.id, now),
     ...snapshotStatements(env, site.slug, order, now),

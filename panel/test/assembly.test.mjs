@@ -37,6 +37,11 @@ async function ownerCookie(env) {
   const login = await panel.fetch(body("/panel/api/login", await owner.json()), env, {});
   return login.headers.get("set-cookie").split(";", 1)[0];
 }
+// Desde 0012, el cobro en efectivo exige un turno abierto en la sede.
+const openShift = (env, sede = "centro") => env.DB.raw.prepare(
+  "INSERT INTO pos_shifts (id, slug, sede_id, opened_by, opened_at, opening_float_cents, open_key) " +
+  "VALUES (?, ?, ?, 'test', ?, 0, ?)",
+).run(`turno-${sede}`, "cliente", sede, Date.now(), `turno-${sede}`);
 
 test("flujo completo: web → efectivo → KDS → reporte → factura manual", async () => {
   const env = envWithCatalog(), ctx = makeCtx(), cookie = await ownerCookie(env);
@@ -58,6 +63,7 @@ test("flujo completo: web → efectivo → KDS → reporte → factura manual", 
   assert.equal(order.total_cents, 2550);
 
   // 2) Cobro en efectivo: comanda y snapshot de líneas con categoría congelada.
+  openShift(env);
   const paid = await panel.fetch(body(`/panel/api/orders/${order.id}/pay-cash`, { idempotency_key: "cash-0001" }, { headers: { cookie } }), env, ctx);
   assert.equal(paid.status, 200);
   assert.equal((await paid.json()).order.status, "paid");
@@ -133,6 +139,7 @@ test("idempotencia: repetir el cobro no duplica comanda ni líneas", async () =>
     delivery_mode: "pickup",
   }), env, ctx)).json();
   const pay = () => panel.fetch(body(`/panel/api/orders/${created.id}/pay-cash`, { idempotency_key: "cash-0002" }, { headers: { cookie } }), env, ctx);
+  openShift(env);
   assert.equal((await pay()).status, 200);
   assert.equal((await pay()).status, 200);
   assert.equal(env.DB.raw.prepare("SELECT COUNT(*) n FROM pos_comandas WHERE order_id = ?").get(created.id).n, 1);
