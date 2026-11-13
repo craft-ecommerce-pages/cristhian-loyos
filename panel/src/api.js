@@ -14,7 +14,7 @@ import { handleCatalog, load } from "./catalog.js";
 import {
   confirmPosOrder, createManualOrder, createPosOrder, createPublicPosOrder, editMeseroOrder, editPosOrder,
   getPosOrderStatus, listKitchenOrders, listMeseroOrders, listOrders, listPosOrders, markOrderReady, meseroOrders,
-  payCash, payTransfer, posOrderRow, posPaymentByRef, printKitchenOrder, printMeseroOrder, publicSedes, rejectPosOrder,
+  payCash, payDatafono, payTransfer, posOrderRow, posPaymentByRef, printKitchenOrder, printMeseroOrder, publicSedes, rejectPosOrder,
   sedesAllowed, sedesFor, setMeseroOrderStatus, setOrderStatus, transferInfo, upsertSedes,
 } from "./orders.js";
 import { handleGetInvoice, handleRetryInvoice } from "./invoices.js";
@@ -76,7 +76,7 @@ export async function handleApi(request, env, ctx, site) {
   // (dueño o cookie caja_s); las rutas turnos/* las atiende turnos.js.
   if (path === "pos/orders" || path === "kitchen" || path.startsWith("kitchen/") || path === "turnos" ||
     path.startsWith("turnos/") ||
-    /^orders\/[^/]+\/(confirm|reject|pay-cash|pay-transfer|bendo|ready)$/.test(path)) return handlePosApi(request, env, ctx, site, path);
+    /^orders\/[^/]+\/(confirm|reject|pay-cash|pay-transfer|pay-datafono|bendo|ready)$/.test(path)) return handlePosApi(request, env, ctx, site, path);
 
   const session = await readSession(request, env, site.slug);
   if (!session) return error("sin_sesion", 401);
@@ -138,7 +138,7 @@ async function handlePosApi(request, env, ctx, site, path) {
   if (request.method === "GET" && path === "kitchen/orders") return listKitchenOrders(env, site, session, request);
   const print = /^kitchen\/orders\/([^/]+)\/print$/.exec(path);
   if (print && request.method === "POST") return printKitchenOrder(env, site, session, print[1], await readJson(request));
-  const action = /^orders\/([^/]+)\/(confirm|reject|pay-cash|pay-transfer|bendo|ready)$/.exec(path);
+  const action = /^orders\/([^/]+)\/(confirm|reject|pay-cash|pay-transfer|pay-datafono|bendo|ready)$/.exec(path);
   if (!action) return error("ruta_no_encontrada", 404);
   if (request.method !== "POST") return error("ruta_no_encontrada", 404);
   const [, encodedId, name] = action;
@@ -149,11 +149,12 @@ async function handlePosApi(request, env, ctx, site, path) {
     if (name === "reject") return rejectPosOrder(env, site, session, encodedId);
     if (name === "pay-cash") return payCash(env, site, session, encodedId, await readJson(request));
     if (name === "pay-transfer") return payTransfer(env, site, session, encodedId, await readJson(request));
+    if (name === "pay-datafono") return payDatafono(env, site, session, encodedId, await readJson(request));
     if (name === "ready") return markOrderReady(env, site, session, encodedId);
     return startBendo(request, env, site, session, encodedId, await readJson(request));
   }
   if (!panel) return error("sin_sesion", 401);
-  if (name === "pay-cash" || name === "pay-transfer" || name === "bendo" || name === "ready") return error("pedido_no_existe", 404);
+  if (name === "pay-cash" || name === "pay-transfer" || name === "pay-datafono" || name === "bendo" || name === "ready") return error("pedido_no_existe", 404);
   return setOrderStatus(env, ctx, site, encodedId, name);
 }
 

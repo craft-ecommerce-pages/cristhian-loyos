@@ -14,7 +14,8 @@ const SEDE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const IDEM_RE = /^[A-Za-z0-9_.:-]{8,100}$/;
 const KINDS = new Set(["in", "out"]);
 // Orden estable del reporte; `payphone` solo aparece si quedan filas históricas.
-const METHODS = ["cash", "transfer", "bendo", "payphone"];
+// El datáfono es un canal de Bendo y se informa aparte del cobro por link.
+const METHODS = ["cash", "transfer", "datafono", "bendo", "payphone"];
 const MAX_CENTS = 100_000_000;            // tope de cordura: 1 000 000,00 USD
 const MAX_NOTE = 200;
 const MIN_REASON = 3;
@@ -87,8 +88,11 @@ async function liveReport(env, slug, shift) {
 
   const [salesRows, movementRows, pending, rejected, paid] = await Promise.all([
     env.DB.prepare(
-      "SELECT provider AS method, COUNT(*) AS count, COALESCE(SUM(amount_cents), 0) AS total_cents " +
-      "FROM pos_payments WHERE slug = ? AND shift_id = ? AND status = 'paid' GROUP BY provider",
+      // El datáfono se agrupa como método propio aunque el proveedor sea Bendo:
+      // `datafono` si el pago lo registró la caja, `bendo` para los links.
+      "SELECT CASE WHEN provider = 'bendo' AND channel = 'datafono' THEN 'datafono' ELSE provider END AS method, " +
+      "COUNT(*) AS count, COALESCE(SUM(amount_cents), 0) AS total_cents " +
+      "FROM pos_payments WHERE slug = ? AND shift_id = ? AND status = 'paid' GROUP BY method",
     ).bind(slug, shift.id).all(),
     env.DB.prepare(
       "SELECT kind, amount_cents, reason, staff_id, created_at FROM pos_cash_movements " +

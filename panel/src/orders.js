@@ -951,7 +951,9 @@ function paymentRef() {
 }
 
 // Guarda el intento ANTES de llamar al proveedor (idempotente por clave).
-export async function createPaymentAttempt(env, slug, order, key, provider) {
+// `channel` es opcional: Bendo guarda `link` (0013); los cobros manuales con
+// datáfono se insertan directamente en el batch de `payDatafono`.
+export async function createPaymentAttempt(env, slug, order, key, provider, channel = null) {
   const now = Date.now();
   const existing = await posPaymentByKey(env, slug, order.id, key);
   if (existing) return existing.provider === provider ? existing : null;
@@ -961,8 +963,9 @@ export async function createPaymentAttempt(env, slug, order, key, provider) {
   };
   const inserted = await env.DB.prepare(
     "INSERT OR IGNORE INTO pos_payments (id, slug, order_id, provider, idempotency_key, status, amount_cents, currency, " +
-    "provider_ref, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'created', ?, ?, ?, ?, ?)",
-  ).bind(payment.id, slug, order.id, provider, key, payment.amount_cents, payment.currency, payment.ref, now, now).run();
+    "provider_ref, channel, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'created', ?, ?, ?, ?, ?, ?)",
+  ).bind(payment.id, slug, order.id, provider, key, payment.amount_cents, payment.currency, payment.ref,
+    channel, now, now).run();
   if (!inserted.meta.changes) {
     const raced = await posPaymentByKey(env, slug, order.id, key);
     return raced && raced.provider === provider ? raced : null;
@@ -1111,44 +1114,106 @@ export async function payTransfer(env, site, session, encodedId, body) {
   return payManual(env, site, session, encodedId, body, "transfer");
 }
 
+// Datáfono (registro manual): el cajero cobra en el POS de Bendo y copia el
+// número de autorización del voucher. Mismo batch que efectivo: turno abierto,
+// una sola comanda, snapshot de líneas y `shift_id`; el pago queda `bendo` con
+// canal `datafono` y el pedido pasa a `bendo`, el método real del cobro.
+const AUTHORIZATION_RE = /^[A-Za-z0-9]{4,12}$/;
+const CARD_LAST4_RE = /^[0-9]{4}$/;
+
+export async function payDatafono(env, site, session, encodedId, body) {
+  const authorization = typeof body?.authorization_code === "string" ? body.authorization_code : "";
+  if (!AUTHORIZATION_RE.test(authorization)) return error("autorizacion_invalida", 400);
+  const last4 = body.card_last4;
+  if (!(last4 == null || last4 === "" || typeof last4 === "string" && CARD_LAST4_RE.test(last4))) {
+    return error("tarjeta_invalida", 400);
+  }
+  return payManualOrder(env, site, session, encodedId, body, {
+    provider: "bendo", method: "bendo", channel: "datafono", enforceMethod: false, blockLinkInProgress: true,
+    authorization, message: last4 ? `tarjeta ****${last4}` : null,
+  });
+}
+
 async function payManual(env, site, session, encodedId, body, provider) {
+  return payManualOrder(env, site, session, encodedId, body, { provider, method: provider, enforceMethod: true });
+}
+
+// Un link de Bendo en `pending`/`unknown` exige verificarlo antes de cobrar por
+// otro medio. `channel IS NULL` cubre las filas Bendo anteriores a 0013.
+async function bendoLinkInProgress(env, slug, orderId) {
+  const row = await env.DB.prepare(
+    "SELECT 1 AS one FROM pos_payments WHERE slug = ? AND order_id = ? AND provider = 'bendo' " +
+    "AND (channel IS NULL OR channel <> 'datafono') AND status IN ('pending', 'unknown') LIMIT 1",
+  ).bind(slug, orderId).first();
+  return row != null;
+}
+
+async function payManualOrder(env, site, session, encodedId, body, options) {
+  const { provider } = options;
   const key = typeof body?.idempotency_key === "string" ? body.idempotency_key.trim() : "";
   if (!IDEM_RE.test(key)) return error("idempotency_key_requerida", 400);
   const found = await posOrderForAction(env, site, session, encodedId);
   if (found.response) return found.response;
   const order = found.order;
-  // El método de cobro debe coincidir con el elegido por el comprador.
-  if (order.payment_method !== provider) return error("metodo_pago_invalido", 409);
+  // Efectivo y transferencia exigen que el método coincida con el elegido por el
+  // comprador; el datáfono cobra cualquier pedido pending/confirmed y lo pasa a
+  // `bendo`, el método real.
+  if (options.enforceMethod && order.payment_method !== provider) return error("metodo_pago_invalido", 409);
   const existing = await posPaymentByKey(env, site.slug, order.id, key);
   if (existing) {
-    if (existing.provider !== provider) return error("idempotencia_conflicto", 409);
+    const sameChannel = options.channel == null || existing.channel === options.channel;
+    if (existing.provider !== provider || !sameChannel) return error("idempotencia_conflicto", 409);
     if (order.status === "paid") {
       await afterPaid(env, site.slug, order);
       return paidManualResponse(env, site, order, existing);
     }
+    // Un intento sin cobro con la misma clave no se puede reutilizar (UNIQUE).
+    if (options.channel != null) return error("estado_invalido", 409);
   }
   if (order.status === "paid") return error("orden_ya_pagada", 409);
   if (order.status === "rejected") return error("estado_invalido", 409);
-  // Caja cerrada no cobra: efectivo y transferencia exigen turno abierto en la
-  // sede del pedido. La tarjeta (Bendo) sí se confirma siempre y queda sin turno.
+  if (options.blockLinkInProgress && await bendoLinkInProgress(env, site.slug, order.id)) {
+    return error("pago_en_curso", 409);
+  }
+  // Caja cerrada no cobra: los cobros manuales exigen turno abierto en la sede
+  // del pedido. La tarjeta por link sí se confirma siempre y queda sin turno.
   const shift = await openShiftFor(env, site.slug, order.sede_id);
   if (!shift) return error("caja_cerrada", 409);
   const now = Date.now(), paymentId = crypto.randomUUID();
+  // El turno y la ausencia de link en curso se revalidan en el mismo batch: si
+  // algo cambió entre la lectura y el INSERT, no se cobra nada.
+  const linkGuard = options.blockLinkInProgress
+    ? " AND NOT EXISTS (SELECT 1 FROM pos_payments WHERE slug = ? AND order_id = ? AND provider = 'bendo' " +
+      "AND (channel IS NULL OR channel <> 'datafono') AND status IN ('pending', 'unknown'))"
+    : "";
+  const updateBinds = [
+    options.method || order.payment_method, now, now, now, site.slug, order.id, site.slug, order.sede_id,
+    ...(options.blockLinkInProgress ? [site.slug, order.id] : []),
+  ];
+  // Columnas del pago: las mismas para los tres cobros manuales; datáfono añade
+  // canal, autorización y el mensaje con los últimos 4 dígitos.
+  const columns = [
+    "id", "slug", "order_id", "provider", "idempotency_key", "status", "amount_cents", "currency",
+    "provider_ref", "created_at", "updated_at", "paid_at", "shift_id",
+  ];
+  const values = ["?", "?", "?", "?", "?", "'paid'", "?", "?", "NULL", "?", "?", "?", "?"];
+  const paymentBinds = [
+    paymentId, site.slug, order.id, provider, key, Number(order.total_cents), order.currency, now, now, now, shift.id,
+  ];
+  for (const [column, value] of [["channel", options.channel], ["authorization", options.authorization], ["message", options.message]]) {
+    if (value === undefined) continue;
+    columns.push(column); values.push("?"); paymentBinds.push(value);
+  }
   const results = await env.DB.batch([
     env.DB.prepare(
-      "UPDATE pos_orders SET status = 'paid', status_at = ?, paid_at = ?, updated_at = ? " +
+      "UPDATE pos_orders SET status = 'paid', payment_method = ?, status_at = ?, paid_at = ?, updated_at = ? " +
       "WHERE slug = ? AND id = ? AND status IN ('pending', 'confirmed') " +
-      // El turno se revalida en el mismo batch: si se cerró entre la lectura y
-      // este INSERT, no se cobra y la caja responde 409 caja_cerrada.
-      "AND EXISTS (SELECT 1 FROM pos_shifts WHERE slug = ? AND sede_id = ? AND status = 'open')",
-    ).bind(now, now, now, site.slug, order.id, site.slug, order.sede_id),
+      "AND EXISTS (SELECT 1 FROM pos_shifts WHERE slug = ? AND sede_id = ? AND status = 'open')" + linkGuard,
+    ).bind(...updateBinds),
     env.DB.prepare(
-      "INSERT INTO pos_payments (id, slug, order_id, provider, idempotency_key, status, amount_cents, currency, " +
-      "provider_ref, created_at, updated_at, paid_at, shift_id) " +
-      "SELECT ?, ?, ?, ?, ?, 'paid', ?, ?, NULL, ?, ?, ?, ? " +
+      `INSERT INTO pos_payments (${columns.join(", ")}) SELECT ${values.join(", ")} ` +
       "WHERE EXISTS (SELECT 1 FROM pos_orders WHERE slug = ? AND id = ? AND status = 'paid' AND paid_at = ?)",
-    ).bind(paymentId, site.slug, order.id, provider, key, Number(order.total_cents), order.currency, now, now, now,
-      shift.id, site.slug, order.id, now),
+    ).bind(...paymentBinds, site.slug, order.id, now),
     env.DB.prepare("INSERT OR IGNORE INTO pos_comandas (slug, order_id, created_at, print_count) VALUES (?, ?, ?, 0)")
       .bind(site.slug, order.id, now),
     ...snapshotStatements(env, site.slug, order, now),
@@ -1160,8 +1225,12 @@ async function payManual(env, site, session, encodedId, body, provider) {
       await afterPaid(env, site.slug, current);
       return paidManualResponse(env, site, current, payment);
     }
-    // El turno pudo cerrarse entre la lectura y el batch: no se cobró nada.
+    // El turno pudo cerrarse o aparecer un link entre la lectura y el batch.
     if (!await openShiftFor(env, site.slug, order.sede_id)) return error("caja_cerrada", 409);
+    if (options.blockLinkInProgress && await bendoLinkInProgress(env, site.slug, order.id)) {
+      return error("pago_en_curso", 409);
+    }
+    if (current?.status === "paid") return error("orden_ya_pagada", 409);
     return error("estado_invalido", 409);
   }
   const paid = await posOrderRow(env, site.slug, order.id);
