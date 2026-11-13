@@ -176,7 +176,15 @@
     const status=String(order&&order.status||'');
     return status==='paid'||status==='ready'?'paid':status==='rejected'?'rejected':'pending';
   }
+  // Métodos que abren una pasarela de tarjeta (Payphone o Bendo). Efectivo y
+  // transferencia se confirman en caja y nunca redirigen.
+  function cardPaymentMethod(method){ return method==='payphone'||method==='bendo'; }
+  // Segmento de la ruta POST /api/orders/:id/<proveedor> para iniciar el cobro.
+  function paymentStartPath(method){
+    return method==='bendo'?'bendo':method==='payphone'?'payphone':'';
+  }
   // Etiqueta honesta del pago. `unknown`/timeout nunca se muestra como rechazo.
+  // Con Bendo los textos son neutrales: "tarjeta", nunca el nombre del banco.
   function orderPaymentLabel(order){
     const method=String(order&&order.payment_method||'cash');
     const status=String(order&&order.status||'pending');
@@ -184,16 +192,16 @@
     if(status==='rejected') return payment==='rejected'?'Pago rechazado':'Pedido rechazado';
     if(method==='cash') return status==='paid'||status==='ready'?'Pago confirmado en caja':'Pago pendiente en caja';
     if(method==='transfer') return status==='paid'||status==='ready'?'Transferencia verificada':'Pago pendiente de verificación';
-    if(payment==='rejected') return 'Pago rechazado por Payphone';
-    if(payment==='failed') return 'El pago con Payphone no se completó';
-    if(payment==='unknown') return 'Pago en verificación con Payphone';
-    if(payment==='paid'||status==='paid'||status==='ready') return 'Pago confirmado con Payphone';
-    return 'Esperando confirmación de Payphone';
+    if(payment==='rejected') return method==='bendo'?'Pago rechazado por la tarjeta':'Pago rechazado por Payphone';
+    if(payment==='failed') return method==='bendo'?'El pago con tarjeta no se completó':'El pago con Payphone no se completó';
+    if(payment==='unknown') return method==='bendo'?'Pago con tarjeta en verificación':'Pago en verificación con Payphone';
+    if(payment==='paid'||status==='paid'||status==='ready') return method==='bendo'?'Pago confirmado con tarjeta':'Pago confirmado con Payphone';
+    return method==='bendo'?'Esperando confirmación de la tarjeta':'Esperando confirmación de Payphone';
   }
   // Reintentar tarjeta solo cuando el intento anterior falló antes de cobrar. Con pago
   // `unknown` o pendiente NO se ofrece: reintentar podría duplicar el cobro.
   function thanksRetryAllowed(order){
-    if(!order||String(order.payment_method||'')!=='payphone') return false;
+    if(!order||!cardPaymentMethod(String(order.payment_method||''))) return false;
     const status=String(order.status||'');
     if(status==='paid'||status==='ready') return false;
     const payment=derivedPaymentStatus(order);
@@ -209,7 +217,8 @@
   if(typeof module!=='undefined' && module.exports) module.exports={clubBanner,panelCount,panelOrder,
     checkoutOrders,ordersEndpoint,sedeList,sedeFromQuery,defaultSede,orderVariantLabel,variantOptionExists,
     orderCartItems,orderStatusLabel,orderStatusFinal,nextOrderKey,transferInfo,billingFieldErrors,
-    parseOrderReturn,orderPaymentLabel,thanksRetryAllowed,thanksPurchaseEligible,thanksPollFinal};
+    parseOrderReturn,orderPaymentLabel,thanksRetryAllowed,thanksPurchaseEligible,thanksPollFinal,
+    cardPaymentMethod,paymentStartPath};
 
   // El motor solo corre en el navegador: el guard permite testear clubBanner en Node sin DOM.
   if(typeof document!=='undefined') (function(){
@@ -255,10 +264,17 @@
       'Confirmar pedido':'Confirm order','Confirmar pedido por WhatsApp':'Confirm order on WhatsApp',
       'El pago con Payphone no se completó':'The Payphone payment was not completed',
       'No se completó el pago con Payphone. Puedes reintentar.':'The Payphone payment was not completed. You can try again.',
+      'El pago con tarjeta no se completó':'The card payment was not completed',
+      'No se completó el pago con tarjeta. Puedes reintentar.':'The card payment was not completed. You can try again.',
+      'Tarjeta de crédito o débito':'Credit or debit card','Tarjeta de crédito o débito (no disponible)':'Credit or debit card (unavailable)',
+      'Serás dirigido al pago seguro con tarjeta. La confirmación llega al volver.':'You will be redirected to the secure card payment. Confirmation arrives when you return.',
+      'No se pudo abrir el pago con tarjeta. Reintenta.':'We could not open the card payment. Try again.',
       'Datos de facturación':'Billing details','Tipo de documento':'Document type','Cédula':'ID card','RUC':'Tax ID (RUC)','Número de documento':'Document number','Correo electrónico':'Email','Dirección de facturación':'Billing address','Estos datos se usan solo para tu comprobante. No se envían por WhatsApp.':'This information is used only for your receipt. It is never sent through WhatsApp.',
       'Te avisaremos por WhatsApp al número que ingresaste cuando tu pedido esté listo.':'We will notify you on WhatsApp at the number you entered when your order is ready.',
       'Revisa los datos de facturación':'Please review your billing details','Ingresa tu nombre y apellido.':'Please enter your full name.','Ingresa un teléfono válido (7 a 15 dígitos).':'Please enter a valid phone number (7 to 15 digits).','Elige el tipo de documento.':'Choose a document type.','El documento solo puede tener números.':'The document can only contain numbers.','La cédula debe tener 10 dígitos.':'The ID card must have 10 digits.','El RUC debe tener 13 dígitos.':'The RUC must have 13 digits.','Ingresa un documento válido.':'Please enter a valid document.','Ingresa un correo electrónico válido.':'Please enter a valid email address.','Ingresa la dirección de facturación.':'Please enter your billing address.','La dirección es demasiado larga.':'The address is too long.',
       'Pago pendiente en caja':'Payment pending at the counter','Pago pendiente de verificación':'Payment pending verification','Pago confirmado en caja':'Payment confirmed at the counter','Transferencia verificada':'Transfer verified','Pago rechazado por Payphone':'Payment rejected by Payphone','Pago en verificación con Payphone':'Payment being verified with Payphone','Pago confirmado con Payphone':'Payment confirmed with Payphone','Esperando confirmación de Payphone':'Waiting for Payphone confirmation',
+      'Pago rechazado por la tarjeta':'Payment rejected by the card','Pago con tarjeta en verificación':'Card payment being verified','Pago confirmado con tarjeta':'Payment confirmed with card','Esperando confirmación de la tarjeta':'Waiting for card confirmation',
+      'Estamos verificando tu pago con tarjeta. No vuelvas a pagar.':'We are verifying your card payment. Please do not pay again.',
       'Volver al menú':'Back to the menu','Actualizar estado':'Refresh status','Actualizando…':'Refreshing…','Verificando tu pago…':'Verifying your payment…','No pudimos consultar el estado. Reintenta.':'We could not check the status. Try again.','No encontramos este pedido en este dispositivo.':'We could not find this order on this device.','Muestra este número en caja.':'Show this number at the counter.','Envía tu comprobante por WhatsApp':'Send your receipt on WhatsApp','Transferencia no disponible':'Transfer unavailable','La cuenta bancaria aún no está configurada. Paga en efectivo en caja.':'The bank account is not configured yet. Please pay in cash at the counter.','Reintentar pago con tarjeta':'Retry card payment','El pago no fue aprobado. Puedes volver al menú e intentar de nuevo.':'The payment was not approved. You can go back to the menu and try again.','Estamos verificando tu pago con Payphone. No vuelvas a pagar.':'We are verifying your payment with Payphone. Please do not pay again.','Cuando tu pedido esté listo te avisaremos por WhatsApp al número que registraste.':'When your order is ready we will notify you on WhatsApp at the number you registered.','Tus datos fiscales no se muestran en esta página.':'Your tax details are not shown on this page.','Resumen':'Summary','Sede':'Location','Método de pago':'Payment method','Datos para tu comprobante':'Details for your receipt','Facturación':'Billing','Resumen no disponible. Muestra tu número en caja.':'Summary unavailable. Show your number at the counter.',
       'Datos para tu comprobante. No se muestran públicamente.':'Details for your receipt. They are not shown publicly.',
       'Cuando tu pedido esté listo te avisaremos por WhatsApp.':'We will notify you on WhatsApp when your order is ready.',
@@ -1369,7 +1385,7 @@
         producto_no_disponible:'Un producto ya no está disponible. Revisa tu pedido',sin_stock:'Un producto ya no tiene stock. Revisa tu pedido',
         variante_no_existe:'Una opción del pedido cambió. Vuelve a elegirla',precio_no_disponible:'El precio de un producto cambió. Revisa tu pedido',
         idempotencia_conflicto:'El pedido cambió. Revisa el carrito e intenta de nuevo',demasiados_pedidos:'Demasiados intentos. Espera un momento',
-        pedido_invalido:'Revisa los datos del pedido',metodo_pago_invalido:'Elige un método de pago válido',payphone_no_disponible:'Payphone no está disponible ahora. Elige efectivo o transferencia.',catalogo_no_disponible:'El menú no está disponible ahora. Reintenta',solo_retiro:'Este menú solo permite retiro en el local',
+        pedido_invalido:'Revisa los datos del pedido',metodo_pago_invalido:'Elige un método de pago válido',payphone_no_disponible:'Payphone no está disponible ahora. Elige efectivo o transferencia.',bendo_no_disponible:'El pago con tarjeta no está disponible ahora. Elige efectivo o transferencia.',catalogo_no_disponible:'El menú no está disponible ahora. Reintenta',solo_retiro:'Este menú solo permite retiro en el local',
         billing_requerido:'Revisa los datos de facturación',documento_invalido:'Revisa el número de documento',correo_invalido:'Revisa el correo electrónico',direccion_invalida:'Revisa la dirección de facturación',telefono_invalido:'Revisa el teléfono',cliente_requerido:'Completa tu nombre y teléfono',
         datos_fiscales_requeridos:'Completa los datos de facturación',datos_fiscales_invalidos:'Revisa los datos de facturación',
       };
@@ -1429,8 +1445,33 @@
         cash:'Paga en caja; el pedido se prepara después del cobro.',
         transfer:transfer?'Transfiere y envía tu comprobante por WhatsApp. La caja verifica el pago antes de preparar.':'Transferencia no disponible: la cuenta bancaria aún no está configurada.',
         payphone:'Serás dirigido a Payphone para pagar con tarjeta. La confirmación llega al volver.',
+        bendo:'Serás dirigido al pago seguro con tarjeta. La confirmación llega al volver.',
       };
       hint.textContent=hints[payment.value]||hints.cash;
+    }
+    // Opción de pago por método. El template trae las de efectivo/transferencia/
+    // Payphone; la de tarjeta Bendo se crea aquí si falta, para no depender del HTML.
+    function paymentOption(payment,method){
+      if(!payment||typeof payment.querySelector!=='function') return null;
+      return payment.querySelector(`option[value="${method}"]`)||null;
+    }
+    function ensurePaymentOption(payment,method){
+      const found=paymentOption(payment,method);
+      if(found||!payment||typeof document==='undefined') return found;
+      const option=document.createElement('option');
+      option.setAttribute('value',method);
+      option.textContent='';
+      payment.append(option);
+      return option;
+    }
+    // El método `bendo` solo se habilita cuando la API pública confirma que hay
+    // pasarela disponible; si no, queda visible pero deshabilitado.
+    function setBendoOption(payment,available){
+      const option=ensurePaymentOption(payment,'bendo');
+      if(!option) return null;
+      option.disabled=!available;
+      option.textContent=t(available?'Tarjeta de crédito o débito':'Tarjeta de crédito o débito (no disponible)');
+      return option;
     }
     // UI del checkout nativo: pickup sin toggle, CTA Munch sin WhatsApp, campos fiscales
     // visibles y opciones de pago habilitadas solo con contrato oficial.
@@ -1457,9 +1498,12 @@
       if(transferOpt&&!transfer){transferOpt.disabled=true;transferOpt.textContent='Transferencia (no disponible)';}
       else if(transferOpt){transferOpt.textContent='Transferencia bancaria';}
       const card=payment?.querySelector('option[value="payphone"]');
+      // Tarjeta Bendo: oculta/deshabilitada por defecto hasta que el servidor confirme.
+      setBendoOption(payment,false);
       fetch(ordersEndpoint(checkout,'/api/payment-options'),{cache:'no-store'})
         .then(r=>r.ok?r.json():null).then(options=>{
           if(card&&options?.payphone){card.disabled=false;card.textContent='Tarjeta con Payphone';}
+          setBendoOption(payment,options?.bendo===true);
           // La fuente pública oficial manda: si el servidor entrega detalles
           // bancarios saneados, se usan también en el recibo y en el enlace wa.me.
           if(options?.transfer_details&&typeof options.transfer_details==='object'){
@@ -1542,7 +1586,7 @@
       if(Number.isSafeInteger(data.total_cents)&&data.total_cents>=0) out.total_cents=data.total_cents;
       if(typeof data.currency==='string'&&/^[A-Z]{3}$/.test(data.currency)) out.currency=data.currency;
       if(typeof data.sede_id==='string') out.sede_id=data.sede_id;
-      if(['cash','transfer','payphone'].includes(data.payment_method)) out.payment_method=data.payment_method;
+      if(['cash','transfer','payphone','bendo'].includes(data.payment_method)) out.payment_method=data.payment_method;
       if(['pending','paid','rejected','unknown','failed'].includes(data.payment_status)) out.payment_status=data.payment_status;
       if(typeof data.payment_message==='string') out.payment_message=[...data.payment_message].slice(0,200).join('');
       if(typeof data.retryable==='boolean') out.retryable=data.retryable;
@@ -1579,7 +1623,7 @@
       const status=String(record&&record.status||'pending');
       const payment=derivedPaymentStatus(record);
       if(status==='rejected'||payment==='rejected') return 'bad';
-      if(payment==='unknown'||status==='pending'&&record.payment_method==='payphone') return 'warn';
+      if(payment==='unknown'||status==='pending'&&cardPaymentMethod(String(record.payment_method||''))) return 'warn';
       if(status==='ready'||status==='paid') return 'ok';
       return 'pending';
     }
@@ -1626,7 +1670,7 @@
         const subtotal=Number(item.subtotal_cents);
         return `<li><span class="thanks-line-name"><strong>${item.qty}×</strong> ${esc(item.name)}${item.variant_id?`<small>${esc(item.variant_id)}</small>`:''}${item.note?`<small>${esc(item.note)}</small>`:''}</span><span>${Number.isFinite(subtotal)?formatPrice(subtotal/100):''}</span></li>`;
       }).join('');
-      const methodLabel=method==='payphone'?t('Tarjeta con Payphone'):method==='transfer'?t('Transferencia bancaria'):method==='cash'?t('Efectivo en caja'):'';
+      const methodLabel=method==='payphone'?t('Tarjeta con Payphone'):method==='bendo'?t('Tarjeta de crédito o débito'):method==='transfer'?t('Transferencia bancaria'):method==='cash'?t('Efectivo en caja'):'';
       let payHTML='';
       if(method==='cash'){
         payHTML=`<h2>${t('Método de pago')}</h2><p class="thanks-pay-state"><strong>${t(orderPaymentLabel(record))}</strong></p>
@@ -1654,6 +1698,19 @@
           payHTML+=`<p class="thanks-warn">${t('Estamos verificando tu pago con Payphone. No vuelvas a pagar.')}</p>`;
         } else if(payment==='failed'){
           payHTML+=`<p class="thanks-warn">${t('No se completó el pago con Payphone. Puedes reintentar.')}</p>`;
+        } else if(record.status!=='paid'&&record.status!=='ready'){
+          payHTML+=`<p class="thanks-muted">${t('Verificando tu pago…')}</p>`;
+        }
+      } else if(method==='bendo'){
+        // Tarjeta Bendo: textos neutrales ("tarjeta"), nunca el nombre del banco.
+        payHTML=`<h2>${t('Método de pago')}</h2><p class="thanks-pay-state"><strong>${t(orderPaymentLabel(record))}</strong></p>`;
+        if(record.status==='rejected'||payment==='rejected'){
+          payHTML+=`<p class="thanks-warn">${t('El pago no fue aprobado. Puedes volver al menú e intentar de nuevo.')}</p>`;
+          if(record.payment_message) payHTML+=`<p class="thanks-muted">${esc(record.payment_message)}</p>`;
+        } else if(payment==='unknown'){
+          payHTML+=`<p class="thanks-warn">${t('Estamos verificando tu pago con tarjeta. No vuelvas a pagar.')}</p>`;
+        } else if(payment==='failed'){
+          payHTML+=`<p class="thanks-warn">${t('No se completó el pago con tarjeta. Puedes reintentar.')}</p>`;
         } else if(record.status!=='paid'&&record.status!=='ready'){
           payHTML+=`<p class="thanks-muted">${t('Verificando tu pago…')}</p>`;
         }
@@ -1690,7 +1747,7 @@
         ${thanksError==='notfound'?`<p class="thanks-warn">${t('No pudimos consultar el estado. Reintenta.')}</p>`:''}
       </div>`;
       section.querySelector('#thanksRefresh')?.addEventListener('click',()=>refreshThanks(true));
-      section.querySelector('#thanksRetry')?.addEventListener('click',retryThanksPayphone);
+      section.querySelector('#thanksRetry')?.addEventListener('click',retryThanksPayment);
     }
     function scheduleThanksPoll(){
       clearThanksPoll();
@@ -1730,11 +1787,13 @@
       link.href=url;link.referrerPolicy='origin';
       document.body.append(link);link.click();
     }
-    async function retryThanksPayphone(){
+    async function retryThanksPayment(){
       if(!thanksRecord||!thanksCheckout||thanksBusy) return;
+      const provider=paymentStartPath(String(thanksRecord.payment_method||''));
+      if(!provider) return;
       thanksBusy=true;
       try{
-        const response=await fetch(ordersEndpoint(thanksCheckout,`/api/orders/${encodeURIComponent(thanksRecord.id)}/payphone`),{
+        const response=await fetch(ordersEndpoint(thanksCheckout,`/api/orders/${encodeURIComponent(thanksRecord.id)}/${provider}`),{
           method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({order_token:thanksRecord.token,idempotency_key:'retry-'+crypto.randomUUID()}),
         });
@@ -1749,7 +1808,7 @@
         }
         throw new Error(orderErrorMessage(response.status,started&&started.error));
       }catch(error){
-        showToast(t((error&&error.message)||'No se pudo abrir Payphone. Reintenta.'));
+        showToast(t((error&&error.message)||(provider==='bendo'?'No se pudo abrir el pago con tarjeta. Reintenta.':'No se pudo abrir Payphone. Reintenta.')));
       }finally{
         thanksBusy=false;renderThanks();
       }
@@ -1840,9 +1899,10 @@
         const record=orderRecord(receipt,paymentMethod,sedeId);
         forgetOrderKey();
         saveOrderRecord(record);
-        if(paymentMethod==='payphone'){
+        const provider=paymentStartPath(paymentMethod);
+        if(provider){
           try{
-            const pay=await fetch(ordersEndpoint(checkout,`/api/orders/${encodeURIComponent(receipt.id)}/payphone`),{
+            const pay=await fetch(ordersEndpoint(checkout,`/api/orders/${encodeURIComponent(receipt.id)}/${provider}`),{
               method:'POST',headers:{'Content-Type':'application/json'},
               body:JSON.stringify({order_token:receipt.order_token,idempotency_key:'web-'+receipt.id}),
             });
