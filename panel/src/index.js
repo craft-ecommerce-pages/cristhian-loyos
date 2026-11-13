@@ -17,7 +17,6 @@ import { handleMedia } from "./media.js";
 import { renderMeseroPage } from "./mesero.js";
 import { handleOrder, handleTableOrder } from "./orders.js";
 import { reconcilePendingBendo } from "./bendo.js";
-import { reconcilePendingPayments } from "./payphone.js";
 import { renderPage } from "./page.js";
 
 const pageHeaders = {
@@ -42,7 +41,7 @@ export default {
 
     // Webhook de facturación: público pero firmado; va antes de la sesión del panel.
     if (url.pathname === "/panel/webhooks/invoices") return handleInvoiceWebhook(request, env, site);
-    // API pública del comprador: sedes, creación/estado del pedido y retorno de Payphone.
+    // API pública del comprador: sedes, creación/estado del pedido y retorno de la tarjeta.
     if (url.pathname === "/api" || url.pathname.startsWith("/api/")) return handlePublicApi(request, env, ctx, site);
     if (url.pathname === "/panel/e") return handleEvent(request, env, ctx, site);
     if (url.pathname === "/panel/o") return handleOrder(request, env, ctx, site);
@@ -59,11 +58,9 @@ export default {
       return new Response(renderPage(site), { headers: pageHeaders });
     return error("no_existe", 404);
   },
-  // Cron (cada minuto): concilia pagos pendientes de ambos proveedores. Payphone
-  // solo dentro de su ventana de 5 minutos (V2/Confirm); Bendo reconsulta el link
-  // de las últimas 2 h. Uno no bloquea al otro y ninguno recobra ni publica dos comandas.
+  // Cron (cada minuto): reconsulta los links de Bendo en `pending/unknown` de las
+  // últimas 2 h. Nunca recobra ni publica dos comandas.
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(reconcilePendingPayments(env));
     ctx.waitUntil(reconcilePendingBendo(env));
   },
 };

@@ -20,7 +20,7 @@ Documentación de contratos y decisiones: `docs/ARQUITECTURA-CLIENTE.md`, `docs/
 
 ## Rutas principales
 
-- Público: `/` (carta), `/?sede=sede-01`…`sede-06`, `GET /api/sedes`, `POST /api/orders`, `GET /api/orders/:id?token=…`, `GET /api/payphone/return`.
+- Público: `/` (carta), `/?sede=sede-01`…`sede-06`, `GET /api/sedes`, `POST /api/orders`, `GET /api/orders/:id?token=…`, `GET /api/bendo/return`.
 - Panel: `/panel` (dueño), `/panel/caja`, `/panel/mesero`, `/panel/cocina?sede=<id>`.
 - API autenticada: `/panel/api/pos/orders`, `/panel/api/kitchen/orders`, `/panel/api/reports/sales`, `/panel/api/invoices/:orderId`, `/panel/api/payments/:ref/reconcile`.
 - Media: `/media/<key>` desde el binding R2 del panel.
@@ -43,12 +43,12 @@ Despliegue y migraciones: `docs/DESPLIEGUE.md`. Nunca compilar ni desplegar desd
 ## Configuración y secretos (por nombre, nunca en Git)
 
 - Secrets de GitHub Actions: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `CLIENT_SLUG`, `MENU_WORKER_NAME`, `PANEL_WORKER_NAME`, `KV_MENUS_ID`, `D1_DATABASE_NAME`, `D1_DATABASE_ID`, `R2_BUCKET_NAME`, `RATELIMIT_NAMESPACE_ID`, `SESSION_SECRET`, `ADMIN_TOKEN`.
-- Secrets del Worker del panel: `SESSION_SECRET`, `ADMIN_TOKEN`; Payphone solo si se activa `PAYPHONE_MODE=live` (`PAYPHONE_TOKEN`), y facturación solo con proveedor validado (`ECUAFACT_*`/`FACTUPLAN_*`).
+- Secrets del Worker del panel: `SESSION_SECRET`, `ADMIN_TOKEN`, `BENDO_CLIENT_ID`/`BENDO_CLIENT_SECRET` para tarjeta, y facturación solo con proveedor validado (`ECUAFACT_*`/`FACTUPLAN_*`).
 - `MEDIA_ORIGIN` es opcional: vacío publica rutas relativas `/media/...` servidas por el Worker.
 
 ## Límites conocidos
 
 - Sin emisión fiscal real hasta validar RIMPE, establecimiento y proveedor con el titular.
-- Payphone en modo `mock` por defecto; el token de pruebas no se versiona.
+- Pago con tarjeta vía Bendo (link hospedado); el retorno y el webhook solo disparan la verificación en servidor. La integración de Payphone quedó archivada en `integraciones/payphone/` y no se despliega.
 - Precios estudiantiles de las cartas originales: pendiente de confirmación comercial; no se alteraron importes.
 - El nombre comercial es Munch; las seis sedes y direcciones siguen provisionales.

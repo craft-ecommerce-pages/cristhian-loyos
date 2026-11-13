@@ -28,11 +28,11 @@ node scripts/seed-client.mjs --dry-run
 
 ## Arquitectura
 
-- **Dos Workers**: `worker/` (menú: SSR de `template.html` desde KV, sirve `/v1/*` con Workers Assets) reenvía `/api/*`, `/media/*` y `/panel/*` por service binding `PANEL` a `panel/` (dueño, caja, mesero, cocina, POS, reportes, facturación, Payphone; usa D1 `DB` y R2 `MEDIA`). Ambos comparten el KV `MENUS` (`{slug}:config`, `{slug}:productos`, `{slug}:theme`, `domain:{host}`). El panel se despliega antes que el menú.
+- **Dos Workers**: `worker/` (menú: SSR de `template.html` desde KV, sirve `/v1/*` con Workers Assets) reenvía `/api/*`, `/media/*` y `/panel/*` por service binding `PANEL` a `panel/` (dueño, caja, mesero, cocina, POS, reportes, facturación, pago con tarjeta Bendo; usa D1 `DB` y R2 `MEDIA`). Ambos comparten el KV `MENUS` (`{slug}:config`, `{slug}:productos`, `{slug}:theme`, `domain:{host}`). El panel se despliega antes que el menú.
 - **Resolución de host** (`worker/src/lib.js`, también usada por el panel): workers.dev → `CLIENT_SLUG`; dominio propio → KV `domain:{host}`.
 - **`wrangler.toml` son plantillas** con `${...}`; `deploy-client.sh` las renderiza en `*/.wrangler/client.toml`. Nunca desplegar las plantillas directamente ni añadir `routes`/wildcards.
-- **`v1/` → `worker/assets/v1/`**: `v1/` es la fuente; la copia debe coincidir byte a byte (lo verifican el deploy y los tests). `docs/DESPLIEGUE.md` dice no editar `v1/`, aunque el historial ya tiene cambios propios del cliente (checkout fiscal, Payphone); si se edita, sincronizar siempre.
-- **Rutas del panel**: el enrutado vive en `panel/src/index.js`; cada módulo (`orders.js`, `caja.js`, `kitchen.js`, `invoices.js`, `reports.js`, `payphone.js`…) expone handlers. Errores JSON `{error}` con 400/401/403/404/409/502.
+- **`v1/` → `worker/assets/v1/`**: `v1/` es la fuente; la copia debe coincidir byte a byte (lo verifican el deploy y los tests). `docs/DESPLIEGUE.md` dice no editar `v1/`, aunque el historial ya tiene cambios propios del cliente (checkout fiscal, tarjeta Bendo); si se edita, sincronizar siempre.
+- **Rutas del panel**: el enrutado vive en `panel/src/index.js`; cada módulo (`orders.js`, `caja.js`, `kitchen.js`, `invoices.js`, `reports.js`, `bendo.js`…) expone handlers. Errores JSON `{error}` con 400/401/403/404/409/502.
 - **Migraciones D1**: `panel/migrations/NNNN_*.sql`, se aplican en orden y en remoto en cada deploy. Solo aditivas; añadir la siguiente numeración, nunca editar una ya aplicada.
 - **Tests**: `panel/test/helpers.mjs` emula D1 con `node:sqlite` (aplica todas las migraciones) y KV en memoria; los tests de UI importan las páginas como strings.
 
@@ -40,10 +40,10 @@ node scripts/seed-client.mjs --dry-run
 
 - Dinero en **centavos enteros**; el servidor recalcula precios desde el catálogo vigente y guarda un snapshot de las líneas en D1. Nunca confiar en `precio`/`total` del navegador.
 - La sede (`sede-01`…`sede-06`) se congela en cada pedido; la geolocalización nunca cambia una sede elegida por QR.
-- La comanda llega a cocina **solo tras cobro confirmado**. Pagos y creación de pedidos son idempotentes (`idempotency_key`; misma clave con otro cuerpo → 409). Un Payphone `unknown` exige conciliación; nunca asumirlo rechazado.
+- La comanda llega a cocina **solo tras cobro confirmado**. Pagos y creación de pedidos son idempotentes (`idempotency_key`; misma clave con otro cuerpo → 409). Un pago con tarjeta en estado `unknown` exige conciliación; nunca asumirlo rechazado.
 - Las categorías de reporte (`sushi`, `fastfood`, `tradicional`, `postres`) se congelan por línea; los reportes suman solo pedidos cobrados.
 - Facturación: `issued` solo con autorización confirmada del proveedor/SRI. La emisión real está desactivada. Plan de emisión directa al SRI: `docs/FACTURACION-SRI-DIRECTO.md`; la firma/P12 solo como secreto del Worker del cliente.
-- Payphone en `PAYPHONE_MODE=mock` por defecto.
+- Pago con tarjeta por Bendo: la fuente de verdad es `GET /links/{id}`; el retorno del navegador y el webhook solo disparan la verificación. Payphone quedó archivado en `integraciones/payphone/` (no se despliega) y `payphone` solo sigue válido en BD para filas históricas.
 
 ## Datos y media
 

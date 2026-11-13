@@ -172,7 +172,7 @@ const ok = (type, body) => ({ status: 200, headers: { "content-type": type, "cac
 // y el cliente no recibe fixes del motor hasta que expire la caché.
 const okHtml = (body) => ({ status: 200, headers: { "content-type": "text/html;charset=utf-8", "cache-control": "no-cache, must-revalidate" }, body });
 // Recibo /gracias: contiene el número de pedido y acciones de pago. Nunca se cachea ni se indexa,
-// y no filtra el token por Referer al abrir WhatsApp/Payphone.
+// y no filtra el token por Referer al abrir WhatsApp o la pasarela de pago.
 const receiptHtml = (body) => ({ status: 200, headers: {
   "content-type": "text/html;charset=utf-8",
   "cache-control": "no-store, max-age=0",
@@ -180,7 +180,7 @@ const receiptHtml = (body) => ({ status: 200, headers: {
   "x-robots-tag": "noindex, nofollow",
   "x-content-type-options": "nosniff",
 }, body });
-// Retorno de Payphone a "/" (backend actual): mover al recibo conservando pedido, token y resultado.
+// Retorno antiguo a "/" con pedido y token: mover al recibo conservando el resultado.
 // Solo actúa con ambos parámetros presentes; el resto de query legacy sigue intacto.
 export function receiptRedirect(pathname, search) {
   if (pathname !== "/" && pathname !== "/index.html") return null;
@@ -221,7 +221,7 @@ export async function handle(url, env, template) {
   const cfgRaw = await env.MENUS.get(`${slug}:config`);
   if (cfgRaw == null) return notFound();
   const isReceipt = url.pathname === "/gracias" || url.pathname === "/gracias/";
-  // Retorno viejo de Payphone a "/?pedido=…&token=…" → /gracias sin pasar por JS (evita flash y
+  // Retorno antiguo a "/?pedido=…&token=…" → /gracias sin pasar por JS (evita flash y
   // conserva el pedido si el cliente recarga). Las rutas legacy siguen redirigiendo a "/".
   if (!isReceipt) {
     const target = receiptRedirect(url.pathname, url.search);

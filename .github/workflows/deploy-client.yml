@@ -71,13 +71,11 @@ jobs:
           RATELIMIT_NAMESPACE_ID: ${{ secrets.RATELIMIT_NAMESPACE_ID }}
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
           ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
-          PAYPHONE_TOKEN: ${{ secrets.PAYPHONE_TOKEN }}
           # Bendo: credenciales por comercio (nunca en Git) y modo/entorno por vars.
           BENDO_CLIENT_ID: ${{ secrets.BENDO_CLIENT_ID }}
           BENDO_CLIENT_SECRET: ${{ secrets.BENDO_CLIENT_SECRET }}
           ENGINE_ORIGIN: ${{ vars.ENGINE_ORIGIN }}
           MENU_PUBLIC_URL: ${{ vars.MENU_PUBLIC_URL }}
-          PAYPHONE_MODE: ${{ vars.PAYPHONE_MODE }}
           BENDO_MODE: ${{ vars.BENDO_MODE }}
           BENDO_ENV: ${{ vars.BENDO_ENV }}
           BENDO_POINT_OF_SALE: ${{ vars.BENDO_POINT_OF_SALE }}

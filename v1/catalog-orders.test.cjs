@@ -98,15 +98,15 @@ test('parseOrderReturn: id/token opacos y alias sin exponer otros parámetros',(
 test('orderPaymentLabel/thanksRetryAllowed: unknown nunca se presenta como rechazo',()=>{
   assert.equal(orderPaymentLabel({payment_method:'cash',status:'pending'}),'Pago pendiente en caja');
   assert.equal(orderPaymentLabel({payment_method:'transfer',status:'pending'}),'Pago pendiente de verificación');
-  assert.equal(orderPaymentLabel({payment_method:'payphone',status:'pending',payment_status:'unknown'}),'Pago en verificación con Payphone');
-  assert.equal(orderPaymentLabel({payment_method:'payphone',status:'rejected',payment_status:'rejected'}),'Pago rechazado');
-  assert.equal(orderPaymentLabel({payment_method:'payphone',status:'paid'}),'Pago confirmado con Payphone');
-  const unknown={payment_method:'payphone',status:'pending',payment_status:'unknown'};
+  assert.equal(orderPaymentLabel({payment_method:'bendo',status:'pending',payment_status:'unknown'}),'Pago con tarjeta en verificación');
+  assert.equal(orderPaymentLabel({payment_method:'bendo',status:'rejected',payment_status:'rejected'}),'Pago rechazado');
+  assert.equal(orderPaymentLabel({payment_method:'bendo',status:'paid'}),'Pago confirmado con tarjeta');
+  const unknown={payment_method:'bendo',status:'pending',payment_status:'unknown'};
   assert.equal(thanksRetryAllowed(unknown),false); // reintentar podría duplicar el cobro
-  assert.equal(thanksRetryAllowed({payment_method:'payphone',status:'pending',payment_status:'failed'}),true);
-  assert.equal(thanksRetryAllowed({payment_method:'payphone',status:'pending',retryable:true}),true);
-  assert.equal(thanksRetryAllowed({payment_method:'payphone',status:'paid',payment_status:'failed'}),false);
-  assert.equal(thanksRetryAllowed({payment_method:'payphone',status:'rejected',payment_status:'rejected',retryable:true}),true);
+  assert.equal(thanksRetryAllowed({payment_method:'bendo',status:'pending',payment_status:'failed'}),true);
+  assert.equal(thanksRetryAllowed({payment_method:'bendo',status:'pending',retryable:true}),true);
+  assert.equal(thanksRetryAllowed({payment_method:'bendo',status:'paid',payment_status:'failed'}),false);
+  assert.equal(thanksRetryAllowed({payment_method:'bendo',status:'rejected',payment_status:'rejected',retryable:true}),true);
   assert.equal(thanksRetryAllowed({payment_method:'cash',status:'pending',payment_status:'failed'}),false);
   assert.equal(thanksPurchaseEligible({status:'paid'}),true);
   assert.equal(thanksPurchaseEligible({status:'pending'}),false);
@@ -201,7 +201,7 @@ function menu({checkout=true,fetchImpl,search='',transfer=null,path='/'}={}){
   const fetch=async(url,options)=>{
     if(url==='productos.json')return {ok:true,json:async()=>products};
     if(url==='config.json')return {ok:true,json:async()=>baseConfig};
-    if(url==='/api/payment-options')return {ok:true,status:200,json:async()=>({cash:true,transfer:true,payphone:false})};
+    if(url==='/api/payment-options')return {ok:true,status:200,json:async()=>({cash:true,transfer:true,bendo:false})};
     calls.push([url,options]);
     const result=await fetchImpl(url,options);
     if(result instanceof Error)throw result;

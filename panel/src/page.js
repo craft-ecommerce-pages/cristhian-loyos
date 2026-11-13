@@ -494,7 +494,9 @@ function runtime() {
   }
   const POS_STATE = { pending: "Pendiente · sin comanda", confirmed: "Confirmado · falta cobro", paid: "Pago confirmado", ready: "Listo para avisar", rejected: "Rechazado" };
   const POS_SOURCE = { web: "Web", caja: "Caja", mesero: "Mesero", mesa: "Mesa" };
-  const POS_PAYMENT = { cash: "efectivo", transfer: "transferencia", payphone: "tarjeta Payphone", bendo: "tarjeta (Bendo)" };
+  // `payphone` solo aparece en filas históricas: la integración está archivada en
+  // integraciones/payphone y no se ofrecen cobros nuevos con ese método.
+  const POS_PAYMENT = { cash: "efectivo", transfer: "transferencia", payphone: "tarjeta Payphone (histórico)", bendo: "tarjeta (Bendo)" };
   const isPosOrder = o => !!o && (o.sede_id != null || o.total_cents != null);
   const posMoney = o => Number.isFinite(Number(o?.total_cents)) ? money(Number(o.total_cents) / 100) : money(o?.total);
   const posName = o => String(o?.customer_name || o?.client_name || "").trim();
@@ -1258,15 +1260,13 @@ function runtime() {
       actions.append(btn("Rechazar", "btn ghost small", ev => run("reject", ev)));
     }
     if (order.status === "confirmed") {
-      if (order.payment_method === "bendo") {
+      if (order.payment_method === "bendo" || order.payment_method === "payphone") {
+        // Bendo espera su link; `payphone` solo puede ser una fila histórica.
         actions.append(h("span", { class: "hint", text: "Esperando confirmación de la tarjeta" }));
-      } else if (order.payment_method === "payphone") {
-        actions.append(h("span", { class: "hint", text: "Esperando confirmación de Payphone" }));
       } else {
         const transfer = order.payment_method === "transfer";
         actions.append(btn(transfer ? "Confirmar transferencia" : "Cobrar efectivo", "btn primary small",
           ev => payPosOrder(order, transfer ? "transfer" : "cash", ev.currentTarget, reload)));
-        if (order.source !== "web" && me?.payment_mode === "live") actions.append(btn("Payphone", "btn small", ev => payPosOrder(order, "payphone", ev.currentTarget, reload)));
         // Tarjeta (Bendo): el ensamblador expone `me.bendo`; el pago se verifica aparte.
         if (order.source !== "web" && me?.bendo === true) actions.append(btn("Cobrar con tarjeta", "btn small", ev => payBendoOrder(order, ev.currentTarget, reload, bendoBox)));
       }
@@ -1312,22 +1312,17 @@ function runtime() {
       reload();
     });
   }
-  // Cobro POS: idempotente por orden. Efectivo y transferencia se confirman
-  // a mano con rutas distintas; Payphone nunca se asume sin confirmación.
+  // Cobro POS manual: idempotente por orden. Efectivo y transferencia se
+  // confirman a mano; la tarjeta usa payBendoOrder, que nunca asume el cobro.
   function payPosOrder(order, provider, buttonEl, reload) {
-    const manual = provider === "cash" || provider === "transfer";
     const transfer = provider === "transfer";
     if (typeof window.confirm === "function" && !window.confirm(transfer
       ? "¿Verificaste la transferencia en la cuenta? La comanda se enviará a cocina."
-      : manual
-        ? "¿Confirmas que recibiste el pago en efectivo de esta orden? La comanda se enviará a cocina."
-        : me?.payment_mode === "live"
-          ? "¿Abrir el pago con Payphone? La comanda se enviará a cocina solo si el pago se aprueba."
-          : "¿Simular el pago con Payphone? Esta prueba no cobra dinero; la comanda se enviará a cocina al aprobarla.")) return;
+      : "¿Confirmas que recibiste el pago en efectivo de esta orden? La comanda se enviará a cocina.")) return;
     const key = paymentKeys.get(order.id) || uuid();
     paymentKeys.set(order.id, key);
     buttonEl.disabled = true;
-    const route = manual ? (transfer ? "/pay-transfer" : "/pay-cash") : "/payphone";
+    const route = transfer ? "/pay-transfer" : "/pay-cash";
     return api("orders/" + encodeURIComponent(order.id) + route, { idempotency_key: key }, "POST").then(async r => {
       buttonEl.disabled = false;
       if (r.status === 401) return goLogin("Tu sesión venció. Vuelve a entrar.");
@@ -1339,12 +1334,7 @@ function runtime() {
         if (r.status === 409) { toast("Esa orden ya cambió de estado.", true); return reload(); }
         return toast(errMsg(r, "No pudimos registrar el cobro."), true);
       }
-      if (!manual) {
-        const url = safeUrl(r.data?.payment_url);
-        if (r.data?.status === "paid") toast("Pago confirmado. La comanda ya está en cocina.");
-        else if (url) { window.open(url, "_blank", "noopener"); toast("Pago abierto. La comanda sale cuando Payphone confirme; verifica en Cocina."); }
-        else toast("Pago iniciado. La comanda saldrá cuando se confirme.");
-      } else toast((transfer ? "Transferencia confirmada." : "Cobrado.") + " La comanda ya está en cocina; imprímela desde Cocina o aquí.");
+      toast((transfer ? "Transferencia confirmada." : "Cobrado.") + " La comanda ya está en cocina; imprímela desde Cocina o aquí.");
       paymentKeys.delete(order.id);
       reload();
     });

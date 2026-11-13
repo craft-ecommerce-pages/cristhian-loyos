@@ -3,12 +3,14 @@
 //   · El mock requiere PAYPHONE_MODE="mock" explícito; sin modo, pagos deshabilitados.
 //   · El intento se guarda en D1 antes de Prepare; el retorno es idempotente y
 //     un timeout deja el pago en `unknown` para conciliación (nunca rechazo por timeout).
-import { error, json } from "./contract.js";
-import { timingEqual } from "./auth.js";
+// Archivo archivado: vive fuera de panel/, worker/ y v1/ y no se ejecuta en la
+// suite. Las rutas son relativas al panel para facilitar una reintegración manual.
+import { error, json } from "../../panel/src/contract.js";
+import { timingEqual } from "../../panel/src/auth.js";
 import {
   attachProviderId, createPaymentAttempt, failPayment, markPaymentUnknown, posOrderForAction,
   posOrderRow, posPaymentByKey, posPaymentByRef, orderToken, setPaymentPending, settlePaymentApproved, settlePaymentRejected,
-} from "./orders.js";
+} from "../../panel/src/orders.js";
 
 const BASE = "https://pay.payphonetodoesposible.com";
 const REF_RE = /^[A-Za-z0-9]{15}$/;

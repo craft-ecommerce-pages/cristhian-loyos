@@ -11,12 +11,12 @@ const {orderPaymentLabel,thanksRetryAllowed,paymentStartPath,cardPaymentMethod}=
 /* ── helpers puros ───────────────────────────────────────────────────────── */
 test('paymentStartPath/cardPaymentMethod: solo tarjeta abre pasarela',()=>{
   assert.equal(paymentStartPath('bendo'),'bendo');
-  assert.equal(paymentStartPath('payphone'),'payphone');
   assert.equal(paymentStartPath('cash'),'');
   assert.equal(paymentStartPath('transfer'),'');
+  assert.equal(paymentStartPath('otro'),'');
   assert.equal(cardPaymentMethod('bendo'),true);
-  assert.equal(cardPaymentMethod('payphone'),true);
   assert.equal(cardPaymentMethod('cash'),false);
+  assert.equal(cardPaymentMethod('transfer'),false);
 });
 
 test('orderPaymentLabel bendo: textos neutrales y unknown nunca es rechazo',()=>{
@@ -25,9 +25,6 @@ test('orderPaymentLabel bendo: textos neutrales y unknown nunca es rechazo',()=>
   assert.equal(orderPaymentLabel({payment_method:'bendo',status:'pending',payment_status:'failed'}),'El pago con tarjeta no se completó');
   assert.equal(orderPaymentLabel({payment_method:'bendo',status:'pending',payment_status:'rejected'}),'Pago rechazado por la tarjeta');
   assert.equal(orderPaymentLabel({payment_method:'bendo',status:'paid',payment_status:'paid'}),'Pago confirmado con tarjeta');
-  // Payphone conserva sus etiquetas.
-  assert.equal(orderPaymentLabel({payment_method:'payphone',status:'paid'}),'Pago confirmado con Payphone');
-  assert.equal(orderPaymentLabel({payment_method:'payphone',status:'pending'}),'Esperando confirmación de Payphone');
 });
 
 test('thanksRetryAllowed bendo: solo reintenta si el intento falló antes de cobrar',()=>{
@@ -91,7 +88,7 @@ function matches(node,selector){
   if(selector==='#cartStep2 .step2-body')return node.classList.contains('step2-body')&&ancestor(node,'#cartStep2');
   return matchesSimple(node,selector);
 }
-function menu({fetchImpl,search='',path='/',bendo=false,payphone=false,storage:seed}={}){
+function menu({fetchImpl,search='',path='/',bendo=false,storage:seed}={}){
   const doc={elements:[],listeners:{},clicks:[],stubs:{},documentElement:{style:{setProperty(){}}},currentScript:{src:'https://engine.test/v1/catalog.js'}};
   doc.body=new Element(doc,'body');doc.head=new Element(doc,'head');
   doc.createElement=tag=>{const e=new Element(doc);e.tagName=tag;return e;};
@@ -125,10 +122,10 @@ function menu({fetchImpl,search='',path='/',bendo=false,payphone=false,storage:s
   const email=add('fieldEmail',[],billingWrap),billingAddress=add('fieldBillingAddress',[],billingWrap);
   const paymentWrap=add('fieldPaymentWrap',['form-field'],stepBody);
   const payment=add('fieldPayment',[],paymentWrap),paymentHint=add('paymentHint',[],paymentWrap);
-  // El template trae efectivo, transferencia y Payphone (deshabilitado). Bendo se
-  // inyecta desde catalog.js: aquí se prueba justo ese caso.
+  // El template trae efectivo, transferencia y tarjeta (Bendo, deshabilitada).
+  // Aquí se prueba que catalog.js la habilita según payment-options.
   for(const [value,text,disabled] of [['cash','Efectivo en caja',false],['transfer','Transferencia (validar en caja)',false],
-    ['payphone','Tarjeta con Payphone (no disponible)',true]]){
+    ['bendo','Tarjeta de crédito o débito (no disponible)',true]]){
     const option=new Element(doc,'');option.tagName='option';
     option.setAttribute('value',value);option.textContent=text;option.disabled=disabled;
     payment.appendChild(option);
@@ -151,7 +148,7 @@ function menu({fetchImpl,search='',path='/',bendo=false,payphone=false,storage:s
   const fetch=async(url,options)=>{
     if(url==='productos.json')return {ok:true,json:async()=>products};
     if(url==='config.json')return {ok:true,json:async()=>baseConfig};
-    if(url==='/api/payment-options')return {ok:true,status:200,json:async()=>({cash:true,transfer:true,payphone,bendo})};
+    if(url==='/api/payment-options')return {ok:true,status:200,json:async()=>({cash:true,transfer:true,bendo})};
     calls.push([url,options]);
     const result=await fetchImpl(url,options);
     if(result instanceof Error)throw result;
@@ -195,7 +192,6 @@ test('payment-options.bendo habilita "Tarjeta de crédito o débito" en el check
   assert.ok(option,'la opción bendo existe en el select');
   assert.equal(option.disabled,false);
   assert.equal(option.textContent,'Tarjeta de crédito o débito');
-  assert.equal(m.option('payphone').disabled,true,'payphone sigue igual cuando no está disponible');
 });
 
 test('sin bendo en payment-options la opción queda visible pero deshabilitada',async()=>{
@@ -221,7 +217,8 @@ test('checkout con bendo crea el pedido, inicia el pago y redirige al payment_ur
   const payBody=JSON.parse(pay[1].body);
   assert.equal(payBody.order_token,'tok');
   assert.match(payBody.idempotency_key,/^[A-Za-z0-9_.:-]{8,100}$/);
-  assert.equal(m.calls.some(([url])=>url.endsWith('/payphone')),false,'nunca llama a Payphone');
+  assert.deepEqual(m.calls.filter(([url])=>url.startsWith('/api/orders/')).map(([url])=>url),['/api/orders/ord-1/bendo'],
+    'solo inicia el cobro con la ruta bendo');
   assert.equal(m.doc.clicks.length,1,'redirige con un enlace');
   assert.equal(m.doc.clicks[0].href,'https://checkout.bendo.test/p/abc');
   const stored=JSON.parse(m.storage.get('munch_order:ord-1'));
@@ -268,5 +265,6 @@ test('/gracias bendo fallido: reintenta contra la ruta bendo y reabre el link',a
   const pay=m.calls.find(([url])=>url==='/api/orders/ord-1/bendo');
   assert.ok(pay,'reintenta con el proveedor correcto');
   assert.equal(m.doc.clicks.at(-1).href,'https://checkout.bendo.test/p/abc');
-  assert.equal(m.calls.some(([url])=>url.endsWith('/payphone')),false);
+  assert.deepEqual(m.calls.filter(([url])=>url.startsWith('/api/orders/')&&!url.includes('?')).map(([url])=>url),
+    ['/api/orders/ord-1/bendo'],'el reintento usa solo la ruta bendo');
 });

@@ -30,7 +30,7 @@ test("/panel y subrutas van al binding PANEL; /panelx no", async () => {
 test("/api y /media van al binding PANEL (checkout y media R2); prefijos parecidos no", async () => {
   const calls = [];
   const env = { PANEL: { fetch: request => { calls.push(request); return Promise.resolve(new Response("panel")); } } };
-  for (const path of ["/api", "/api/sedes", "/api/orders", "/api/payphone/return", "/media", "/media/panel/pizza/a.webp"]) {
+  for (const path of ["/api", "/api/sedes", "/api/orders", "/api/bendo/return", "/media", "/media/panel/pizza/a.webp"]) {
     const request = new Request(`https://pizza.menu.test${path}`);
     assert.equal((await clubBinding(request, env)).status, 200, path);
     assert.equal(calls.at(-1), request, path);
@@ -101,7 +101,7 @@ test("handle: /gracias sirve el recibo con cabeceras privadas (sin caché ni ind
   assert.equal((await handle(U("pizza.menu.test", "/gracias/"), env2, "TPL")).status, 200);
 });
 
-test("handle: retorno de Payphone a / → 302 /gracias conservando pedido, token y resultado", async () => {
+test("handle: retorno antiguo a / → 302 /gracias conservando pedido, token y resultado", async () => {
   const out = await handle(U("pizza.menu.test", "/?pago=pendiente&pedido=ord-1&token=tok-1&utm=x"), env2, "TPL");
   assert.equal(out.status, 302);
   assert.equal(out.headers.location, "/gracias?pedido=ord-1&token=tok-1&pago=pendiente");

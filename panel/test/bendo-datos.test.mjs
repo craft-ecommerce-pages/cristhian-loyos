@@ -31,13 +31,13 @@ const orderRow = {
   subtotal_cents: 1_700, total_cents: 1_700, items: JSON.stringify([{ product_id: "margarita", name: "Margarita", qty: 2, unit_cents: 850, subtotal_cents: 1_700, report_category: "tradicional" }]),
   customer_name: "Ana", customer_phone: "0991234567", delivery_mode: "pickup", address: null, table_no: "3",
   note: "sin cebolla", staff_id: "l_ABC1234567", idempotency_key: "pedido-prev-0001", idempotency_hash: "hash-prev-1",
-  paid_at: 1_760_000_002_000, payment_method: "payphone", billing_document_type: "cedula",
+  paid_at: 1_760_000_002_000, payment_method: "cash", billing_document_type: "cedula",
   billing_document_number: "1712345678", billing_email: "ana@example.com", billing_address: "Av. 1", ready_at: 1_760_000_003_000,
 };
 const paymentRow = {
-  id: "pago-prev-1", slug: "pizza", order_id: "orden-prev-1", provider: "payphone", idempotency_key: "pago-prev-0001",
-  status: "paid", amount_cents: 1_700, currency: "USD", provider_ref: "ABCDEFGHJKLMNPQ", provider_id: "mABCDEFGHJKLM",
-  url: "https://pay.payphonetodoesposible.com/test", authorization: "AUTH-PREV", message: null, attempts: 2,
+  id: "pago-prev-1", slug: "pizza", order_id: "orden-prev-1", provider: "cash", idempotency_key: "pago-prev-0001",
+  status: "paid", amount_cents: 1_700, currency: "USD", provider_ref: "ABCDEFGHJKLMNPQ", provider_id: null,
+  url: null, authorization: null, message: null, attempts: 2,
   created_at: 1_760_000_000_500, updated_at: 1_760_000_002_000, paid_at: 1_760_000_002_000,
 };
 

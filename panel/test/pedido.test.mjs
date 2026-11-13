@@ -1,6 +1,6 @@
 // Pedido Munch: datos fiscales obligatorios sin PII pública, transferencia
-// confirmada en caja, transición paid→ready y retorno de Payphone a /gracias
-// únicamente con el estado ya conciliado en servidor.
+// confirmada en caja, transición paid→ready y retiro de la pasarela antigua
+// (los métodos de tarjeta nuevos solo se aceptan vía Bendo).
 import test from "node:test";
 import assert from "node:assert/strict";
 import panel from "../src/index.js";
@@ -251,107 +251,19 @@ test("paid → ready: auth por sede, marca de tiempo e idempotencia", async () =
   assert.equal(response.status, 403);
 });
 
-test("Payphone vuelve a /gracias solo con el estado conciliado y sin duplicar comanda", async () => {
+test("Payphone retirado: no se acepta en pedidos nuevos y su retorno ya no existe", async () => {
   const env = pedidoEnv(), ctx = makeCtx();
-  env.PAYPHONE_MODE = "live";
-  env.PAYPHONE_TOKEN = "test-only";
-  env.MENU_PUBLIC_URL = "https://menu.example";
-  const owner = await ownerCookie(env);
-  const original = globalThis.fetch;
-  let confirmMode = "approved";
-  let prepared = 0;
-  globalThis.fetch = async (url, init) => {
-    if (String(url).endsWith("/api/button/Prepare")) {
-      prepared++;
-      if (confirmMode === "prepare-fail") throw new Error("sin red");
-      return Response.json({ payWithCard: "https://pay.payphonetodoesposible.com/card" });
-    }
-    if (String(url).endsWith("/api/button/V2/Confirm")) {
-      if (confirmMode === "timeout") throw new Error("sin red");
-      const payload = JSON.parse(init.body);
-      return Response.json({
-        statusCode: confirmMode === "rejected" ? 2 : 3,
-        transactionStatus: confirmMode === "rejected" ? "Canceled" : "Approved",
-        amount: 850, currency: "USD",
-        clientTransactionId: payload.clientTxId, transactionId: payload.id,
-        authorizationCode: confirmMode === "rejected" ? null : "AUTH-1",
-      });
-    }
-    throw new Error(`llamada inesperada: ${url}`);
-  };
-  try {
-    const created = await (await panel.fetch(body("/api/orders", webOrder({
-      idempotency_key: "payphone-gracias", payment_method: "payphone",
-    })), env, ctx)).json();
-    const started = await (await panel.fetch(body(`/api/orders/${created.id}/payphone`, {
-      order_token: created.order_token, idempotency_key: "ph-00001",
-    }), env, ctx)).json();
-    assert.equal(prepared, 1);
-    assert.equal(started.payment_url, "https://pay.payphonetodoesposible.com/card");
+  const created = await panel.fetch(body("/api/orders", webOrder({
+    idempotency_key: "payphone-retirado", payment_method: "payphone",
+  })), env, ctx);
+  assert.equal(created.status, 400);
+  assert.deepEqual(await created.json(), { error: "metodo_pago_invalido" });
 
-    let response = await panel.fetch(request(`/api/payphone/return?id=9001&clientTransactionId=${started.payment_id}`), env, ctx);
-    assert.equal(response.status, 302);
-    const location = new URL(response.headers.get("location"));
-    assert.equal(location.origin + location.pathname, "https://menu.example/gracias");
-    assert.equal(location.searchParams.get("pago"), "aprobado");
-    assert.equal(location.searchParams.get("pedido"), created.id);
-    assert.equal(location.searchParams.get("token"), created.order_token);
-    assert.equal(location.search.includes("1712345678"), false, "la URL no lleva el documento fiscal");
-    assert.equal(location.search.includes("ana%40example.com"), false, "la URL no lleva el correo");
-    assert.equal(comandas(env, created.id), 1);
-
-    // Recarga del retorno: misma URL de gracias, sin duplicar el cobro.
-    response = await panel.fetch(request(`/api/payphone/return?id=9001&clientTransactionId=${started.payment_id}`), env, ctx);
-    assert.equal(new URL(response.headers.get("location")).searchParams.get("pago"), "aprobado");
-    assert.equal(comandas(env, created.id), 1);
-
-    // Timeout: se muestra pendiente (nunca rechazado) y no hay comanda.
-    confirmMode = "timeout";
-    const pending = await (await panel.fetch(body("/api/orders", webOrder({
-      idempotency_key: "payphone-timeout", payment_method: "payphone",
-    })), env, ctx)).json();
-    const pendingStart = await (await panel.fetch(body(`/api/orders/${pending.id}/payphone`, {
-      order_token: pending.order_token, idempotency_key: "ph-00002",
-    }), env, ctx)).json();
-    response = await panel.fetch(request(`/api/payphone/return?id=9002&clientTransactionId=${pendingStart.payment_id}`), env, ctx);
-    assert.equal(response.status, 302);
-    assert.equal(new URL(response.headers.get("location")).searchParams.get("pago"), "pendiente");
-    assert.equal(comandas(env, pending.id), 0);
-    const pendingStatus = await (await panel.fetch(request(`/api/orders/${pending.id}?token=${pending.order_token}`), env, ctx)).json();
-    assert.equal(pendingStatus.status, "pending");
-    assert.equal(pendingStatus.payment_method, "payphone");
-    assert.equal(pendingStatus.payment_status, "unknown", "timeout queda en verificación, nunca rechazado");
-    assert.equal(pendingStatus.retryable, false, "unknown no se reintenta para no duplicar el cobro");
-
-    // Rechazo del banco: estado real rechazado y sin comanda.
-    confirmMode = "rejected";
-    const rejected = await (await panel.fetch(body("/api/orders", webOrder({
-      idempotency_key: "payphone-rechazo", payment_method: "payphone",
-    })), env, ctx)).json();
-    const rejectedStart = await (await panel.fetch(body(`/api/orders/${rejected.id}/payphone`, {
-      order_token: rejected.order_token, idempotency_key: "ph-00003",
-    }), env, ctx)).json();
-    response = await panel.fetch(request(`/api/payphone/return?id=9003&clientTransactionId=${rejectedStart.payment_id}`), env, ctx);
-    assert.equal(new URL(response.headers.get("location")).searchParams.get("pago"), "rechazado");
-    assert.equal(comandas(env, rejected.id), 0);
-    const rejectedStatus = await (await panel.fetch(request(`/api/orders/${rejected.id}?token=${rejected.order_token}`), env, ctx)).json();
-    assert.equal(rejectedStatus.status, "rejected");
-    assert.equal(rejectedStatus.payment_status, "rejected");
-
-    // Intento fallido antes de cobrar: el recibo puede reintentar sin duplicar.
-    confirmMode = "prepare-fail";
-    const failed = await (await panel.fetch(body("/api/orders", webOrder({
-      idempotency_key: "payphone-fallido", payment_method: "payphone",
-    })), env, ctx)).json();
-    const failedStart = await panel.fetch(body(`/api/orders/${failed.id}/payphone`, {
-      order_token: failed.order_token, idempotency_key: "ph-00004",
-    }), env, ctx);
-    assert.equal(failedStart.status, 502);
-    const failedStatus = await (await panel.fetch(request(`/api/orders/${failed.id}?token=${failed.order_token}`), env, ctx)).json();
-    assert.equal(failedStatus.status, "pending");
-    assert.equal(failedStatus.payment_status, "failed");
-    assert.equal(failedStatus.retryable, true);
-  } finally { globalThis.fetch = original; }
+  const returned = await panel.fetch(
+    request("/api/payphone/return?id=9001&clientTransactionId=ABCDEFGHJKLMNPQ"), env, ctx,
+  );
+  assert.equal(returned.status, 404);
+  assert.deepEqual(await returned.json(), { error: "ruta_no_encontrada" });
 });
 
 test("opciones de pago: transferencia solo con cuenta y WhatsApp oficiales", async () => {

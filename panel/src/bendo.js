@@ -429,8 +429,8 @@ async function mockBendoRedirect(env, url, ref, resultado) {
 
 /* ── Conciliación autenticada (caja) ─────────────────────────────────────── */
 
-// Reconsulta SIN ventana de tiempo y sin recobrar: el link de Bendo no expira a
-// los 5 minutos como el Confirm de Payphone.
+// Reconsulta SIN ventana de tiempo y sin recobrar: el link de Bendo no revierte
+// solo como el Confirm de la pasarela retirada.
 export async function reconcileBendo(env, site, session, payment) {
   if (!payment || payment.provider !== "bendo") return error("pago_no_existe", 404);
   const found = await posOrderForAction(env, site, session, encodeURIComponent(payment.order_id));

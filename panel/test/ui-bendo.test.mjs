@@ -116,7 +116,7 @@ function startPanel({ posOrders = [CONFIRMED_CAJA], bendo = true, bendoMissing =
     const body = init.body ? JSON.parse(init.body) : null;
     calls.push({ path, method, body });
     if (path === "/panel/api/me") return Response.json({ email: "dueno@pizza.ec", store: { store_name: "Pizza", currency: "USD" },
-      features: { loyalty: false }, payment_mode: "mock", bendo });
+      features: { loyalty: false }, bendo });
     if (path === "/panel/api/catalog") return Response.json({ version: 1, categories: [{ slug: "pizzas", name: "Pizzas" }], products: [], variant_groups: [] });
     if (path === "/panel/api/sedes") return Response.json({ sedes: [{ id: "centro", nombre: "Centro", activa: true }] });
     if (parsed.pathname === "/panel/api/pos/orders") {
@@ -136,7 +136,7 @@ function startPanel({ posOrders = [CONFIRMED_CAJA], bendo = true, bendoMissing =
     if (/^\/panel\/api\/payments\/[^/]+\/reconcile$/.test(parsed.pathname) && method === "POST") {
       return Response.json({ status: "aprobado", order_id: "o2", order_status: "paid" });
     }
-    if (/^\/panel\/api\/orders\/[^/]+\/(confirm|reject|pay-cash|pay-transfer|ready|payphone)$/.test(parsed.pathname) && method === "POST") {
+    if (/^\/panel\/api\/orders\/[^/]+\/(confirm|reject|pay-cash|pay-transfer|ready)$/.test(parsed.pathname) && method === "POST") {
       return Response.json({ order: { id: parsed.pathname.split("/")[4], status: "paid" } });
     }
     if (path.startsWith("/panel/api/orders")) return Response.json({ orders: [], total: 0, pending: 0 });

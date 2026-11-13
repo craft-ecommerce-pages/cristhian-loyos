@@ -135,7 +135,7 @@ function startPanel({ posOrders = DEFAULT_POS_ORDERS, transferMissing = false } 
       events.push("ack");
       return Response.json({ order_id: parsed.pathname.split("/")[5], print_count: 1, printed_at: Date.now() });
     }
-    if (/^\/panel\/api\/orders\/[^/]+\/(confirm|reject|pay-cash|pay-transfer|ready|payphone)$/.test(parsed.pathname) && method === "POST") {
+    if (/^\/panel\/api\/orders\/[^/]+\/(confirm|reject|pay-cash|pay-transfer|ready)$/.test(parsed.pathname) && method === "POST") {
       const action = parsed.pathname.split("/").pop();
       if (transferMissing && action === "pay-transfer") return Response.json({ error: "ruta_no_encontrada" }, { status: 404 });
       const status = action === "confirm" ? "confirmed" : action === "ready" ? "ready" : action === "reject" ? "rejected" : "paid";
@@ -226,7 +226,7 @@ test("la lista separa confirmar de cobrar y no imprime en estados sin pago", asy
   assert.match(doc.body.textContent, /Confirmado · falta cobro/);
   assert.match(doc.body.textContent, /Pendiente/);
   assert.match(doc.body.textContent, /Cobrar efectivo/);
-  assert.equal(doc.body.textContent.includes("Payphone (simulación)"), false);
+  assert.equal(doc.body.textContent.includes("Payphone"), false, "la caja ya no ofrece el cobro con Payphone");
   assert.equal(doc.body.textContent.includes("Imprimir comanda"), false, "la caja no imprime antes de pagar");
 
   const confirm = find(doc.body, node => node.tagName === "button" && node.textContent === "Confirmar");
@@ -383,4 +383,18 @@ test("Pedidos también muestra las órdenes web/caja con sede", async () => {
   assert.match(doc.body.textContent, /Confirmado · falta cobro/);
   assert.match(doc.body.textContent, /Cobrar efectivo/);
   assert.match(doc.body.textContent, /Centro/, "muestra el nombre de la sede");
+});
+
+test("una fila histórica con pago Payphone se etiqueta como histórica y no ofrece cobro", async () => {
+  const { doc } = await openNewOrder({
+    posOrders: [
+      { id: "o8", number: 48, status: "confirmed", source: "caja", sede_id: "centro", total_cents: 950,
+        currency: "USD", created_at: 0, customer_name: "Ana", payment_method: "payphone",
+        items: [{ name: "Pizza margarita", qty: 1, unit_cents: 950 }] },
+    ],
+  });
+  assert.match(doc.body.textContent, /tarjeta Payphone \(histórico\)/);
+  assert.equal(find(doc.body, node => node.tagName === "button" && node.textContent === "Payphone"), null,
+    "no hay botón de cobro Payphone");
+  assert.match(doc.body.textContent, /Esperando confirmación de la tarjeta/);
 });

@@ -287,7 +287,7 @@ const SEDE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const IDEM_RE = /^[A-Za-z0-9_.:-]{8,100}$/;
 const PRODUCT_ID_RE = /^[A-Za-z0-9_-]{1,120}$/;
 const DELIVERY_MODES = new Set(["delivery", "pickup", "mesa"]);
-const PAYMENT_METHODS = new Set(["cash", "transfer", "payphone", "bendo"]);
+const PAYMENT_METHODS = new Set(["cash", "transfer", "bendo"]);
 
 // Facturación: identificación ecuatoriana normalizada. No se valida contra el
 // SRI; solo formato. La factura NO se emite por capturar estos datos.
@@ -691,10 +691,6 @@ export async function createPosOrder(env, site, body, options = {}) {
   }
   const priced = await pricePosItems(env, site.slug, order.items);
   if (priced.error) return error(priced.error, priced.status, priced.product_id ? { product_id: priced.product_id } : {});
-  if (source === "web" && order.payment_method === "payphone" &&
-      !(env.PAYPHONE_MODE === "live" && typeof env.PAYPHONE_TOKEN === "string" && env.PAYPHONE_TOKEN)) {
-    return error("payphone_no_disponible", 503);
-  }
   if (source === "web" && order.payment_method === "bendo" && !bendoAvailable(env)) {
     return error("bendo_no_disponible", 503);
   }
@@ -755,7 +751,7 @@ async function latestPosPayment(env, slug, orderId) {
 }
 
 // Estado de pago público derivado del pedido y su último intento. `unknown`
-// (timeout de Payphone o Bendo) nunca se degrada a rechazo; un intento fallido
+// (timeout de la pasarela de tarjeta) nunca se degrada a rechazo; un intento fallido
 // antes de cobrar es el único caso reintentable sin riesgo de duplicar el cobro.
 function publicPaymentStatus(row, payment) {
   if (row.status === "paid") return "paid";
@@ -775,13 +771,12 @@ function publicPaymentMessage(paymentStatus, method) {
   if (paymentStatus === "unknown") {
     return card
       ? "Estamos verificando el pago con tarjeta. No vuelvas a pagar."
-      : "Estamos verificando el pago con Payphone. No vuelvas a pagar.";
+      : "Estamos verificando el pago. No vuelvas a pagar.";
   }
   if (paymentStatus === "failed") {
-    return card ? "No se completó el pago con tarjeta." : "No se completó el pago con Payphone.";
+    return card ? "No se completó el pago con tarjeta." : "No se completó el pago.";
   }
   if (paymentStatus === "rejected") {
-    if (method === "payphone") return "El pago no fue aprobado por Payphone.";
     if (card) return "El pago con tarjeta no fue aprobado.";
     return "El pedido fue rechazado.";
   }
@@ -802,7 +797,7 @@ export async function getPosOrderStatus(env, site, encodedId, token) {
   const payment = row.status === "paid" || row.status === "rejected"
     ? null : await latestPosPayment(env, site.slug, row.id);
   const paymentStatus = publicPaymentStatus(row, payment);
-  const retryable = (row.payment_method === "payphone" || row.payment_method === "bendo") &&
+  const retryable = row.payment_method === "bendo" &&
     payment?.status === "failed" && row.status !== "paid" && row.status !== "rejected";
   const paymentMessage = publicPaymentMessage(paymentStatus, row.payment_method || "cash");
   return json({
@@ -938,7 +933,7 @@ export async function listPosOrders(env, site, session, request) {
   return json({ orders: (rows.results || []).map(row => posOrderData(row)) });
 }
 
-/* ── Pagos: efectivo confirmado por operador y Payphone ──────────────────── */
+/* ── Pagos: efectivo confirmado por operador y tarjeta (Bendo) ────────────── */
 
 export async function posPaymentByKey(env, slug, orderId, key) {
   return env.DB.prepare("SELECT * FROM pos_payments WHERE slug = ? AND order_id = ? AND idempotency_key = ?")

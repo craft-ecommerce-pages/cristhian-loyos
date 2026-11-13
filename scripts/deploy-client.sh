@@ -15,7 +15,6 @@
 #   ENGINE_ORIGIN (/v1 por defecto), SESSION_SECRET, ADMIN_TOKEN,
 #   WRANGLER_SPEC (wrangler@4.160.0 por defecto), NO_MIGRATIONS=1,
 #   MENU_PUBLIC_URL / PANEL_PUBLIC_URL (smoke GET al final)
-#   PAYPHONE_MODE (disabled por defecto)
 #   BENDO_MODE (disabled por defecto), BENDO_ENV (staging por defecto),
 #   BENDO_POINT_OF_SALE (uuid; vacío = se resuelve vía API de Bendo),
 #   BENDO_CLIENT_ID / BENDO_CLIENT_SECRET (secrets del panel; se conservan si faltan)
@@ -52,8 +51,6 @@ check RATELIMIT_NAMESPACE_ID '^[0-9]+$' 'id numérico de rate limit namespace'
 
 export ENGINE_ORIGIN="${ENGINE_ORIGIN:-/v1}"
 export MENU_PUBLIC_URL="${MENU_PUBLIC_URL:-}"
-export PAYPHONE_MODE="${PAYPHONE_MODE:-disabled}"
-check PAYPHONE_MODE '^(disabled|mock|live)$' 'modo Payphone'
 # Bendo: sin modo explícito queda apagado. El punto de venta es opcional: vacío
 # deja que el adaptador lo resuelva con GET /api/v4/points-of-sale (KV 24 h).
 export BENDO_MODE="${BENDO_MODE:-disabled}"
@@ -133,7 +130,6 @@ put_secret() {
 }
 put_secret SESSION_SECRET
 put_secret ADMIN_TOKEN
-put_secret PAYPHONE_TOKEN
 # Bendo: credenciales por comercio (staging o producción según BENDO_ENV). Nunca en Git.
 put_secret BENDO_CLIENT_ID
 put_secret BENDO_CLIENT_SECRET

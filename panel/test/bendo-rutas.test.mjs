@@ -29,7 +29,6 @@ function bendoEnv(mode = "mock", extra = {}) {
   });
   env.CLIENT_SLUG = "munch";
   env.BENDO_MODE = mode;
-  env.PAYPHONE_MODE = "mock";
   Object.assign(env, extra);
   env.DB.raw.prepare("INSERT INTO catalogs (slug, doc, version, updated_at) VALUES (?, ?, 1, ?)")
     .run("munch", JSON.stringify({ categories: [], packagings: [], variant_groups: [], products: [product] }), Date.now());
@@ -249,26 +248,6 @@ test("caja: cobrar con tarjeta por el panel y conciliar la referencia", async ()
   assert.equal(comandas(env, order.id), 1);
 });
 
-test("la misma ruta de conciliación sigue despachando Payphone por referencia", async () => {
-  const env = bendoEnv("mock");
-  const cookie = await ownerCookie(env);
-  const order = await cajaOrder(env, {}, cookie, "caja-payphone-0001");
-  const started = await (await panel.fetch(body(`/panel/api/orders/${order.id}/payphone`, {
-    idempotency_key: "pay-pago-0001",
-  }, { headers: { cookie } }), env, {})).json();
-  // Payphone adjunta el id en el retorno; aquí se deja `unknown` con id para conciliar.
-  const id = `m${started.payment_id.slice(0, 12)}`;
-  env.DB.raw.prepare(
-    "UPDATE pos_payments SET status = 'unknown', provider_id = ?, updated_at = ? WHERE order_id = ? AND idempotency_key = ?",
-  ).run(id, Date.now(), order.id, "pay-pago-0001");
-
-  const response = await panel.fetch(body(`/panel/api/payments/${started.payment_id}/reconcile`, {}, { headers: { cookie } }), env, {});
-  assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), { status: "aprobado", order_id: order.id, order_status: "paid" });
-  assert.equal(paymentOf(env, order.id, "pay-pago-0001").status, "paid");
-  assert.equal(comandas(env, order.id), 1);
-});
-
 /* ── Live: link real simulado con fetch falso ───────────────────────────── */
 
 test("live: link de Bendo, webhook sin JSON y return al menú con el estado conciliado", async () => {
@@ -366,11 +345,11 @@ test("live: un 5xx al verificar deja el pago unknown (nunca rechazo) y el cron l
     assert.equal(paymentOf(env, order.id, "caja-pago-live1").status, "unknown");
     assert.equal(comandas(env, order.id), 0);
 
-    // Cron: ambos proveedores se concilian en paralelo con ctx.waitUntil.
+    // Cron: solo queda el job de Bendo.
     falla = false;
     const pending = [];
     panel.scheduled({ cron: "* * * * *" }, env, { waitUntil: promise => pending.push(promise) });
-    assert.equal(pending.length, 2, "Payphone y Bendo no se bloquean entre sí");
+    assert.equal(pending.length, 1, "el cron concilia la tarjeta con Bendo");
     await Promise.all(pending);
 
     assert.equal(paymentOf(env, order.id, "caja-pago-live1").status, "paid");
@@ -412,7 +391,7 @@ test("cron mock: concilia el pendiente reciente y deja el viejo para revisión",
   // Una segunda pasada no duplica la comanda ya emitida.
   const second = [];
   panel.scheduled({}, env, { waitUntil: promise => second.push(promise) });
-  assert.equal(second.length, 2);
+  assert.equal(second.length, 1);
   await Promise.all(second);
   assert.equal(comandas(env, fresh.id), 1);
   assert.equal(comandas(env, old.id), 0);

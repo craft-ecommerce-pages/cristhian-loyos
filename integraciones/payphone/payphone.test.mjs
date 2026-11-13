@@ -1,10 +1,12 @@
 // Payphone: Prepare + V2/Confirm con mock local (sin red), retorno idempotente y
 // conciliación ante timeout. Nunca se llama al proveedor real sin PAYPHONE_MODE=live + token.
+// ARCHIVADO (2026-11-13): no forma parte de la suite ni del código desplegado. Para
+// ejecutarlo hay que reintegrar los puntos de enganche del README.
 import test from "node:test";
 import assert from "node:assert/strict";
-import panel from "../src/index.js";
-import { preparePayphone } from "../src/payphone.js";
-import { makeCtx, makeEnv } from "./helpers.mjs";
+import panel from "../../panel/src/index.js";
+import { preparePayphone } from "./payphone.js";
+import { makeCtx, makeEnv } from "../../panel/test/helpers.mjs";
 
 const host = "pizza.craft-systems.com";
 const request = (path, options = {}) => new Request(`https://${host}${path}`, options);

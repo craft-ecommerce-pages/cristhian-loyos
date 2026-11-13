@@ -15,7 +15,6 @@ workers_dev = true
 # Mismo slug que el Worker de menú: resuelve el host (workers.dev o dominio propio) a sus datos.
 CLIENT_SLUG = "${CLIENT_SLUG}"
 MENU_PUBLIC_URL = "${MENU_PUBLIC_URL}"
-PAYPHONE_MODE = "${PAYPHONE_MODE}"
 # Bendo (tarjeta, link hospedado): disabled | mock | live. staging | production
 # eligen idp/api de Geopagos. BENDO_POINT_OF_SALE vacío = se resuelve con
 # GET /api/v4/points-of-sale (cache KV 24 h); nunca se envía una cadena vacía.
@@ -46,11 +45,11 @@ name = "LOGIN_LIMITER"
 namespace_id = "${RATELIMIT_NAMESPACE_ID}"
 simple = { limit = 10, period = 60 }
 
-# Cron cada minuto: concilia pagos Payphone `unknown` dentro de la ventana de 5 minutos
-# (reconsulta V2/Confirm sin recobrar). El handler `scheduled` vive en src/index.js.
+# Cron cada minuto: reconsulta los links de Bendo `pending/unknown` de las
+# últimas 2 h sin recobrar. El handler `scheduled` vive en src/index.js.
 [triggers]
 crons = ["* * * * *"]
 
 # Secrets (wrangler secret put; los aplica el workflow con SESSION_SECRET y ADMIN_TOKEN):
-# SESSION_SECRET, ADMIN_TOKEN, PAYPHONE_TOKEN, BENDO_CLIENT_ID, BENDO_CLIENT_SECRET.
+# SESSION_SECRET, ADMIN_TOKEN, BENDO_CLIENT_ID, BENDO_CLIENT_SECRET.
 # LOYALTY_ADMIN_TOKEN solo si algún día se despliega el club.

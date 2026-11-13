@@ -319,7 +319,7 @@ test("Munch: retiro obligatorio y método de pago persistido", async () => {
   const created = await transfer.json();
   assert.equal(created.payment_method, "transfer");
   assert.equal(rowOf(env, created.id).payment_method, "transfer");
-  const card = await panel.fetch(body("/api/orders", webOrder({ payment_method: "payphone", idempotency_key: "card-11111111" })), env, ctx);
+  const card = await panel.fetch(body("/api/orders", webOrder({ payment_method: "bendo", idempotency_key: "card-11111111" })), env, ctx);
   assert.equal(card.status, 503);
-  assert.equal((await card.json()).error, "payphone_no_disponible");
+  assert.equal((await card.json()).error, "bendo_no_disponible");
 });

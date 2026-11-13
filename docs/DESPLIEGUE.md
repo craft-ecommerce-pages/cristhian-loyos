@@ -55,7 +55,6 @@ En **Settings → Secrets and variables → Actions** de este repositorio:
 | `RATELIMIT_NAMESPACE_ID` | Namespace del rate limit del login. |
 | `SESSION_SECRET` | Firma de sesión del panel (obligatorio para operar). |
 | `ADMIN_TOKEN` | API `/admin/*` del panel. |
-| `PAYPHONE_TOKEN` | Token del botón de pago Payphone (`PAYPHONE_MODE=live`). |
 | `BENDO_CLIENT_ID` | Credencial OAuth `client_credentials` de Bendo del comercio. |
 | `BENDO_CLIENT_SECRET` | Secreto OAuth de Bendo. Nunca en Git ni en logs. |
 
@@ -66,12 +65,11 @@ Variables del repositorio (`vars`), todas opcionales; `scripts/deploy-client.sh`
 | `ENGINE_ORIGIN` | `/v1` | `/v1` o una URL `https://` del motor de assets. |
 | `MENU_PUBLIC_URL` | vacío | Base pública del menú; habilita el smoke final y los retornos a `/gracias`. |
 | `PANEL_PUBLIC_URL` | vacío | Base pública del panel para el smoke final. |
-| `PAYPHONE_MODE` | `disabled` | `disabled` · `mock` · `live`. |
 | `BENDO_MODE` | `disabled` | `disabled` · `mock` · `live` (validado con `^(disabled\|mock\|live)$`). |
 | `BENDO_ENV` | `staging` | `staging` · `production` (validado con `^(staging\|production)$`); elige idp/API de Geopagos. |
 | `BENDO_POINT_OF_SALE` | vacío | uuid del punto de venta. Vacío: el adaptador lo resuelve con `GET /api/v4/points-of-sale` y lo cachea 24 h en KV. |
 
-Los secrets `SESSION_SECRET`, `ADMIN_TOKEN`, `PAYPHONE_TOKEN`, `BENDO_CLIENT_ID` y `BENDO_CLIENT_SECRET` se envían con `wrangler secret put` en cada despliegue solo si están definidos; si faltan, se conserva el valor existente en el Worker. En el primer despliegue el panel arranca sin sesión operativa hasta que se aplican los secrets (segundos después).
+Los secrets `SESSION_SECRET`, `ADMIN_TOKEN`, `BENDO_CLIENT_ID` y `BENDO_CLIENT_SECRET` se envían con `wrangler secret put` en cada despliegue solo si están definidos; si faltan, se conserva el valor existente en el Worker. En el primer despliegue el panel arranca sin sesión operativa hasta que se aplican los secrets (segundos después).
 
 ## 3. Pruebas y build en local (obligatorio antes de publicar)
 
@@ -160,8 +158,8 @@ En el HTML del menú, `catalog.css` y `catalog.js` deben apuntar a `/v1/...` del
 ## 8. Límites y pendientes conocidos
 
 - La media pública se sirve como `/media/<key>` desde el Worker del panel con el binding R2 (`panel/src/media.js`). El Worker de menú reenvía `/api/*` y `/media/*` al panel vía service binding `PANEL`; no se usa `media.craft-systems.com` para media nueva. `MEDIA_ORIGIN` sigue siendo opcional si se configura un dominio de media dedicado.
-- El panel concilia pagos Payphone `unknown` con la ruta autenticada `POST /panel/api/payments/:ref/reconcile` y con un cron cada minuto (`[triggers]` en `panel/wrangler.toml`) limitado a la ventana de 5 minutos. Nunca recobra.
-- Bendo (tarjeta, link hospedado de Geopagos) se activa por separado con `BENDO_MODE` y sus secrets; no reemplaza a Payphone. Sin `BENDO_MODE=mock` ni `BENDO_MODE=live` con ambas credenciales, el pedido web con `payment_method=bendo` responde `503 bendo_no_disponible` y `GET /api/payment-options` no anuncia `bendo`. Con `${{ vars.BENDO_POINT_OF_SALE }}` vacío el punto de venta se resuelve por API y se cachea en KV; el valor vacío nunca se envía como `point_of_sale`.
+- El panel concilia pagos con tarjeta (Bendo) `pending/unknown` con la ruta autenticada `POST /panel/api/payments/:ref/reconcile` y con un cron cada minuto (`[triggers]` en `panel/wrangler.toml`) limitado a los links de las últimas 2 h. Nunca recobra.
+- Bendo (tarjeta, link hospedado de Geopagos) se activa con `BENDO_MODE` y sus secrets. Sin `BENDO_MODE=mock` ni `BENDO_MODE=live` con ambas credenciales, el pedido web con `payment_method=bendo` responde `503 bendo_no_disponible` y `GET /api/payment-options` no anuncia `bendo`. Con `${{ vars.BENDO_POINT_OF_SALE }}` vacío el punto de venta se resuelve por API y se cachea en KV; el valor vacío nunca se envía como `point_of_sale`. La integración de Payphone está archivada en `integraciones/payphone/` y no se despliega.
 - El panel no declara binding `LOYALTY`: las rutas de club responden 503/omitidas hasta que exista ese Worker en la cuenta del cliente.
 - Sin `CLIENT_SLUG` correcto o sin claves KV, el sitio responde 404; no hay fallback silencioso a recursos de Craft.
 - Este repositorio no crea recursos ni dominios: los IDs llegan por secrets y los custom domains se autorizan en la cuenta del cliente.
