@@ -299,7 +299,7 @@ async function startBendoForOrder(request, env, site, order, key, caja) {
   if (caja && order.status !== "confirmed" && order.status !== "paid") return error("estado_invalido", 409);
   if (order.status === "paid") return error("orden_ya_pagada", 409);
   if (order.status === "rejected") return error("estado_invalido", 409);
-  const payment = existing || await createPaymentAttempt(env, site.slug, order, key, "bendo");
+  const payment = existing || await createPaymentAttempt(env, site.slug, order, key, "bendo", "link");
   if (!payment) return error("idempotencia_conflicto", 409);
   const origin = new URL(request.url).origin;
   let link;
