@@ -18,6 +18,7 @@ import {
   sedesAllowed, sedesFor, setMeseroOrderStatus, setOrderStatus, transferInfo, upsertSedes,
 } from "./orders.js";
 import { handleGetInvoice, handleRetryInvoice } from "./invoices.js";
+import { handleTurnosApi } from "./turnos.js";
 import {
   bendoAvailable, handleBendoMock, handleBendoReturn, handleBendoWebhook, reconcileBendo, startBendo, startPublicBendo,
 } from "./bendo.js";
@@ -70,8 +71,11 @@ export async function handleApi(request, env, ctx, site) {
   if (request.method === "POST" && path === "reset") return reset(request, env, site);
   // Modo caja: sesión propia (cookie caja_s) o la del dueño, nunca la del panel para el resto de rutas.
   if (path === "caja" || path.startsWith("caja/")) return handleCajaApi(request, env, site, path);
-  // POS: acciones de pedido (confirmar/rechazar/cobrar/listo) y pantallas de caja/cocina.
-  if (path === "pos/orders" || path === "kitchen" || path.startsWith("kitchen/") ||
+  // POS: acciones de pedido (confirmar/rechazar/cobrar/listo), pantallas de caja/cocina
+  // y turnos de caja. Todos comparten la resolución de sesión de handlePosApi
+  // (dueño o cookie caja_s); las rutas turnos/* las atiende turnos.js.
+  if (path === "pos/orders" || path === "kitchen" || path.startsWith("kitchen/") || path === "turnos" ||
+    path.startsWith("turnos/") ||
     /^orders\/[^/]+\/(confirm|reject|pay-cash|pay-transfer|bendo|ready)$/.test(path)) return handlePosApi(request, env, ctx, site, path);
 
   const session = await readSession(request, env, site.slug);
@@ -127,6 +131,9 @@ async function handlePosApi(request, env, ctx, site, path) {
   const caja = panel ? null : await readCajaSession(request, env, site.slug);
   const session = panel ? { staff_id: OWNER_STAFF, owner: true } : caja ? { staff_id: caja.staff_id, owner: false } : null;
   if (!session) return error("sin_sesion", 401);
+  // Turnos y cierre de caja (0012): el cajero solo opera sus sedes y el cajero
+  // nunca recibe ventas/esperado/diferencia antes de cerrar (arqueo ciego).
+  if (path === "turnos" || path.startsWith("turnos/")) return handleTurnosApi(request, env, site, session, path);
   if (request.method === "GET" && path === "pos/orders") return listPosOrders(env, site, session, request);
   if (request.method === "GET" && path === "kitchen/orders") return listKitchenOrders(env, site, session, request);
   const print = /^kitchen\/orders\/([^/]+)\/print$/.exec(path);
