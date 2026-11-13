@@ -1,5 +1,10 @@
 // MS2: página móvil para recibir, corregir y mandar a cocina las comandas.
-import { ticketColumns, ticketLines, ticketPageHeight } from "../../shared/ticket.js";
+import {
+  shiftTicketLines,
+  ticketColumns,
+  ticketLines,
+  ticketPageHeight,
+} from "../../shared/ticket.js";
 import { meseroBoot } from "./api.js";
 
 export async function renderMeseroPage(request, env, site) {
@@ -26,6 +31,7 @@ Cargando Modo mesero…</div></main>
 <script id="meseroTicket">var __ticket=${String(ticketLines)};window.__meseroTicket=__ticket;</script>
 <script id="meseroColumns">var __columns=${String(ticketColumns)};window.__meseroColumns=__columns;</script>
 <script id="meseroHeight">var __height=${String(ticketPageHeight)};window.__meseroHeight=__height;</script>
+<script id="meseroShiftTicket">var __shiftTicket=${String(shiftTicketLines)};window.__meseroShiftTicket=__shiftTicket;</script>
 <script id="meseroMain">${String(meseroRuntime)}
 meseroRuntime();</script></body></html>`;
 }
@@ -417,6 +423,56 @@ transition:opacity .2s,transform .2s}
 .toast.show{opacity:1;
 transform:translate(-50%,0)}
 .toast.bad{background:var(--danger)}
+.shift-head{display:flex;
+align-items:center;
+justify-content:space-between;
+gap:10px}
+.shift-state{font-size:15px;
+font-weight:800}
+.shift-when{display:block;
+margin-top:2px}
+.shift-actions{display:flex;
+flex-wrap:wrap;
+gap:8px;
+margin-top:12px}
+.shift-actions .btn{flex:1 1 45%}
+.shift-moves{margin:12px 0 0;
+padding:0;
+list-style:none;
+border-top:1px solid var(--line);
+font-size:13px}
+.shift-moves li{display:flex;
+justify-content:space-between;
+gap:10px;
+padding:6px 0;
+border-bottom:1px solid var(--line)}
+.shift-moves li:last-child{border-bottom:0}
+.shift-moves span:last-child{white-space:nowrap;
+font-variant-numeric:tabular-nums}
+.shift-total{display:flex;
+justify-content:space-between;
+gap:10px;
+padding:7px 0;
+border-bottom:1px solid var(--line)}
+.shift-total:last-child{border-bottom:0}
+.shift-total b{font-variant-numeric:tabular-nums;
+white-space:nowrap}
+.negative{color:var(--danger)}
+.positive{color:var(--ok)}
+.denom-row{display:flex;
+align-items:center;
+justify-content:space-between;
+gap:10px;
+padding:7px 0;
+border-bottom:1px solid var(--line)}
+.denom-row:last-child{border-bottom:0}
+.denom-row span{font-size:13px;
+color:var(--ink2);
+font-weight:650}
+.denom-row input{width:88px;
+flex:none;
+padding:8px;
+text-align:right}
 details{margin:16px 0;
 color:var(--ink2);
 font-size:13px}
@@ -444,6 +500,10 @@ function meseroRuntime() {
     typeof window.__meseroHeight === "function"
       ? window.__meseroHeight
       : (lineCount) => Math.max(50, Math.ceil(Number(lineCount) * 3.8 + 8));
+  const shiftTicket =
+    typeof window.__meseroShiftTicket === "function"
+      ? window.__meseroShiftTicket
+      : () => [];
   const MESSAGES = {
     pin_invalido: "PIN incorrecto. Revísalo con el dueño del menú.",
     demasiados_intentos:
@@ -461,6 +521,13 @@ function meseroRuntime() {
     producto_no_disponible: "Un producto ya no está disponible.",
     orden_ya_pagada: "Ese pedido ya está pagado.",
     idempotencia_conflicto: "Ese intento ya se usó con otros datos. Vuelve a intentar.",
+    caja_cerrada: "Abre la caja de esta sede para cobrar.",
+    caja_ya_abierta: "Esta sede ya tiene una caja abierta.",
+    turno_cerrado: "Ese turno ya está cerrado.",
+    monto_invalido: "Revisa el monto: debe ser mayor que cero.",
+    motivo_invalido: "Escribe un motivo de 3 a 120 caracteres.",
+    fondo_invalido: "Revisa el fondo inicial: no puede ser negativo.",
+    conteo_invalido: "Escribe el efectivo contado para cerrar la caja.",
   };
   let me = null,
     catalog = null,
@@ -474,7 +541,11 @@ function meseroRuntime() {
     query = "",
     category = "",
     repaintItems = null,
-    loadedAt = 0;
+    loadedAt = 0,
+    shift = null,
+    shiftSede = "",
+    shiftStatus = "ok",
+    closedReport = null;
   // Botón "atrás" (Android/tablet): Nuevo pedido y cada modal son entradas del historial.
   const H =
     window.history && typeof window.history.pushState === "function"
@@ -567,6 +638,46 @@ function meseroRuntime() {
       return "$" + amount(value).toFixed(2);
     }
   };
+  // El turno trabaja en centavos enteros: se formatea sin dividir por 100 con flotantes.
+  const moneyCents = (value) => {
+    const number = Number.isFinite(Number(value)) ? Math.trunc(Number(value)) : 0;
+    const sign = number < 0 ? "-" : "";
+    const abs = Math.abs(number);
+    return (
+      sign + "$" + Math.floor(abs / 100) + "." + String(abs % 100).padStart(2, "0")
+    );
+  };
+  // "20", "20.5", "20,50" → centavos. Devuelve null si no es un monto válido.
+  const centsFrom = (value) => {
+    const raw = text(value).replace(/\s+/g, "").replace(",", ".");
+    const match = /^(\d{0,9})(?:\.(\d{0,2}))?$/.exec(raw);
+    if (!match || (!match[1] && !match[2])) return null;
+    const units = Number(match[1] || 0);
+    const fraction = (match[2] || "").padEnd(2, "0");
+    return units * 100 + Number(fraction || 0);
+  };
+  // Misma clave mientras el cuerpo no cambie: reintentar tras un corte de red
+  // no duplica el turno, el movimiento ni el cierre.
+  const idempotency = (state, body) => {
+    const fingerprint = JSON.stringify(body || {});
+    if (state.key && state.fingerprint === fingerprint) return state.key;
+    state.key = uuid();
+    state.fingerprint = fingerprint;
+    return state.key;
+  };
+  // Conteo opcional por denominaciones USD; todo suma en centavos enteros.
+  const DENOMINATIONS = [
+    { cents: 2000, label: "Billetes de $20" },
+    { cents: 1000, label: "Billetes de $10" },
+    { cents: 500, label: "Billetes de $5" },
+    { cents: 100, label: "Billetes de $1" },
+    { cents: 100, label: "Monedas de $1" },
+    { cents: 50, label: "Monedas de 50 ¢" },
+    { cents: 25, label: "Monedas de 25 ¢" },
+    { cents: 10, label: "Monedas de 10 ¢" },
+    { cents: 5, label: "Monedas de 5 ¢" },
+    { cents: 1, label: "Monedas de 1 ¢" },
+  ];
   function uuid() {
     try {
       if (window.crypto && typeof window.crypto.randomUUID === "function")
@@ -680,6 +791,30 @@ function meseroRuntime() {
     };
     try {
       const response = await fetch("/panel/api/" + path, options);
+      return {
+        status: response.status,
+        data:
+          response.status === 204
+            ? {}
+            : await response.json().catch(() => ({})),
+      };
+    } catch {
+      return { status: 0, data: {} };
+    }
+  }
+  // Turnos y cierre de caja: misma cookie de caja que el resto del panel.
+  async function callTurnos(path, body) {
+    const options = {
+      credentials: "same-origin",
+      headers: { accept: "application/json" },
+      method: body === undefined ? "GET" : "POST",
+    };
+    if (body !== undefined) {
+      options.body = JSON.stringify(body);
+      options.headers["content-type"] = "application/json";
+    }
+    try {
+      const response = await fetch("/panel/api/turnos/" + path, options);
       return {
         status: response.status,
         data:
@@ -956,6 +1091,7 @@ function meseroRuntime() {
       orders = Array.isArray(boot.orders) ? boot.orders : [];
       applySedes();
       loadedAt = Date.now();
+      await loadShift();
       return render();
     }
     const result = await call("me");
@@ -966,7 +1102,7 @@ function meseroRuntime() {
       return pinScreen("No pudimos abrir el Modo mesero. Intenta de nuevo.");
     me = result.data || {};
     applySedes();
-    await Promise.all([loadCatalog(), loadOrders()]);
+    await Promise.all([loadCatalog(), loadOrders(), loadShift()]);
     if (!me) return;
     render();
   }
@@ -1067,6 +1203,625 @@ function meseroRuntime() {
     ready: "Listo para avisar",
     rejected: "Rechazado",
   };
+  const METHOD_LABEL = {
+    cash: "Efectivo",
+    transfer: "Transferencia",
+    bendo: "Tarjeta (Bendo)",
+    payphone: "Tarjeta (Payphone)",
+  };
+  // Estado de caja de la sede activa. El cajero ve el turno y sus movimientos,
+  // nunca ventas, esperado ni diferencia antes de cerrar (arqueo ciego).
+  async function loadShift() {
+    const wanted = sede;
+    if (!wanted) {
+      shift = null;
+      shiftSede = "";
+      shiftStatus = "ok";
+      closedReport = null;
+      return;
+    }
+    const result = await callTurnos("actual?sede_id=" + encodeURIComponent(wanted));
+    // La sede pudo cambiar mientras viajaba la consulta.
+    if (sede !== wanted) return;
+    if (result.status === 401) return sessionExpired();
+    if (result.status === 200) {
+      shift = result.data?.shift || null;
+      shiftSede = wanted;
+      shiftStatus = "ok";
+      if (closedReport && closedReport.sede_id !== wanted) closedReport = null;
+      return;
+    }
+    shift = null;
+    shiftSede = wanted;
+    shiftStatus =
+      result.status === 404 || result.status === 405 ? "no_disponible" : "error";
+  }
+  function shiftBar() {
+    const aria = { class: "card", "aria-label": "Caja de la sede" };
+    if (!sede)
+      return h(
+        "section",
+        aria,
+        h("strong", { class: "shift-state", text: "Caja" }),
+        h("p", {
+          class: "hint",
+          text: "Elige la sede para abrir la caja y cobrar.",
+        }),
+      );
+    if (shiftStatus === "no_disponible")
+      return h(
+        "section",
+        aria,
+        h("strong", { class: "shift-state", text: "Caja" }),
+        h("p", {
+          class: "hint",
+          text: "Esta versión del panel todavía no permite controlar la caja. Actualiza el panel.",
+        }),
+      );
+    if (shiftStatus === "error")
+      return h(
+        "section",
+        aria,
+        h("strong", { class: "shift-state", text: "Caja" }),
+        h("p", { class: "hint", text: "No pudimos consultar la caja de esta sede." }),
+        button("Reintentar", "btn small", (event) =>
+          act(event.currentTarget, async () => {
+            await loadShift();
+            render();
+          }),
+        ),
+      );
+    if (!shift)
+      return h(
+        "section",
+        aria,
+        h(
+          "div",
+          { class: "shift-head" },
+          h(
+            "div",
+            {},
+            h("strong", { class: "shift-state", text: "Caja cerrada" }),
+            sedeLabel(sede)
+              ? h("span", { class: "hint", text: sedeLabel(sede) })
+              : null,
+          ),
+        ),
+        h("p", {
+          class: "hint",
+          text: "Abre la caja antes de cobrar en efectivo o por transferencia.",
+        }),
+        h(
+          "div",
+          { class: "shift-actions" },
+          button("Abrir caja", "btn primary small", openShiftSheet),
+        ),
+      );
+    const opened = ecTime(shift.opened_at);
+    const moves = Array.isArray(shift.movements) ? shift.movements : [];
+    return h(
+      "section",
+      aria,
+      h(
+        "div",
+        { class: "shift-head" },
+        h(
+          "div",
+          {},
+          h("strong", { class: "shift-state", text: "Caja abierta" }),
+          h("span", {
+            class: "hint shift-when",
+            text: opened ? "Caja abierta desde " + opened : "Caja abierta",
+          }),
+          sedeLabel(sede)
+            ? h("span", { class: "hint", text: sedeLabel(sede) })
+            : null,
+        ),
+      ),
+      moves.length
+        ? h(
+            "ul",
+            { class: "shift-moves", "aria-label": "Movimientos de efectivo" },
+            moves.slice(-4).map((move) => {
+              const out = text(move?.kind) === "out";
+              return h(
+                "li",
+                {},
+                h("span", {
+                  text:
+                    (out ? "Retiro" : "Ingreso") +
+                    " · " +
+                    (text(move?.reason) || "Sin motivo") +
+                    (ecTime(move?.created_at) ? " · " + ecTime(move.created_at) : ""),
+                }),
+                h("span", {
+                  text: (out ? "−" : "+") + moneyCents(move?.amount_cents),
+                }),
+              );
+            }),
+          )
+        : null,
+      h(
+        "div",
+        { class: "shift-actions" },
+        button("Ingreso de efectivo", "btn small", () => movementSheet("in")),
+        button("Retiro de efectivo", "btn small", () => movementSheet("out")),
+        button("Cerrar caja", "btn danger small", closeShiftSheet),
+      ),
+    );
+  }
+  function reportCard() {
+    const report = closedReport;
+    if (!report) return null;
+    const sales = Array.isArray(report.sales) ? report.sales : [];
+    const movements =
+      report.movements && typeof report.movements === "object"
+        ? report.movements
+        : {};
+    const pending =
+      report.pending_payments && typeof report.pending_payments === "object"
+        ? report.pending_payments
+        : {};
+    const orders =
+      report.orders && typeof report.orders === "object" ? report.orders : {};
+    const difference = Number.isFinite(Number(report.difference_cents))
+      ? Math.trunc(Number(report.difference_cents))
+      : 0;
+    const row = (label, value, cls) =>
+      h(
+        "div",
+        { class: "shift-total" },
+        h("span", { text: label }),
+        h("b", { class: cls || "", text: value }),
+      );
+    const pendingCount = Math.max(0, Math.trunc(Number(pending.count) || 0));
+    return h(
+      "section",
+      { class: "card", "aria-labelledby": "cierre-titulo" },
+      h(
+        "div",
+        { class: "shift-head" },
+        h("h2", { id: "cierre-titulo", text: "Cierre de caja" }),
+        button("Imprimir cierre", "btn small", (event) =>
+          printShift(report, event.currentTarget),
+        ),
+      ),
+      h("p", {
+        class: "hint",
+        text:
+          "Turno cerrado" +
+          (ecTime(report.closed_at) ? " a las " + ecTime(report.closed_at) : "") +
+          (sedeLabel(report.sede_id) ? " · " + sedeLabel(report.sede_id) : ""),
+      }),
+      h("h3", { text: "Ventas del turno" }),
+      sales.length
+        ? h(
+            "div",
+            {},
+            sales.map((sale) =>
+              row(
+                (METHOD_LABEL[text(sale?.method)] || text(sale?.method) || "Otro") +
+                  " · " +
+                  Math.max(0, Math.trunc(Number(sale?.count) || 0)) +
+                  " pago(s)",
+                moneyCents(sale?.total_cents),
+              ),
+            ),
+          )
+        : h("p", { class: "hint", text: "Sin ventas en este turno." }),
+      row("Total ventas", moneyCents(report.sales_total_cents)),
+      h("h3", { text: "Efectivo" }),
+      row("Ingresos de efectivo", moneyCents(movements.in_cents)),
+      row("Retiros de efectivo", moneyCents(movements.out_cents)),
+      row("Efectivo esperado", moneyCents(report.expected_cash_cents)),
+      row("Efectivo contado", moneyCents(report.counted_cash_cents)),
+      row(
+        "Diferencia",
+        moneyCents(difference),
+        difference < 0 ? "negative" : difference > 0 ? "positive" : "",
+      ),
+      difference < 0
+        ? h("p", {
+            class: "hint negative",
+            text: "Faltante de caja: " + moneyCents(Math.abs(difference)) + ".",
+          })
+        : difference > 0
+          ? h("p", {
+              class: "hint positive",
+              text: "Sobrante de caja: " + moneyCents(difference) + ".",
+            })
+          : null,
+      pendingCount
+        ? h("p", {
+            class: "err",
+            role: "status",
+            text:
+              "Aviso: " +
+              pendingCount +
+              " pago(s) pendiente(s) por " +
+              moneyCents(pending.total_cents) +
+              " sin confirmar.",
+          })
+        : null,
+      orders.paid != null
+        ? row("Pedidos pagados", String(Math.max(0, Math.trunc(Number(orders.paid) || 0))))
+        : null,
+      orders.rejected != null
+        ? row(
+            "Pedidos rechazados",
+            String(Math.max(0, Math.trunc(Number(orders.rejected) || 0))),
+          )
+        : null,
+      report.note
+        ? h("p", { class: "order-note", text: "Nota: " + text(report.note) })
+        : null,
+    );
+  }
+  function openShiftSheet() {
+    if (!sede) return toast("Elige la sede antes de abrir la caja.", true);
+    const targetSede = sede;
+    const input = h("input", {
+      type: "text",
+      inputmode: "decimal",
+      autocomplete: "off",
+      placeholder: "0.00",
+      "aria-label": "Fondo inicial en dólares",
+    });
+    const error = h("p", { class: "err", role: "alert" });
+    const submit = h(
+      "button",
+      { type: "submit", class: "btn primary wide" },
+      "Abrir caja",
+    );
+    const state = {};
+    const run = async () => {
+      const cents = centsFrom(input.value);
+      if (cents === null) {
+        error.textContent = MESSAGES.fondo_invalido;
+        input.focus();
+        return;
+      }
+      const base = { sede_id: targetSede, opening_float_cents: cents };
+      const body = { ...base, idempotency_key: idempotency(state, base) };
+      const result = await callTurnos("abrir", body);
+      if (result.status === 401) return sessionExpired();
+      if (result.status === 409) {
+        dismissSheet();
+        // La misma clave puede devolver el turno ya abierto: no es un error.
+        if (result.data?.shift?.id) {
+          shift = result.data.shift;
+          shiftSede = targetSede;
+          shiftStatus = "ok";
+          closedReport = null;
+          await loadShift();
+          render();
+          return toast("La caja ya estaba abierta en esta sede.");
+        }
+        await loadShift();
+        render();
+        return toast(
+          result.data?.error === "caja_ya_abierta"
+            ? MESSAGES.caja_ya_abierta
+            : message(result, "No pudimos abrir la caja."),
+          true,
+        );
+      }
+      if (result.status !== 200 && result.status !== 201) {
+        error.textContent = message(result, "No pudimos abrir la caja.");
+        return;
+      }
+      dismissSheet();
+      shift = result.data?.shift || null;
+      shiftSede = targetSede;
+      shiftStatus = "ok";
+      closedReport = null;
+      await loadShift();
+      render();
+      toast("Caja abierta. Fondo inicial " + moneyCents(cents) + ".");
+    };
+    const form = h(
+      "form",
+      { novalidate: true },
+      h("h2", { text: "Abrir caja" }),
+      h("p", {
+        class: "hint",
+        text:
+          "Cuenta el fondo inicial de " +
+          (sedeLabel(targetSede) || "esta sede") +
+          " antes de cobrar.",
+      }),
+      h(
+        "label",
+        { class: "field" },
+        h("span", { text: "Fondo inicial en dólares" }),
+        input,
+      ),
+      submit,
+      error,
+    );
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      act(submit, run);
+    });
+    showSheet(
+      h(
+        "div",
+        { class: "sheet", role: "dialog", "aria-modal": "true", "aria-label": "Abrir caja" },
+        h(
+          "div",
+          { class: "sheet-box" },
+          button("Cancelar", "btn link", dismissSheet),
+          form,
+        ),
+      ),
+    );
+    input.focus();
+  }
+  function movementSheet(kind) {
+    if (!shift?.id)
+      return toast("La caja no está abierta. Actualiza el estado.", true);
+    const shiftId = shift.id;
+    const out = kind === "out";
+    const amountInput = h("input", {
+      type: "text",
+      inputmode: "decimal",
+      autocomplete: "off",
+      placeholder: "0.00",
+      "aria-label": "Monto en dólares",
+    });
+    const reasonInput = h("input", {
+      type: "text",
+      maxlength: "120",
+      autocomplete: "off",
+      placeholder: out ? "Depósito al banco, pago a proveedor…" : "Cambio adicional, reposición…",
+      "aria-label": "Motivo del movimiento",
+    });
+    const error = h("p", { class: "err", role: "alert" });
+    const submit = h(
+      "button",
+      { type: "submit", class: "btn primary wide" },
+      out ? "Registrar retiro" : "Registrar ingreso",
+    );
+    const state = {};
+    const run = async () => {
+      const cents = centsFrom(amountInput.value);
+      if (cents === null || cents <= 0) {
+        error.textContent = MESSAGES.monto_invalido;
+        amountInput.focus();
+        return;
+      }
+      const reason = text(reasonInput.value);
+      if (reason.length < 3 || reason.length > 120) {
+        error.textContent = MESSAGES.motivo_invalido;
+        reasonInput.focus();
+        return;
+      }
+      const base = { kind, amount_cents: cents, reason };
+      const body = { ...base, idempotency_key: idempotency(state, base) };
+      const result = await callTurnos(
+        encodeURIComponent(shiftId) + "/movimientos",
+        body,
+      );
+      if (result.status === 401) return sessionExpired();
+      if (result.status === 409) {
+        dismissSheet();
+        await loadShift();
+        render();
+        return toast(message(result, "Ese turno ya está cerrado."), true);
+      }
+      if (result.status !== 201) {
+        error.textContent = message(result, "No pudimos registrar el movimiento.");
+        return;
+      }
+      dismissSheet();
+      await loadShift();
+      render();
+      toast(
+        (out ? "Retiro registrado: " : "Ingreso registrado: ") +
+          moneyCents(cents) +
+          ".",
+      );
+    };
+    const form = h(
+      "form",
+      { novalidate: true },
+      h("h2", { text: out ? "Retiro de efectivo" : "Ingreso de efectivo" }),
+      h("p", {
+        class: "hint",
+        text: out
+          ? "Sale dinero de la caja: queda en el reporte del turno."
+          : "Entra dinero a la caja: queda en el reporte del turno.",
+      }),
+      h(
+        "label",
+        { class: "field" },
+        h("span", { text: "Monto en dólares" }),
+        amountInput,
+      ),
+      h(
+        "label",
+        { class: "field" },
+        h("span", { text: "Motivo (3 a 120 caracteres)" }),
+        reasonInput,
+      ),
+      submit,
+      error,
+    );
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      act(submit, run);
+    });
+    showSheet(
+      h(
+        "div",
+        {
+          class: "sheet",
+          role: "dialog",
+          "aria-modal": "true",
+          "aria-label": out ? "Retiro de efectivo" : "Ingreso de efectivo",
+        },
+        h(
+          "div",
+          { class: "sheet-box" },
+          button("Cancelar", "btn link", dismissSheet),
+          form,
+        ),
+      ),
+    );
+    amountInput.focus();
+  }
+  function closeShiftSheet() {
+    if (!shift?.id) return toast("La caja no está abierta.", true);
+    const shiftId = shift.id;
+    const counted = h("input", {
+      type: "text",
+      inputmode: "decimal",
+      autocomplete: "off",
+      placeholder: "0.00",
+      "aria-label": "Efectivo contado en dólares",
+    });
+    const note = h("textarea", {
+      maxlength: "200",
+      placeholder: "Opcional",
+      "aria-label": "Nota del cierre",
+    });
+    const preview = h("span", { class: "hint" });
+    const quantities = [];
+    const paintCount = () => {
+      const total = quantities.reduce(
+        (sum, item) =>
+          sum +
+          item.denom.cents *
+            Math.max(0, Math.trunc(Number(item.input.value) || 0)),
+        0,
+      );
+      counted.value =
+        Math.floor(total / 100) + "." + String(total % 100).padStart(2, "0");
+      preview.textContent = "Conteo por denominaciones: " + moneyCents(total);
+    };
+    const denominationRows = DENOMINATIONS.map((denom) => {
+      const qty = h("input", {
+        type: "text",
+        inputmode: "numeric",
+        autocomplete: "off",
+        placeholder: "0",
+        "aria-label": denom.label + ": cantidad",
+      });
+      qty.addEventListener("input", () => {
+        qty.value = qty.value.replace(/\D/g, "").slice(0, 4);
+        paintCount();
+      });
+      quantities.push({ denom, input: qty });
+      return h(
+        "label",
+        { class: "denom-row" },
+        h("span", { text: denom.label }),
+        qty,
+      );
+    });
+    const error = h("p", { class: "err", role: "alert" });
+    const submit = h(
+      "button",
+      { type: "submit", class: "btn primary wide" },
+      "Confirmar cierre",
+    );
+    const state = {};
+    const run = async () => {
+      const cents = centsFrom(counted.value);
+      if (cents === null) {
+        error.textContent = MESSAGES.conteo_invalido;
+        counted.focus();
+        return;
+      }
+      const base = { counted_cash_cents: cents };
+      const cleanNote = text(note.value).slice(0, 200);
+      if (cleanNote) base.note = cleanNote;
+      const body = { ...base, idempotency_key: idempotency(state, base) };
+      const result = await callTurnos(
+        encodeURIComponent(shiftId) + "/cerrar",
+        body,
+      );
+      if (result.status === 401) return sessionExpired();
+      if (result.status === 409) {
+        dismissSheet();
+        await loadShift();
+        // Otro dispositivo pudo cerrar: se intenta recuperar el Z para reimprimir.
+        if (result.data?.report) closedReport = result.data.report;
+        else if (result.data?.error === "turno_cerrado") {
+          const saved = await callTurnos(encodeURIComponent(shiftId));
+          if (saved.status === 200 && saved.data?.report)
+            closedReport = saved.data.report;
+        }
+        render();
+        return toast(message(result, "Ese turno ya está cerrado."), true);
+      }
+      if (result.status !== 200) {
+        error.textContent = message(result, "No pudimos cerrar la caja.");
+        return;
+      }
+      dismissSheet();
+      closedReport = result.data?.report || null;
+      await loadShift();
+      render();
+      toast("Caja cerrada. Revisa el reporte y el ticket Z.");
+    };
+    const form = h(
+      "form",
+      { novalidate: true },
+      h("h2", { text: "Cerrar caja" }),
+      h("p", {
+        class: "hint",
+        text: "Cuenta el efectivo de la caja y escribe solo el total. El sistema te muestra el esperado después de cerrar.",
+      }),
+      h(
+        "label",
+        { class: "field" },
+        h("span", { text: "Efectivo contado en dólares" }),
+        counted,
+      ),
+      h(
+        "details",
+        {},
+        h("summary", { text: "Contar por denominaciones (opcional)" }),
+        ...denominationRows,
+        preview,
+      ),
+      h(
+        "label",
+        { class: "field" },
+        h("span", { text: "Nota (opcional)" }),
+        note,
+      ),
+      submit,
+      h("p", {
+        class: "hint",
+        text: "El cierre es definitivo: el turno cerrado ya no se puede modificar.",
+      }),
+      error,
+    );
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      act(submit, run);
+    });
+    showSheet(
+      h(
+        "div",
+        {
+          class: "sheet",
+          role: "dialog",
+          "aria-modal": "true",
+          "aria-label": "Cerrar caja",
+        },
+        h(
+          "div",
+          { class: "sheet-box" },
+          button("Cancelar", "btn link", dismissSheet),
+          form,
+        ),
+      ),
+    );
+    counted.focus();
+  }
   function orderCard(order) {
     const state = text(order.status) || "pending";
     const pos = isPosOrder(order);
@@ -1235,6 +1990,7 @@ function meseroRuntime() {
     ];
     const select = sedeSelect(async () => {
       await loadOrders();
+      await loadShift();
       render();
     });
     const sedeField = h(
@@ -1443,7 +2199,9 @@ function meseroRuntime() {
             h("span", { text: "Sede" }),
             sedeSelect(() => {
               if (builder) builder.sede_id = sede;
-              render();
+              loadShift().then(() => {
+                if (me) render();
+              });
             }),
             h("p", {
               class: "hint",
@@ -1821,6 +2579,12 @@ function meseroRuntime() {
           true,
         );
       if (result.status === 409) {
+        // Cobrar con la caja cerrada no es un cambio de estado del pedido.
+        if (result.data?.error === "caja_cerrada") {
+          toast(MESSAGES.caja_cerrada, true);
+          await loadShift();
+          return render();
+        }
         toast("Ese pedido ya cambió de estado. Actualiza la lista.", true);
         await loadOrders();
         return render();
@@ -1896,6 +2660,11 @@ function meseroRuntime() {
       store: me?.store?.name || S.store || "",
       width,
     });
+    return openPrint(body, paper, "Comanda");
+  }
+  // Abre el diálogo del navegador con líneas ya compuestas (comanda o ticket Z).
+  function openPrint(lines, paper, title) {
+    const body = Array.isArray(lines) ? lines : [];
     const height = pageHeight(body.length);
     const escape = (value) =>
       String(value).replace(
@@ -1917,7 +2686,7 @@ body{margin:0;font-family:monospace;font-size:11px;white-space:pre;line-height:1
       "</style></head><body>" +
       escape(body.join("\n")) +
       "</body></html>";
-    const iframe = h("iframe", { title: "Comanda", hidden: true });
+    const iframe = h("iframe", { title: title || "Impresión", hidden: true });
     const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
     return new Promise((resolve) => {
       let done = false;
@@ -1951,6 +2720,21 @@ body{margin:0;font-family:monospace;font-size:11px;white-space:pre;line-height:1
       iframe.src = url;
       document.body.append(iframe);
       window.setTimeout(() => finish(false), 5000);
+    });
+  }
+  // Ticket Z: se imprime después de cerrar; no registra acuse en el servidor.
+  function printShift(report, buttonEl) {
+    return act(buttonEl, async () => {
+      const paper = paperWidth();
+      const lines = shiftTicket(report, {
+        store: me?.store?.name || S.store || "",
+        width: columnsForPaper(paper),
+        sedeName: sedeLabel(report?.sede_id),
+      });
+      const opened = await openPrint(lines, paper, "Cierre de caja");
+      if (!opened)
+        return toast("No pudimos abrir la impresión del cierre.", true);
+      toast("Se abrió la impresión del cierre. Revisa el papel.");
     });
   }
   function print(order, buttonEl) {
@@ -2002,6 +2786,10 @@ body{margin:0;font-family:monospace;font-size:11px;white-space:pre;line-height:1
     me = null;
     catalog = null;
     orders = [];
+    shift = null;
+    shiftSede = "";
+    shiftStatus = "ok";
+    closedReport = null;
     pinScreen("");
   }
   function paperSelect() {
@@ -2023,10 +2811,13 @@ body{margin:0;font-family:monospace;font-size:11px;white-space:pre;line-height:1
   }
   function render() {
     if (!me) return;
+    const closed = reportCard();
     root.replaceChildren(
       top(),
+      shiftBar(),
       tabs(),
       tab === "orders" ? ordersScreen() : builderScreen(),
+      ...(closed ? [closed] : []),
       h(
         "details",
         {},
