@@ -532,6 +532,38 @@ export function posOrderData(row, extra = {}) {
   };
 }
 
+/* Canal y autorización del pago `paid` de un pedido. Solo viajan por la API del
+   panel (listado POS y respuesta de cobro): el número de autorización del
+   voucher es interno de la caja y nunca se expone en `/api/orders/:id`. La
+   autorización se publica únicamente para el datáfono; en los links de Bendo no
+   aporta nada a la pantalla y se omite. */
+function paidPaymentInfo(payment) {
+  if (!payment || payment.status !== "paid") return {};
+  const channel = payment.channel === "datafono" ? "datafono" : payment.channel === "link" ? "link" : null;
+  if (!channel) return {};
+  const info = { payment_channel: channel };
+  if (channel === "datafono" && payment.authorization) {
+    info.payment_authorization = String(payment.authorization);
+    // Alias que ya consume el listado del panel (`posPaymentLabel`).
+    info.authorization = String(payment.authorization);
+  }
+  return info;
+}
+
+// Un solo viaje a D1 por página del listado; si hubiera más de un pago `paid`
+// (no debería), gana el más reciente.
+async function paidPaymentInfoByOrder(env, slug, orderIds) {
+  const ids = orderIds.filter(id => typeof id === "string" && id);
+  if (!ids.length) return new Map();
+  const rows = await env.DB.prepare(
+    "SELECT order_id, channel, authorization FROM pos_payments WHERE slug = ? AND status = 'paid' " +
+    `AND order_id IN (${ids.map(() => "?").join(", ")}) ORDER BY created_at ASC, id ASC`,
+  ).bind(slug, ...ids).all();
+  const info = new Map();
+  for (const row of rows.results || []) info.set(row.order_id, paidPaymentInfo({ ...row, status: "paid" }));
+  return info;
+}
+
 // null = todas las sedes (dueño o mesero del club sin mapeo); Set = solo las suyas.
 export async function sedesAllowed(env, slug, session) {
   if (!session || session.owner || session.staff_id === OWNER_STAFF) return null;
@@ -931,7 +963,11 @@ export async function listPosOrders(env, site, session, request) {
   const rows = await env.DB.prepare(
     `SELECT ${POS_COLUMNS} FROM pos_orders WHERE ${clauses.join(" AND ")} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
   ).bind(...values, limit, offset).all();
-  return json({ orders: (rows.results || []).map(row => posOrderData(row)) });
+  const orders = (rows.results || []).map(row => posOrderData(row));
+  // "Pago: datáfono · aut. XXXX": el canal y la autorización del cobro viajan
+  // solo por esta ruta de caja/panel, nunca por la API pública del comprador.
+  const info = await paidPaymentInfoByOrder(env, site.slug, orders.map(order => order.id));
+  return json({ orders: orders.map(order => (info.has(order.id) ? { ...order, ...info.get(order.id) } : order)) });
 }
 
 /* ── Pagos: efectivo confirmado por operador y tarjeta (Bendo) ────────────── */
@@ -1240,7 +1276,7 @@ async function payManualOrder(env, site, session, encodedId, body, options) {
 
 function paidManualResponse(env, site, order, payment) {
   return json({
-    order: posOrderData(order),
+    order: posOrderData(order, paidPaymentInfo(payment)),
     payment: { id: payment.id, provider: payment.provider, status: "paid", amount_cents: Number(payment.amount_cents) },
   });
 }
