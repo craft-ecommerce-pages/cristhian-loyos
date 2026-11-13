@@ -1043,10 +1043,17 @@ export async function markPaymentUnknown(env, slug, paymentId, message) {
 
 // Snapshot de líneas cobradas: una fila por ítem, categoría congelada y clave
 // natural idempotente. Se escribe en el MISMO batch que marca la orden pagada.
-function snapshotStatements(env, slug, order, now) {
+// `guarded` añade la condición de que la orden acabe de quedar pagada en ese
+// mismo batch: el cobro manual que pierde una carrera no escribe líneas de una
+// orden sin cobrar (el reporte las leería con el pedido ya pagado después).
+function snapshotStatements(env, slug, order, now, guarded = false) {
   let items = [];
   try { items = JSON.parse(order.items); } catch { /* snapshot roto: sin líneas, el reporte lo delata */ }
   if (!Array.isArray(items)) items = [];
+  const values = guarded
+    ? "SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? " +
+      "WHERE EXISTS (SELECT 1 FROM pos_orders WHERE slug = ? AND id = ? AND status = 'paid' AND paid_at = ?)"
+    : "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
   return items.map((item, index) => {
     if (!item || typeof item !== "object") return null;
     const qty = Number(item.qty), unit = Number(item.unit_cents);
@@ -1054,13 +1061,14 @@ function snapshotStatements(env, slug, order, now) {
     const category = REPORT_CATEGORIES.includes(item.report_category) ? item.report_category : "tradicional";
     return env.DB.prepare(
       "INSERT OR IGNORE INTO pos_order_lines (slug, order_id, line_index, report_category, product_id, variant_id, " +
-      "name, qty, unit_cents, line_total_cents, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      `name, qty, unit_cents, line_total_cents, created_at) ${values}`,
     ).bind(
       slug, order.id, index, category,
       item.product_id == null ? null : String(item.product_id),
       item.variant_id == null ? null : String(item.variant_id),
       item.name == null ? null : String(item.name),
       qty, unit, qty * unit, now,
+      ...(guarded ? [slug, order.id, now] : []),
     );
   }).filter(Boolean);
 }
@@ -1216,15 +1224,19 @@ async function payManualOrder(env, site, session, encodedId, body, options) {
   const shift = await openShiftFor(env, site.slug, order.sede_id);
   if (!shift) return error("caja_cerrada", 409);
   const now = Date.now(), paymentId = crypto.randomUUID();
-  // El turno y la ausencia de link en curso se revalidan en el mismo batch: si
-  // algo cambió entre la lectura y el INSERT, no se cobra nada.
+  // El turno, la ausencia de link en curso y la ausencia de un cobro previo se
+  // revalidan en el mismo batch: si algo cambió entre la lectura y el INSERT, no
+  // se cobra nada. El guard de "ya hay un pago pagado" cierra la carrera de dos
+  // cajas en el mismo milisegundo: comparar solo `paid_at` dejaría entrar un
+  // segundo pago pagado del mismo pedido (doble venta en el turno).
   const linkGuard = options.blockLinkInProgress
     ? " AND NOT EXISTS (SELECT 1 FROM pos_payments WHERE slug = ? AND order_id = ? AND provider = 'bendo' " +
       "AND (channel IS NULL OR channel <> 'datafono') AND status IN ('pending', 'unknown'))"
     : "";
+  const paidGuard = " AND NOT EXISTS (SELECT 1 FROM pos_payments WHERE slug = ? AND order_id = ? AND status = 'paid')";
   const updateBinds = [
     options.method || order.payment_method, now, now, now, site.slug, order.id, site.slug, order.sede_id,
-    ...(options.blockLinkInProgress ? [site.slug, order.id] : []),
+    ...(options.blockLinkInProgress ? [site.slug, order.id] : []), site.slug, order.id,
   ];
   // Columnas del pago: las mismas para los tres cobros manuales; datáfono añade
   // canal, autorización y el mensaje con los últimos 4 dígitos.
@@ -1244,15 +1256,20 @@ async function payManualOrder(env, site, session, encodedId, body, options) {
     env.DB.prepare(
       "UPDATE pos_orders SET status = 'paid', payment_method = ?, status_at = ?, paid_at = ?, updated_at = ? " +
       "WHERE slug = ? AND id = ? AND status IN ('pending', 'confirmed') " +
-      "AND EXISTS (SELECT 1 FROM pos_shifts WHERE slug = ? AND sede_id = ? AND status = 'open')" + linkGuard,
+      "AND EXISTS (SELECT 1 FROM pos_shifts WHERE slug = ? AND sede_id = ? AND status = 'open')" + linkGuard + paidGuard,
     ).bind(...updateBinds),
     env.DB.prepare(
       `INSERT INTO pos_payments (${columns.join(", ")}) SELECT ${values.join(", ")} ` +
+      "WHERE EXISTS (SELECT 1 FROM pos_orders WHERE slug = ? AND id = ? AND status = 'paid' AND paid_at = ?)" + paidGuard,
+    ).bind(...paymentBinds, site.slug, order.id, now, site.slug, order.id),
+    // La comanda y el snapshot de líneas solo nacen si este mismo batch pagó la
+    // orden: un cobro que pierde la carrera (cierre del turno, link en curso) no
+    // puede mandar nada a cocina ni escribir líneas de una orden sin cobrar.
+    env.DB.prepare(
+      "INSERT OR IGNORE INTO pos_comandas (slug, order_id, created_at, print_count) SELECT ?, ?, ?, 0 " +
       "WHERE EXISTS (SELECT 1 FROM pos_orders WHERE slug = ? AND id = ? AND status = 'paid' AND paid_at = ?)",
-    ).bind(...paymentBinds, site.slug, order.id, now),
-    env.DB.prepare("INSERT OR IGNORE INTO pos_comandas (slug, order_id, created_at, print_count) VALUES (?, ?, ?, 0)")
-      .bind(site.slug, order.id, now),
-    ...snapshotStatements(env, site.slug, order, now),
+    ).bind(site.slug, order.id, now, site.slug, order.id, now),
+    ...snapshotStatements(env, site.slug, order, now, true),
   ]);
   const payment = await posPaymentByKey(env, site.slug, order.id, key);
   if (!results[0]?.meta?.changes) {
