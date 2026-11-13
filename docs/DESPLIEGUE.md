@@ -9,7 +9,7 @@ Este repositorio es una copia aislada del motor de catálogo. **No usa recursos 
 | Worker menú | `MENU_WORKER_NAME` (`cl-menu`) | Render del catálogo, JSON desde KV y **assets del motor en `/v1/*` vía Workers Assets**. No depende de `craft-catalog-engine.pages.dev`. |
 | Worker panel | `PANEL_WORKER_NAME` (`cl-panel`) | Administración, caja, mesero, cocina y API. D1 + R2 + KV propios; recibe `/panel*` por service binding `PANEL`. |
 | KV | `KV_MENUS_ID` | Ambos Workers comparten `MENUS`: `{slug}:config`, `{slug}:productos`, `{slug}:theme`, `domain:{host}`. |
-| D1 | `D1_DATABASE_ID` | Solo panel (`DB`). Migraciones en `panel/migrations` (0001–0008; se aplican en orden). |
+| D1 | `D1_DATABASE_ID` | Solo panel (`DB`). Migraciones en `panel/migrations` (0001–0011; se aplican en orden). |
 | R2 | `R2_BUCKET_NAME` | Media del catálogo (`MEDIA`, bucket privado). |
 | Rate limit | `RATELIMIT_NAMESPACE_ID` | ID numérico del namespace de la cuenta para `LOGIN_LIMITER`. |
 
@@ -55,10 +55,23 @@ En **Settings → Secrets and variables → Actions** de este repositorio:
 | `RATELIMIT_NAMESPACE_ID` | Namespace del rate limit del login. |
 | `SESSION_SECRET` | Firma de sesión del panel (obligatorio para operar). |
 | `ADMIN_TOKEN` | API `/admin/*` del panel. |
+| `PAYPHONE_TOKEN` | Token del botón de pago Payphone (`PAYPHONE_MODE=live`). |
+| `BENDO_CLIENT_ID` | Credencial OAuth `client_credentials` de Bendo del comercio. |
+| `BENDO_CLIENT_SECRET` | Secreto OAuth de Bendo. Nunca en Git ni en logs. |
 
-Variables opcionales del repositorio (`vars`): `ENGINE_ORIGIN` (por defecto `/v1`), `MENU_PUBLIC_URL` y `PANEL_PUBLIC_URL` para el smoke final.
+Variables del repositorio (`vars`), todas opcionales; `scripts/deploy-client.sh` valida el formato y aplica el valor por defecto:
 
-Los secrets `SESSION_SECRET` y `ADMIN_TOKEN` se envían con `wrangler secret put` en cada despliegue solo si están definidos; si faltan, se conserva el valor existente en el Worker. En el primer despliegue el panel arranca sin sesión operativa hasta que se aplican los secrets (segundos después).
+| Variable | Defecto | Valores / uso |
+|---|---|---|
+| `ENGINE_ORIGIN` | `/v1` | `/v1` o una URL `https://` del motor de assets. |
+| `MENU_PUBLIC_URL` | vacío | Base pública del menú; habilita el smoke final y los retornos a `/gracias`. |
+| `PANEL_PUBLIC_URL` | vacío | Base pública del panel para el smoke final. |
+| `PAYPHONE_MODE` | `disabled` | `disabled` · `mock` · `live`. |
+| `BENDO_MODE` | `disabled` | `disabled` · `mock` · `live` (validado con `^(disabled\|mock\|live)$`). |
+| `BENDO_ENV` | `staging` | `staging` · `production` (validado con `^(staging\|production)$`); elige idp/API de Geopagos. |
+| `BENDO_POINT_OF_SALE` | vacío | uuid del punto de venta. Vacío: el adaptador lo resuelve con `GET /api/v4/points-of-sale` y lo cachea 24 h en KV. |
+
+Los secrets `SESSION_SECRET`, `ADMIN_TOKEN`, `PAYPHONE_TOKEN`, `BENDO_CLIENT_ID` y `BENDO_CLIENT_SECRET` se envían con `wrangler secret put` en cada despliegue solo si están definidos; si faltan, se conserva el valor existente en el Worker. En el primer despliegue el panel arranca sin sesión operativa hasta que se aplican los secrets (segundos después).
 
 ## 3. Pruebas y build en local (obligatorio antes de publicar)
 
@@ -89,7 +102,7 @@ Orden del script (`scripts/deploy-client.sh`), replicable en local con las misma
 
 1. Valida variables, formato de IDs y paridad de assets.
 2. Renderiza `panel/wrangler.toml` y `worker/wrangler.toml` a `panel/.wrangler/client.toml` y `worker/.wrangler/client.toml` (ignorados por Git). Las plantillas versionadas llevan marcadores `${...}` y **no deben desplegarse directamente**.
-3. Aplica migraciones D1 en remoto (`wrangler d1 migrations apply ... --remote`). Wrangler captura un backup automático antes de aplicar; en CI no pide confirmación. Omitir solo con `NO_MIGRATIONS=1` y backup manual previo.
+3. Aplica migraciones D1 en remoto (`wrangler d1 migrations apply ... --remote`). Wrangler captura un backup automático antes de aplicar; en CI no pide confirmación. Omitir solo con `NO_MIGRATIONS=1` y backup manual previo. La migración `0011_bendo.sql` **reconstruye** `pos_payments` y `pos_orders` (SQLite no permite ampliar un `CHECK`): copia todas las filas con lista explícita de columnas y recrea los índices. Antes de aplicarla en producción, exportar D1 y conservar el punto de restauración que marca el workflow (`wrangler d1 time-travel info`).
 4. Despliega **panel primero** (el menú declara el service binding `PANEL`, que debe existir).
 5. Actualiza los secrets del panel si vienen en el entorno (después del primer deploy: `secret put` requiere que el Worker exista).
 6. Despliega **menú** con sus assets `/v1` y ejecuta el smoke opcional (`MENU_PUBLIC_URL`/`PANEL_PUBLIC_URL`): `GET /` y `GET /v1/catalog.js` en el menú; `GET /panel` en el panel.
@@ -141,13 +154,14 @@ En el HTML del menú, `catalog.css` y `catalog.js` deben apuntar a `/v1/...` del
 ## 7. Rollback
 
 - **Worker**: `npx wrangler@4 rollback <version-id> --config panel/.wrangler/client.toml` (o `worker/.wrangler/client.toml`). El `--config` se genera con `scripts/deploy-client.sh --dry-run`.
-- **D1**: Wrangler guarda backup por migración. Restaurar con Time Travel (`wrangler d1 time-travel info/restore`) **solo con autorización** y tras exportar el estado actual.
-- Las migraciones son aditivas (`0003` usa `ALTER TABLE`); no ejecutar `DROP`/`DELETE` manual sin backup.
+- **D1**: Wrangler guarda backup por migración. Restaurar con Time Travel (`wrangler d1 time-travel info/restore`) **solo con autorización** y tras exportar el estado actual. Tras `0011_bendo.sql`, verificar que `pos_payments`/`pos_orders` conservan todas las filas e índices antes de desplegar el panel.
+- Las migraciones son aditivas (`0003`, `0009` y `0010` usan `ALTER TABLE`; `0010` y `0011` reconstruyen tablas copiando filas); no ejecutar `DROP`/`DELETE` manual sin backup.
 
 ## 8. Límites y pendientes conocidos
 
 - La media pública se sirve como `/media/<key>` desde el Worker del panel con el binding R2 (`panel/src/media.js`). El Worker de menú reenvía `/api/*` y `/media/*` al panel vía service binding `PANEL`; no se usa `media.craft-systems.com` para media nueva. `MEDIA_ORIGIN` sigue siendo opcional si se configura un dominio de media dedicado.
 - El panel concilia pagos Payphone `unknown` con la ruta autenticada `POST /panel/api/payments/:ref/reconcile` y con un cron cada minuto (`[triggers]` en `panel/wrangler.toml`) limitado a la ventana de 5 minutos. Nunca recobra.
+- Bendo (tarjeta, link hospedado de Geopagos) se activa por separado con `BENDO_MODE` y sus secrets; no reemplaza a Payphone. Sin `BENDO_MODE=mock` ni `BENDO_MODE=live` con ambas credenciales, el pedido web con `payment_method=bendo` responde `503 bendo_no_disponible` y `GET /api/payment-options` no anuncia `bendo`. Con `${{ vars.BENDO_POINT_OF_SALE }}` vacío el punto de venta se resuelve por API y se cachea en KV; el valor vacío nunca se envía como `point_of_sale`.
 - El panel no declara binding `LOYALTY`: las rutas de club responden 503/omitidas hasta que exista ese Worker en la cuenta del cliente.
 - Sin `CLIENT_SLUG` correcto o sin claves KV, el sitio responde 404; no hay fallback silencioso a recursos de Craft.
 - Este repositorio no crea recursos ni dominios: los IDs llegan por secrets y los custom domains se autorizan en la cuenta del cliente.

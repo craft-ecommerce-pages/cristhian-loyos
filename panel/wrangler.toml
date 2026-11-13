@@ -16,6 +16,12 @@ workers_dev = true
 CLIENT_SLUG = "${CLIENT_SLUG}"
 MENU_PUBLIC_URL = "${MENU_PUBLIC_URL}"
 PAYPHONE_MODE = "${PAYPHONE_MODE}"
+# Bendo (tarjeta, link hospedado): disabled | mock | live. staging | production
+# eligen idp/api de Geopagos. BENDO_POINT_OF_SALE vacío = se resuelve con
+# GET /api/v4/points-of-sale (cache KV 24 h); nunca se envía una cadena vacía.
+BENDO_MODE = "${BENDO_MODE}"
+BENDO_ENV = "${BENDO_ENV}"
+BENDO_POINT_OF_SALE = "${BENDO_POINT_OF_SALE}"
 
 # KV compartido con el Worker de menú: el panel es dueño del catálogo tras "Entregar".
 [[kv_namespaces]]
@@ -46,4 +52,5 @@ simple = { limit = 10, period = 60 }
 crons = ["* * * * *"]
 
 # Secrets (wrangler secret put; los aplica el workflow con SESSION_SECRET y ADMIN_TOKEN):
-# SESSION_SECRET, ADMIN_TOKEN. LOYALTY_ADMIN_TOKEN solo si algún día se despliega el club.
+# SESSION_SECRET, ADMIN_TOKEN, PAYPHONE_TOKEN, BENDO_CLIENT_ID, BENDO_CLIENT_SECRET.
+# LOYALTY_ADMIN_TOKEN solo si algún día se despliega el club.
