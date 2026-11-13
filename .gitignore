@@ -11,3 +11,6 @@ HANDOFF-*.md
 media/generated/luna_fastfood/
 media/generated/luna_tradicional/
 .backup/
+
+# Documentos fiscales y firma electrónica del cliente (P12, claves): nunca en Git
+documentos/
