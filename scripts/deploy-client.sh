@@ -15,6 +15,10 @@
 #   ENGINE_ORIGIN (/v1 por defecto), SESSION_SECRET, ADMIN_TOKEN,
 #   WRANGLER_SPEC (wrangler@4.160.0 por defecto), NO_MIGRATIONS=1,
 #   MENU_PUBLIC_URL / PANEL_PUBLIC_URL (smoke GET al final)
+#   PAYPHONE_MODE (disabled por defecto)
+#   BENDO_MODE (disabled por defecto), BENDO_ENV (staging por defecto),
+#   BENDO_POINT_OF_SALE (uuid; vacío = se resuelve vía API de Bendo),
+#   BENDO_CLIENT_ID / BENDO_CLIENT_SECRET (secrets del panel; se conservan si faltan)
 set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -50,6 +54,13 @@ export ENGINE_ORIGIN="${ENGINE_ORIGIN:-/v1}"
 export MENU_PUBLIC_URL="${MENU_PUBLIC_URL:-}"
 export PAYPHONE_MODE="${PAYPHONE_MODE:-disabled}"
 check PAYPHONE_MODE '^(disabled|mock|live)$' 'modo Payphone'
+# Bendo: sin modo explícito queda apagado. El punto de venta es opcional: vacío
+# deja que el adaptador lo resuelva con GET /api/v4/points-of-sale (KV 24 h).
+export BENDO_MODE="${BENDO_MODE:-disabled}"
+check BENDO_MODE '^(disabled|mock|live)$' 'modo Bendo'
+export BENDO_ENV="${BENDO_ENV:-staging}"
+check BENDO_ENV '^(staging|production)$' 'entorno Bendo'
+export BENDO_POINT_OF_SALE="${BENDO_POINT_OF_SALE:-}"
 check ENGINE_ORIGIN '^(/[A-Za-z0-9._-]+|https://[A-Za-z0-9./_-]+)$' '/v1 o una URL https'
 
 # Los assets del motor se publican desde este Worker; deben coincidir con v1/ (fuente canónica).
@@ -123,6 +134,9 @@ put_secret() {
 put_secret SESSION_SECRET
 put_secret ADMIN_TOKEN
 put_secret PAYPHONE_TOKEN
+# Bendo: credenciales por comercio (staging o producción según BENDO_ENV). Nunca en Git.
+put_secret BENDO_CLIENT_ID
+put_secret BENDO_CLIENT_SECRET
 
 # 4) Menú con sus assets locales /v1.
 log "desplegando menú ($MENU_WORKER_NAME)"

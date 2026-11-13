@@ -286,7 +286,18 @@ const SEDE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const IDEM_RE = /^[A-Za-z0-9_.:-]{8,100}$/;
 const PRODUCT_ID_RE = /^[A-Za-z0-9_-]{1,120}$/;
 const DELIVERY_MODES = new Set(["delivery", "pickup", "mesa"]);
-const PAYMENT_METHODS = new Set(["cash", "transfer", "payphone"]);
+const PAYMENT_METHODS = new Set(["cash", "transfer", "payphone", "bendo"]);
+
+// Disponibilidad de Bendo para pedidos web. Esta rama aún no incluye `./bendo.js`:
+// el ensamblador debe sustituir esta función por el import de la parte A
+// (`import { bendoAvailable } from "./bendo.js"`) y llamar `bendoAvailable(env)`.
+// Semántica del contrato: `mock`, o `live` con BENDO_CLIENT_ID y BENDO_CLIENT_SECRET.
+function bendoAvailableInline(env) {
+  if (env?.BENDO_MODE === "mock") return true;
+  return env?.BENDO_MODE === "live" &&
+    typeof env.BENDO_CLIENT_ID === "string" && Boolean(env.BENDO_CLIENT_ID) &&
+    typeof env.BENDO_CLIENT_SECRET === "string" && Boolean(env.BENDO_CLIENT_SECRET);
+}
 // Facturación: identificación ecuatoriana normalizada. No se valida contra el
 // SRI; solo formato. La factura NO se emite por capturar estos datos.
 const DOCUMENT_TYPES = new Set(["cedula", "ruc"]);
@@ -693,6 +704,9 @@ export async function createPosOrder(env, site, body, options = {}) {
       !(env.PAYPHONE_MODE === "live" && typeof env.PAYPHONE_TOKEN === "string" && env.PAYPHONE_TOKEN)) {
     return error("payphone_no_disponible", 503);
   }
+  if (source === "web" && order.payment_method === "bendo" && !bendoAvailableInline(env)) {
+    return error("bendo_no_disponible", 503);
+  }
   const currency = await currencyOf(env, site.slug);
   const id = crypto.randomUUID(), now = Date.now();
   const hash = await idempotencyHash(site.slug, source, order);
@@ -750,8 +764,8 @@ async function latestPosPayment(env, slug, orderId) {
 }
 
 // Estado de pago público derivado del pedido y su último intento. `unknown`
-// (timeout Payphone) nunca se degrada a rechazo; un intento fallido antes de
-// cobrar es el único caso reintentable sin riesgo de duplicar el cobro.
+// (timeout de Payphone o Bendo) nunca se degrada a rechazo; un intento fallido
+// antes de cobrar es el único caso reintentable sin riesgo de duplicar el cobro.
 function publicPaymentStatus(row, payment) {
   if (row.status === "paid") return "paid";
   if (row.status === "rejected") return "rejected";
@@ -763,10 +777,23 @@ function publicPaymentStatus(row, payment) {
   return "pending";
 }
 
+// Textos públicos neutrales: con tarjeta (Bendo) nunca se nombra al proveedor ni
+// se afirma un rechazo cuando el estado aún es desconocido.
 function publicPaymentMessage(paymentStatus, method) {
-  if (paymentStatus === "unknown") return "Estamos verificando el pago con Payphone. No vuelvas a pagar.";
-  if (paymentStatus === "failed") return "No se completó el pago con Payphone.";
-  if (paymentStatus === "rejected") return method === "payphone" ? "El pago no fue aprobado por Payphone." : "El pedido fue rechazado.";
+  const card = method === "bendo";
+  if (paymentStatus === "unknown") {
+    return card
+      ? "Estamos verificando el pago con tarjeta. No vuelvas a pagar."
+      : "Estamos verificando el pago con Payphone. No vuelvas a pagar.";
+  }
+  if (paymentStatus === "failed") {
+    return card ? "No se completó el pago con tarjeta." : "No se completó el pago con Payphone.";
+  }
+  if (paymentStatus === "rejected") {
+    if (method === "payphone") return "El pago no fue aprobado por Payphone.";
+    if (card) return "El pago con tarjeta no fue aprobado.";
+    return "El pedido fue rechazado.";
+  }
   return "";
 }
 
@@ -784,8 +811,8 @@ export async function getPosOrderStatus(env, site, encodedId, token) {
   const payment = row.status === "paid" || row.status === "rejected"
     ? null : await latestPosPayment(env, site.slug, row.id);
   const paymentStatus = publicPaymentStatus(row, payment);
-  const retryable = row.payment_method === "payphone" && payment?.status === "failed" &&
-    row.status !== "paid" && row.status !== "rejected";
+  const retryable = (row.payment_method === "payphone" || row.payment_method === "bendo") &&
+    payment?.status === "failed" && row.status !== "paid" && row.status !== "rejected";
   const paymentMessage = publicPaymentMessage(paymentStatus, row.payment_method || "cash");
   return json({
     id: row.id, number: row.number == null ? null : Number(row.number),
