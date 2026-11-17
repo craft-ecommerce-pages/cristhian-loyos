@@ -35,6 +35,7 @@ node --test panel/test/*.test.mjs
 node scripts/catalog-build.mjs            # regenera la carta base (112 productos, 6 sedes)
 node scripts/catalog-media.mjs            # enlaza fotos reales y generadas a data/catalog.json
 node scripts/catalog-import.mjs           # valida la carta y regenera data/kv/*
+node scripts/publish-catalog.mjs          # plan de publicación del catálogo (sin credenciales)
 node scripts/seed-client.mjs --dry-run   # plan de carga inicial (no escribe)
 ```
 

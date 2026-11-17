@@ -243,6 +243,7 @@
       'Stock insuficiente':'Not enough stock','Nota (opcional): sin cebolla, huevo revuelto…':'Note (optional): no onion, scrambled eggs…','Nota (opcional): sabor preferido, indicaciones…':'Note (optional): preferred flavor, instructions…','Nota para este producto':'Note for this item','Nota:':'Note:','Agregado al pedido':'Added to your order',
       'Pedido anticipado para la próxima apertura: {0}. Lo despachamos apenas abramos.':'Pre-order for our next opening: {0}. We’ll prepare it as soon as we open.',
       'Todo':'All','Categorías anteriores':'Previous categories','Más categorías':'More categories',
+      '¿Qué buscas hoy?':'What are you looking for today?','Sushi':'Sushi','Fast Food':'Fast Food','Comida Tradicional':'Traditional Food',
       'Oferta':'Deal','Favorito':'Favorite','Elegir opciones':'Choose options','Agregar':'Add','Ver oferta':'View deal',
       'Tus Favoritos':'Your Favorites','No tienes favoritos aún.':'No favorites yet.',
       'Ofertas':'Deals','No hay ofertas activas ahora mismo.':'No active deals right now.',
@@ -352,6 +353,7 @@
     const orderPhone=()=>coverage?coverage.phone():(config.whatsapp_number||'').replace(/\D/g,'');
     const sedeNote=()=>coverage?coverage.note():'';
     let activeFilter = 'all';   // 'all' | <slug> | '__offers__' | '__favs__'
+    let activeGroup = '';       // grupo de primer nivel (config.category_groups): '' = vista general
     let searchQuery = '';
     let categorySlugs = [];
     let activeBrand = '';       // filtro de marca (config.brand_filter): se combina con el chip activo
@@ -494,6 +496,8 @@
     };
     // Nombre de categoría sin el emoji líder (para el label del chip / header).
     const catLabel=name=>{const e=leadingEmoji(name);return e?(name||'').replace(e,'').trim():(name||'');};
+    // Con un grupo activo el chip ya está dentro de su familia: "Sushi · Entradas" → "Entradas".
+    const stripFamily=name=>{const l=catLabel(name);return activeGroup?l.replace(/^[^·]+·\s*/,''):l;};
     function catIcon(slug,name){
       const e=leadingEmoji(name);          // el emoji del nombre manda (control del operador desde el CRM)
       if(e) return e;
@@ -614,9 +618,40 @@
       const rest=Object.keys(catMap).filter(s=>!pref.includes(s));
       return [...pref.filter(s=>s in catMap),...rest];
     }
+    // Jerarquía opcional (config.category_groups). Sin la clave, el menú queda igual que antes.
+    const categoryGroups=()=>Array.isArray(config.category_groups?.items)?config.category_groups.items:[];
+    const activeGroupSet=()=>{const g=categoryGroups().find(x=>x.slug===activeGroup);return g?new Set(g.categories||[]):null;};
+    function buildGroupBar(){
+      const items=categoryGroups();
+      let bar=document.getElementById('groupBar');
+      if(!items.length){if(bar)bar.remove();return;}
+      const host=$catStrip.parentElement;
+      if(!bar){
+        bar=document.createElement('div');
+        bar.id='groupBar';bar.className='group-bar';
+        // Se inserta justo encima del riel de categorías (debajo del buscador); en la primera
+        // pasada el riel aún no existe y el padre directo es `.sticky-inner`.
+        const before=host.classList.contains('cat-rail')?host:$catStrip;
+        before.parentElement.insertBefore(bar,before);
+        bar.addEventListener('click',e=>{
+          const chip=e.target.closest('.group-chip');if(!chip)return;
+          activeGroup=activeGroup===chip.dataset.group?'':chip.dataset.group;
+          activeFilter='all';searchQuery='';$searchInput.value='';
+          setActiveNav('home');buildCatStrip();renderCatalog();goTop();
+        });
+      }
+      const q=(config.category_groups&&config.category_groups.question)||'¿Qué buscas hoy?';
+      bar.innerHTML=`<span class="group-q">${esc(t(q))}</span><div class="group-opts">`+items.map(g=>
+        `<button type="button" class="group-chip${activeGroup===g.slug?' active':''}" data-group="${esc(g.slug)}" aria-pressed="${activeGroup===g.slug}">`+
+        `<span class="ic">${esc(g.emoji||'')}</span><span class="lb">${esc(t(g.name||g.slug))}</span></button>`).join('')+'</div>';
+    }
     function buildCatStrip(){
       const catMap=config.categories||{};
-      categorySlugs=orderedCategorySlugs();
+      const allSlugs=orderedCategorySlugs();
+      // Jerarquía de primer nivel (opt-in): al elegir grupo, la barra muestra solo sus categorías.
+      buildGroupBar();
+      const gset=activeGroupSet();
+      categorySlugs=gset?allSlugs.filter(s=>gset.has(s)):[...allSlugs];
       // Opt-in: config.brand_filter={prefix,label} saca las categorías con ese prefijo de los chips
       // a un desplegable de marca entre el buscador y los chips. Sin config = no-op.
       // brand_filter.group_prefix: categorías-sección (p.ej. sistemas de una marca) sin chip propio.
@@ -629,13 +664,16 @@
       let html=`<button class="cat-chip active" data-cat="all"><span class="ic">🔥</span><span class="lb">${t('Todo')}</span></button>`;
       categorySlugs.filter(s=>!isBrand(s)&&!isGroup(s)).forEach(slug=>{
         const name=catMap[slug]||slug;
-        html+=`<button class="cat-chip" data-cat="${slug}"><span class="ic">${catIcon(slug,name)}</span><span class="lb">${catLabel(name)}</span></button>`;
+        html+=`<button class="cat-chip" data-cat="${slug}"><span class="ic">${catIcon(slug,name)}</span><span class="lb">${stripFamily(name)}</span></button>`;
       });
       $catStrip.innerHTML=html;
       setupCatNav();
+      // Al cambiar de grupo el riel puede pasar de desbordar a caber (o al revés).
+      syncCatNav();
     }
     // Flechas del riel de categorías: se muestran SOLO si las categorías no caben
     // (típicamente móvil). Aditivo: en escritorio el riel cabe entero y no cambia nada.
+    let syncCatNav=()=>{};
     function setupCatNav(){
       const parent=$catStrip.parentElement;
       if(!parent||parent.classList.contains('cat-rail')) return;
@@ -663,6 +701,7 @@
       }));
       $catStrip.addEventListener('scroll',sync,{passive:true});
       window.addEventListener('resize',sync);
+      syncCatNav=sync;
       sync();
     }
     function setActiveChip(cat){
@@ -780,7 +819,9 @@
         if(isPromo(p)) return false; // promos van solo en el banner, no en el grid
         const matchCat=activeFilter==='all'||(p.categorias||[]).includes(activeFilter);
         const matchBrand=!activeBrand||(p.categorias||[]).includes(activeBrand);
-        return matchCat&&matchBrand&&matchSearch(p);
+        const gset=activeGroupSet();
+        const matchGroup=!gset||(p.categorias||[]).some(c=>gset.has(c));
+        return matchCat&&matchBrand&&matchGroup&&matchSearch(p);
       });
       const groups={};
       // Sección = primera categoría group_prefix si existe; si no, la primera que SEA sección del menú
@@ -795,7 +836,7 @@
         const inCat=groups[cat]||[];
         if(!inCat.length) return;
         html+=`<div class="cat-section" id="cat-${cat}">
-          <h2 class="cat-header"><span class="em">${catIcon(cat,catLabels[cat])}</span>${catLabel(catLabels[cat])||cat}</h2>
+          <h2 class="cat-header"><span class="em">${catIcon(cat,catLabels[cat])}</span>${stripFamily(catLabels[cat])||cat}</h2>
           <div class="grid">${inCat.map((p,i)=>cardHTML(p,i)).join('')}</div>
         </div>`;
       });
@@ -2010,6 +2051,7 @@
       if(nav==='cart'){openCart();return;}
       searchQuery='';$searchInput.value='';
       activeFilter=nav==='offers'?'__offers__':nav==='location'?'__location__':'all';
+      if(nav==='home'&&activeGroup){activeGroup='';buildCatStrip();}
       setActiveNav(nav);
       if(nav==='location') renderLocation(); else renderCatalog();
       goTop();
@@ -2061,6 +2103,8 @@
       const chip=e.target.closest('.cat-chip');if(!chip) return;
       const cat=chip.dataset.cat;
       searchQuery='';$searchInput.value='';
+      // "Todo" = menú completo: si hay un grupo activo, lo deselecciona y restaura la barra general.
+      if(cat==='all'&&activeGroup){activeGroup='';buildCatStrip();}
       activeFilter=cat;setActiveNav('home');renderCatalog();
       if(cat!=='all') requestAnimationFrame(()=>{const s=document.getElementById('cat-'+cat);if(s) s.scrollIntoView({behavior:'smooth'});});
       else goTop();

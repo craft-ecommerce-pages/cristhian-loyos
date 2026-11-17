@@ -20,34 +20,29 @@
     "text2": "#C5D2DC",
     "border": "#363B50"
   },
+  "hero_image": "/media/panel/cristhian-loyos/brand/munch-hero.png",
   "og_image": "/media/panel/cristhian-loyos/brand/munch-hero.png",
   "categories": {
-    "sushi-entradas": "🍣 Sushi · Entradas",
-    "sushi-rollos-frios": "🍣 Sushi · Rollos fríos",
-    "sushi-rollos-especiales": "🍣 Sushi · Rollos especiales",
-    "sushi-makis": "🍣 Sushi · Makis",
-    "sushi-tempurizados": "🍣 Sushi · Rollos tempurizados",
-    "sushi-sashimi": "🍣 Sushi · Sashimi",
-    "sushi-arroces": "🍣 Sushi · Arroces",
-    "sushi-sopas": "🍣 Sushi · Sopas y ramen",
-    "sushi-combos": "🍣 Sushi · Combos estudiantes",
-    "sushi-extras": "🍣 Sushi · Extras",
+    "sushi-entradas": "🥟 Sushi · Entradas",
+    "sushi-rollos": "🍣 Sushi · Rollos",
+    "sushi-sashimi": "🐟 Sushi · Sashimi",
+    "sushi-arroces": "🍙 Sushi · Arroces",
+    "sushi-sopas": "🍜 Sushi · Sopas y ramen",
+    "sushi-combos": "🍱 Sushi · Combos estudiantes",
+    "sushi-extras": "🧂 Sushi · Extras",
     "fastfood-hamburguesas": "🍔 Fast food · Hamburguesas",
-    "fastfood-papas-carnes": "🍔 Fast food · Papas y carnes",
-    "fastfood-alitas": "🍔 Fast food · Alitas",
-    "fastfood-combos": "🍔 Fast food · Combos",
-    "fastfood-postres": "🍔 Fast food · Postres",
-    "tradicional-desayunos": "🍲 Tradicional · Desayunos",
-    "tradicional-almuerzos": "🍲 Tradicional · Almuerzos",
-    "tradicional-papas-patacones": "🍲 Tradicional · Papas y patacones",
-    "tradicional-arroces": "🍲 Tradicional · Arroces"
+    "fastfood-papas-carnes": "🍟 Fast food · Papas y carnes",
+    "fastfood-alitas": "🍗 Fast food · Alitas",
+    "fastfood-combos": "🥡 Fast food · Combos",
+    "fastfood-postres": "🍰 Fast food · Postres",
+    "tradicional-desayunos": "🍳 Tradicional · Desayunos",
+    "tradicional-almuerzos": "🍛 Tradicional · Almuerzos",
+    "tradicional-papas-patacones": "🥔 Tradicional · Papas y patacones",
+    "tradicional-arroces": "🍚 Tradicional · Arroces"
   },
   "category_order": [
     "sushi-entradas",
-    "sushi-rollos-frios",
-    "sushi-rollos-especiales",
-    "sushi-makis",
-    "sushi-tempurizados",
+    "sushi-rollos",
     "sushi-sashimi",
     "sushi-arroces",
     "sushi-sopas",
@@ -63,6 +58,48 @@
     "tradicional-papas-patacones",
     "tradicional-arroces"
   ],
+  "category_groups": {
+    "question": "¿Qué buscas hoy?",
+    "items": [
+      {
+        "slug": "sushi",
+        "name": "Sushi",
+        "emoji": "🍣",
+        "categories": [
+          "sushi-entradas",
+          "sushi-rollos",
+          "sushi-sashimi",
+          "sushi-arroces",
+          "sushi-sopas",
+          "sushi-combos",
+          "sushi-extras"
+        ]
+      },
+      {
+        "slug": "fastfood",
+        "name": "Fast Food",
+        "emoji": "🍔",
+        "categories": [
+          "fastfood-hamburguesas",
+          "fastfood-papas-carnes",
+          "fastfood-alitas",
+          "fastfood-combos",
+          "fastfood-postres"
+        ]
+      },
+      {
+        "slug": "tradicional",
+        "name": "Comida Tradicional",
+        "emoji": "🍲",
+        "categories": [
+          "tradicional-desayunos",
+          "tradicional-almuerzos",
+          "tradicional-papas-patacones",
+          "tradicional-arroces"
+        ]
+      }
+    ]
+  },
   "packaging": {
     "enabled": true,
     "mode": "per_product",
@@ -119,6 +156,5 @@
     "enabled": true,
     "api_base": "",
     "poll_ms": 5000
-  },
-  "hero_image": "/media/panel/cristhian-loyos/brand/munch-hero.png"
+  }
 }

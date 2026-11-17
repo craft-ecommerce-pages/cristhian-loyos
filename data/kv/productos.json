@@ -161,7 +161,7 @@
     "precio": "6.35",
     "precio_promo": "",
     "categorias": [
-      "sushi-rollos-frios"
+      "sushi-rollos"
     ],
     "descripcion": "Cobertura de salmón, relleno de queso crema, aguacate y mix de cangrejo.",
     "stock": null,
@@ -178,7 +178,7 @@
     "precio": "10.99",
     "precio_promo": "",
     "categorias": [
-      "sushi-rollos-frios"
+      "sushi-rollos"
     ],
     "descripcion": "Cobertura de salmón, relleno de queso crema, aguacate y mix de cangrejo.",
     "stock": null,
@@ -195,7 +195,7 @@
     "precio": "7.50",
     "precio_promo": "",
     "categorias": [
-      "sushi-rollos-frios"
+      "sushi-rollos"
     ],
     "descripcion": "Cobertura de atún, relleno de queso crema, pimiento morrón y camarón tempurizado.",
     "stock": null,
@@ -212,7 +212,7 @@
     "precio": "13.25",
     "precio_promo": "",
     "categorias": [
-      "sushi-rollos-frios"
+      "sushi-rollos"
     ],
     "descripcion": "Cobertura de atún, relleno de queso crema, pimiento morrón y camarón tempurizado.",
     "stock": null,
@@ -229,7 +229,7 @@
     "precio": "4.85",
     "precio_promo": "",
     "categorias": [
-      "sushi-rollos-frios"
+      "sushi-rollos"
     ],
     "descripcion": "Cobertura de masago, relleno de cangrejo y pepinillo.",
     "stock": null,
@@ -246,7 +246,7 @@
     "precio": "7.69",
     "precio_promo": "",
     "categorias": [
-      "sushi-rollos-frios"
+      "sushi-rollos"
     ],
     "descripcion": "Cobertura de masago, relleno de cangrejo y pepinillo.",
     "stock": null,
@@ -263,7 +263,7 @@
     "precio": "5.60",
     "precio_promo": "",
     "categorias": [
-      "sushi-rollos-frios"
+      "sushi-rollos"
     ],
     "descripcion": "Cobertura de aguacate, relleno de camarón tempura y queso crema.",
     "stock": null,
@@ -280,7 +280,7 @@
     "precio": "7.69",
     "precio_promo": "",
     "categorias": [
-      "sushi-rollos-frios"
+      "sushi-rollos"
     ],
     "descripcion": "Cobertura de aguacate, relleno de camarón tempura y queso crema.",
     "stock": null,
@@ -297,7 +297,7 @@
     "precio": "5.45",
     "precio_promo": "",
     "categorias": [
-      "sushi-rollos-frios"
+      "sushi-rollos"
     ],
     "descripcion": "Relleno de queso crema, aguacate y salmón fresco.",
     "stock": null,
@@ -314,7 +314,7 @@
     "precio": "7.69",
     "precio_promo": "",
     "categorias": [
-      "sushi-rollos-frios"
+      "sushi-rollos"
     ],
     "descripcion": "Relleno de queso crema, aguacate y salmón fresco.",
     "stock": null,
@@ -331,7 +331,7 @@
     "precio": "4.75",
     "precio_promo": "",
     "categorias": [
-      "sushi-rollos-frios"
+      "sushi-rollos"
     ],
     "descripcion": "Cobertura de kani (cangrejo), relleno de queso crema y camarón tempura.",
     "stock": null,
@@ -348,7 +348,7 @@
     "precio": "7.69",
     "precio_promo": "",
     "categorias": [
-      "sushi-rollos-frios"
+      "sushi-rollos"
     ],
     "descripcion": "Cobertura de kani (cangrejo), relleno de queso crema y camarón tempura.",
     "stock": null,
@@ -365,7 +365,7 @@
     "precio": "4.70",
     "precio_promo": "",
     "categorias": [
-      "sushi-rollos-frios"
+      "sushi-rollos"
     ],
     "descripcion": "Cobertura de maqueño y queso crema, relleno de cangrejo, aguacate y queso.",
     "stock": null,
@@ -382,7 +382,7 @@
     "precio": "7.69",
     "precio_promo": "",
     "categorias": [
-      "sushi-rollos-frios"
+      "sushi-rollos"
     ],
     "descripcion": "Cobertura de maqueño y queso crema, relleno de cangrejo, aguacate y queso.",
     "stock": null,
@@ -399,7 +399,7 @@
     "precio": "5.25",
     "precio_promo": "",
     "categorias": [
-      "sushi-rollos-especiales"
+      "sushi-rollos"
     ],
     "descripcion": "Queso crema, aguacate y pescado tempurizado con topping de wahoo acevichado y salsa de ají amarillo.",
     "stock": null,
@@ -416,7 +416,7 @@
     "precio": "8.49",
     "precio_promo": "",
     "categorias": [
-      "sushi-rollos-especiales"
+      "sushi-rollos"
     ],
     "descripcion": "Queso crema, aguacate y pescado tempurizado con topping de wahoo acevichado y salsa de ají amarillo.",
     "stock": null,
@@ -433,7 +433,7 @@
     "precio": "5.25",
     "precio_promo": "",
     "categorias": [
-      "sushi-rollos-especiales"
+      "sushi-rollos"
     ],
     "descripcion": "Relleno de salmón marinado y queso crema con topping de champiñón salteado y cebollín.",
     "stock": null,
@@ -450,7 +450,7 @@
     "precio": "8.49",
     "precio_promo": "",
     "categorias": [
-      "sushi-rollos-especiales"
+      "sushi-rollos"
     ],
     "descripcion": "Relleno de salmón marinado y queso crema con topping de champiñón salteado y cebollín.",
     "stock": null,
@@ -467,7 +467,7 @@
     "precio": "5.50",
     "precio_promo": "",
     "categorias": [
-      "sushi-rollos-especiales"
+      "sushi-rollos"
     ],
     "descripcion": "Cobertura de lomo fino sellado a la plancha, chimichurri japonés, relleno de pimiento morrón, camarón tempura y queso crema.",
     "stock": null,
@@ -484,7 +484,7 @@
     "precio": "8.69",
     "precio_promo": "",
     "categorias": [
-      "sushi-rollos-especiales"
+      "sushi-rollos"
     ],
     "descripcion": "Cobertura de lomo fino sellado a la plancha, chimichurri japonés, relleno de pimiento morrón, camarón tempura y queso crema.",
     "stock": null,
@@ -501,7 +501,7 @@
     "precio": "4.85",
     "precio_promo": "",
     "categorias": [
-      "sushi-makis"
+      "sushi-rollos"
     ],
     "descripcion": "Aguacate, salmón fresco mixsurimi y masago, cobertura de alga nori.",
     "stock": null,
@@ -518,7 +518,7 @@
     "precio": "7.69",
     "precio_promo": "",
     "categorias": [
-      "sushi-makis"
+      "sushi-rollos"
     ],
     "descripcion": "Aguacate, salmón fresco mixsurimi y masago, cobertura de alga nori.",
     "stock": null,
@@ -535,7 +535,7 @@
     "precio": "4.70",
     "precio_promo": "",
     "categorias": [
-      "sushi-makis"
+      "sushi-rollos"
     ],
     "descripcion": "Queso crema, aguacate, kanikama y masago, cobertura de wontón.",
     "stock": null,
@@ -552,7 +552,7 @@
     "precio": "7.69",
     "precio_promo": "",
     "categorias": [
-      "sushi-makis"
+      "sushi-rollos"
     ],
     "descripcion": "Queso crema, aguacate, kanikama y masago, cobertura de wontón.",
     "stock": null,
@@ -569,7 +569,7 @@
     "precio": "5.10",
     "precio_promo": "",
     "categorias": [
-      "sushi-tempurizados"
+      "sushi-rollos"
     ],
     "descripcion": "Cobertura tempurizada de coco con relleno de camarón pankonizado, queso crema y aguacate.",
     "stock": null,
@@ -586,7 +586,7 @@
     "precio": "7.69",
     "precio_promo": "",
     "categorias": [
-      "sushi-tempurizados"
+      "sushi-rollos"
     ],
     "descripcion": "Cobertura tempurizada de coco con relleno de camarón pankonizado, queso crema y aguacate.",
     "stock": null,
@@ -603,7 +603,7 @@
     "precio": "4.85",
     "precio_promo": "",
     "categorias": [
-      "sushi-tempurizados"
+      "sushi-rollos"
     ],
     "descripcion": "Cobertura tempurizada, relleno de cangrejo, maqueño y queso crema.",
     "stock": null,
@@ -620,7 +620,7 @@
     "precio": "7.49",
     "precio_promo": "",
     "categorias": [
-      "sushi-tempurizados"
+      "sushi-rollos"
     ],
     "descripcion": "Cobertura tempurizada, relleno de cangrejo, maqueño y queso crema.",
     "stock": null,
@@ -637,7 +637,7 @@
     "precio": "4.85",
     "precio_promo": "",
     "categorias": [
-      "sushi-tempurizados"
+      "sushi-rollos"
     ],
     "descripcion": "Cobertura tempurizada, relleno Eby mix (camarón mix).",
     "stock": null,
@@ -654,7 +654,7 @@
     "precio": "7.49",
     "precio_promo": "",
     "categorias": [
-      "sushi-tempurizados"
+      "sushi-rollos"
     ],
     "descripcion": "Cobertura tempurizada, relleno Eby mix (camarón mix).",
     "stock": null,
@@ -671,7 +671,7 @@
     "precio": "5.10",
     "precio_promo": "",
     "categorias": [
-      "sushi-tempurizados"
+      "sushi-rollos"
     ],
     "descripcion": "Cobertura pankonizada, relleno de sake mix (salmón mix) y salsa de la casa.",
     "stock": null,
@@ -688,7 +688,7 @@
     "precio": "7.69",
     "precio_promo": "",
     "categorias": [
-      "sushi-tempurizados"
+      "sushi-rollos"
     ],
     "descripcion": "Cobertura pankonizada, relleno de sake mix (salmón mix) y salsa de la casa.",
     "stock": null,
@@ -705,7 +705,7 @@
     "precio": "5.10",
     "precio_promo": "",
     "categorias": [
-      "sushi-tempurizados"
+      "sushi-rollos"
     ],
     "descripcion": "Cobertura pankonizada, relleno de cangrejo, aguacate y queso crema.",
     "stock": null,
@@ -722,7 +722,7 @@
     "precio": "7.69",
     "precio_promo": "",
     "categorias": [
-      "sushi-tempurizados"
+      "sushi-rollos"
     ],
     "descripcion": "Cobertura pankonizada, relleno de cangrejo, aguacate y queso crema.",
     "stock": null,
@@ -739,7 +739,7 @@
     "precio": "5.10",
     "precio_promo": "",
     "categorias": [
-      "sushi-tempurizados"
+      "sushi-rollos"
     ],
     "descripcion": "Cobertura pankonizada, relleno de camarón tempura y queso crema. (La carta no lista porción de 10 bocados para este rollo.)",
     "stock": null,

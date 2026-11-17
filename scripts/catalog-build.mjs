@@ -25,26 +25,25 @@ const CLIENT_SLUG = process.env.CLIENT_SLUG || "cristhian-loyos";
 const MEDIA = `${MEDIA_ORIGIN}/media/panel/${CLIENT_SLUG}/products`;
 
 /* ── Categorías visibles (orden = orden del menú) ─────────────────────────── */
+// 2026-11-17: una sola categoría de rolls (fríos + especiales + makis + tempurizados)
+// y un emoji distinto por categoría para la barra del menú.
 const CATEGORIES = [
-  ["sushi-entradas", "🍣 Sushi · Entradas"],
-  ["sushi-rollos-frios", "🍣 Sushi · Rollos fríos"],
-  ["sushi-rollos-especiales", "🍣 Sushi · Rollos especiales"],
-  ["sushi-makis", "🍣 Sushi · Makis"],
-  ["sushi-tempurizados", "🍣 Sushi · Rollos tempurizados"],
-  ["sushi-sashimi", "🍣 Sushi · Sashimi"],
-  ["sushi-arroces", "🍣 Sushi · Arroces"],
-  ["sushi-sopas", "🍣 Sushi · Sopas y ramen"],
-  ["sushi-combos", "🍣 Sushi · Combos estudiantes"],
-  ["sushi-extras", "🍣 Sushi · Extras"],
+  ["sushi-entradas", "🥟 Sushi · Entradas"],
+  ["sushi-rollos", "🍣 Sushi · Rollos"],
+  ["sushi-sashimi", "🐟 Sushi · Sashimi"],
+  ["sushi-arroces", "🍙 Sushi · Arroces"],
+  ["sushi-sopas", "🍜 Sushi · Sopas y ramen"],
+  ["sushi-combos", "🍱 Sushi · Combos estudiantes"],
+  ["sushi-extras", "🧂 Sushi · Extras"],
   ["fastfood-hamburguesas", "🍔 Fast food · Hamburguesas"],
-  ["fastfood-papas-carnes", "🍔 Fast food · Papas y carnes"],
-  ["fastfood-alitas", "🍔 Fast food · Alitas"],
-  ["fastfood-combos", "🍔 Fast food · Combos"],
-  ["fastfood-postres", "🍔 Fast food · Postres"],
-  ["tradicional-desayunos", "🍲 Tradicional · Desayunos"],
-  ["tradicional-almuerzos", "🍲 Tradicional · Almuerzos"],
-  ["tradicional-papas-patacones", "🍲 Tradicional · Papas y patacones"],
-  ["tradicional-arroces", "🍲 Tradicional · Arroces"],
+  ["fastfood-papas-carnes", "🍟 Fast food · Papas y carnes"],
+  ["fastfood-alitas", "🍗 Fast food · Alitas"],
+  ["fastfood-combos", "🥡 Fast food · Combos"],
+  ["fastfood-postres", "🍰 Fast food · Postres"],
+  ["tradicional-desayunos", "🍳 Tradicional · Desayunos"],
+  ["tradicional-almuerzos", "🍛 Tradicional · Almuerzos"],
+  ["tradicional-papas-patacones", "🥔 Tradicional · Papas y patacones"],
+  ["tradicional-arroces", "🍚 Tradicional · Arroces"],
 ];
 
 // id de archivo de imagen compartida por varios productos (se documenta en media/media-map.json).
@@ -98,48 +97,48 @@ const PRODUCTS = [
   p("sushi-gunkan-cangrejo-1", "Gunkán de cangrejo (1 unidad)", 249, "sushi-entradas", { desc: "Gunkán de cangrejo." }),
   p("sushi-gunkan-salmon-1", "Gunkán de salmón sellado (1 unidad)", 249, "sushi-entradas", { desc: "Gunkán de salmón sellado." }),
 
-  /* Sushi · Rollos fríos (porción de 5 y de 10 bocados) */
-  p("sushi-oshiisake-5", "Oshiisake 5 bocados", 635, "sushi-rollos-frios", { desc: "Cobertura de salmón, relleno de queso crema, aguacate y mix de cangrejo." }),
-  p("sushi-oshiisake-10", "Oshiisake 10 bocados", 1099, "sushi-rollos-frios", { desc: "Cobertura de salmón, relleno de queso crema, aguacate y mix de cangrejo." }),
-  p("sushi-maguro-roll-5", "Maguro Roll 5 bocados", 750, "sushi-rollos-frios", { desc: "Cobertura de atún, relleno de queso crema, pimiento morrón y camarón tempurizado." }),
-  p("sushi-maguro-roll-10", "Maguro Roll 10 bocados", 1325, "sushi-rollos-frios", { desc: "Cobertura de atún, relleno de queso crema, pimiento morrón y camarón tempurizado." }),
-  p("sushi-california-5", "California 5 bocados", 485, "sushi-rollos-frios", { desc: "Cobertura de masago, relleno de cangrejo y pepinillo." }),
-  p("sushi-california-10", "California 10 bocados", 769, "sushi-rollos-frios", { desc: "Cobertura de masago, relleno de cangrejo y pepinillo." }),
-  p("sushi-avocado-5", "Avocado 5 bocados", 560, "sushi-rollos-frios", { desc: "Cobertura de aguacate, relleno de camarón tempura y queso crema." }),
-  p("sushi-avocado-10", "Avocado 10 bocados", 769, "sushi-rollos-frios", { desc: "Cobertura de aguacate, relleno de camarón tempura y queso crema." }),
-  p("sushi-filadelfia-5", "Filadelfia 5 bocados", 545, "sushi-rollos-frios", { desc: "Relleno de queso crema, aguacate y salmón fresco." }),
-  p("sushi-filadelfia-10", "Filadelfia 10 bocados", 769, "sushi-rollos-frios", { desc: "Relleno de queso crema, aguacate y salmón fresco." }),
-  p("sushi-kaniroll-5", "Kaniroll 5 bocados", 475, "sushi-rollos-frios", { desc: "Cobertura de kani (cangrejo), relleno de queso crema y camarón tempura." }),
-  p("sushi-kaniroll-10", "Kaniroll 10 bocados", 769, "sushi-rollos-frios", { desc: "Cobertura de kani (cangrejo), relleno de queso crema y camarón tempura." }),
-  p("sushi-sweetsuri-5", "Sweetsuri 5 bocados", 470, "sushi-rollos-frios", { desc: "Cobertura de maqueño y queso crema, relleno de cangrejo, aguacate y queso." }),
-  p("sushi-sweetsuri-10", "Sweetsuri 10 bocados", 769, "sushi-rollos-frios", { desc: "Cobertura de maqueño y queso crema, relleno de cangrejo, aguacate y queso." }),
+  /* Sushi · Rollos (fríos, especiales, makis y tempurizados; porción de 5 y 10 bocados) */
+  p("sushi-oshiisake-5", "Oshiisake 5 bocados", 635, "sushi-rollos", { desc: "Cobertura de salmón, relleno de queso crema, aguacate y mix de cangrejo." }),
+  p("sushi-oshiisake-10", "Oshiisake 10 bocados", 1099, "sushi-rollos", { desc: "Cobertura de salmón, relleno de queso crema, aguacate y mix de cangrejo." }),
+  p("sushi-maguro-roll-5", "Maguro Roll 5 bocados", 750, "sushi-rollos", { desc: "Cobertura de atún, relleno de queso crema, pimiento morrón y camarón tempurizado." }),
+  p("sushi-maguro-roll-10", "Maguro Roll 10 bocados", 1325, "sushi-rollos", { desc: "Cobertura de atún, relleno de queso crema, pimiento morrón y camarón tempurizado." }),
+  p("sushi-california-5", "California 5 bocados", 485, "sushi-rollos", { desc: "Cobertura de masago, relleno de cangrejo y pepinillo." }),
+  p("sushi-california-10", "California 10 bocados", 769, "sushi-rollos", { desc: "Cobertura de masago, relleno de cangrejo y pepinillo." }),
+  p("sushi-avocado-5", "Avocado 5 bocados", 560, "sushi-rollos", { desc: "Cobertura de aguacate, relleno de camarón tempura y queso crema." }),
+  p("sushi-avocado-10", "Avocado 10 bocados", 769, "sushi-rollos", { desc: "Cobertura de aguacate, relleno de camarón tempura y queso crema." }),
+  p("sushi-filadelfia-5", "Filadelfia 5 bocados", 545, "sushi-rollos", { desc: "Relleno de queso crema, aguacate y salmón fresco." }),
+  p("sushi-filadelfia-10", "Filadelfia 10 bocados", 769, "sushi-rollos", { desc: "Relleno de queso crema, aguacate y salmón fresco." }),
+  p("sushi-kaniroll-5", "Kaniroll 5 bocados", 475, "sushi-rollos", { desc: "Cobertura de kani (cangrejo), relleno de queso crema y camarón tempura." }),
+  p("sushi-kaniroll-10", "Kaniroll 10 bocados", 769, "sushi-rollos", { desc: "Cobertura de kani (cangrejo), relleno de queso crema y camarón tempura." }),
+  p("sushi-sweetsuri-5", "Sweetsuri 5 bocados", 470, "sushi-rollos", { desc: "Cobertura de maqueño y queso crema, relleno de cangrejo, aguacate y queso." }),
+  p("sushi-sweetsuri-10", "Sweetsuri 10 bocados", 769, "sushi-rollos", { desc: "Cobertura de maqueño y queso crema, relleno de cangrejo, aguacate y queso." }),
 
   /* Sushi · Rollos especiales */
-  p("sushi-roll-acevichado-5", "Roll Acevichado 5 bocados", 525, "sushi-rollos-especiales", { desc: "Queso crema, aguacate y pescado tempurizado con topping de wahoo acevichado y salsa de ají amarillo." }),
-  p("sushi-roll-acevichado-10", "Roll Acevichado 10 bocados", 849, "sushi-rollos-especiales", { desc: "Queso crema, aguacate y pescado tempurizado con topping de wahoo acevichado y salsa de ají amarillo." }),
-  p("sushi-champilover-5", "Champilover 5 bocados", 525, "sushi-rollos-especiales", { desc: "Relleno de salmón marinado y queso crema con topping de champiñón salteado y cebollín." }),
-  p("sushi-champilover-10", "Champilover 10 bocados", 849, "sushi-rollos-especiales", { desc: "Relleno de salmón marinado y queso crema con topping de champiñón salteado y cebollín." }),
-  p("sushi-roll-parrillero-5", "Roll Parrillero 5 bocados", 550, "sushi-rollos-especiales", { desc: "Cobertura de lomo fino sellado a la plancha, chimichurri japonés, relleno de pimiento morrón, camarón tempura y queso crema." }),
-  p("sushi-roll-parrillero-10", "Roll Parrillero 10 bocados", 869, "sushi-rollos-especiales", { desc: "Cobertura de lomo fino sellado a la plancha, chimichurri japonés, relleno de pimiento morrón, camarón tempura y queso crema." }),
+  p("sushi-roll-acevichado-5", "Roll Acevichado 5 bocados", 525, "sushi-rollos", { desc: "Queso crema, aguacate y pescado tempurizado con topping de wahoo acevichado y salsa de ají amarillo." }),
+  p("sushi-roll-acevichado-10", "Roll Acevichado 10 bocados", 849, "sushi-rollos", { desc: "Queso crema, aguacate y pescado tempurizado con topping de wahoo acevichado y salsa de ají amarillo." }),
+  p("sushi-champilover-5", "Champilover 5 bocados", 525, "sushi-rollos", { desc: "Relleno de salmón marinado y queso crema con topping de champiñón salteado y cebollín." }),
+  p("sushi-champilover-10", "Champilover 10 bocados", 849, "sushi-rollos", { desc: "Relleno de salmón marinado y queso crema con topping de champiñón salteado y cebollín." }),
+  p("sushi-roll-parrillero-5", "Roll Parrillero 5 bocados", 550, "sushi-rollos", { desc: "Cobertura de lomo fino sellado a la plancha, chimichurri japonés, relleno de pimiento morrón, camarón tempura y queso crema." }),
+  p("sushi-roll-parrillero-10", "Roll Parrillero 10 bocados", 869, "sushi-rollos", { desc: "Cobertura de lomo fino sellado a la plancha, chimichurri japonés, relleno de pimiento morrón, camarón tempura y queso crema." }),
 
   /* Sushi · Makis */
-  p("sushi-maki-suri-5", "Maki Suri 5 bocados", 485, "sushi-makis", { desc: "Aguacate, salmón fresco mixsurimi y masago, cobertura de alga nori." }),
-  p("sushi-maki-suri-10", "Maki Suri 10 bocados", 769, "sushi-makis", { desc: "Aguacate, salmón fresco mixsurimi y masago, cobertura de alga nori." }),
-  p("sushi-kani-maki-5", "Kani Maki 5 bocados", 470, "sushi-makis", { desc: "Queso crema, aguacate, kanikama y masago, cobertura de wontón." }),
-  p("sushi-kani-maki-10", "Kani Maki 10 bocados", 769, "sushi-makis", { desc: "Queso crema, aguacate, kanikama y masago, cobertura de wontón." }),
+  p("sushi-maki-suri-5", "Maki Suri 5 bocados", 485, "sushi-rollos", { desc: "Aguacate, salmón fresco mixsurimi y masago, cobertura de alga nori." }),
+  p("sushi-maki-suri-10", "Maki Suri 10 bocados", 769, "sushi-rollos", { desc: "Aguacate, salmón fresco mixsurimi y masago, cobertura de alga nori." }),
+  p("sushi-kani-maki-5", "Kani Maki 5 bocados", 470, "sushi-rollos", { desc: "Queso crema, aguacate, kanikama y masago, cobertura de wontón." }),
+  p("sushi-kani-maki-10", "Kani Maki 10 bocados", 769, "sushi-rollos", { desc: "Queso crema, aguacate, kanikama y masago, cobertura de wontón." }),
 
   /* Sushi · Rollos tempurizados */
-  p("sushi-coco-roll-5", "Coco Roll 5 bocados", 510, "sushi-tempurizados", { desc: "Cobertura tempurizada de coco con relleno de camarón pankonizado, queso crema y aguacate." }),
-  p("sushi-coco-roll-10", "Coco Roll 10 bocados", 769, "sushi-tempurizados", { desc: "Cobertura tempurizada de coco con relleno de camarón pankonizado, queso crema y aguacate." }),
-  p("sushi-surimaque-5", "Surimaque 5 bocados", 485, "sushi-tempurizados", { desc: "Cobertura tempurizada, relleno de cangrejo, maqueño y queso crema." }),
-  p("sushi-surimaque-10", "Surimaque 10 bocados", 749, "sushi-tempurizados", { desc: "Cobertura tempurizada, relleno de cangrejo, maqueño y queso crema." }),
-  p("sushi-ebyoshii-5", "Ebyoshii 5 bocados", 485, "sushi-tempurizados", { desc: "Cobertura tempurizada, relleno Eby mix (camarón mix)." }),
-  p("sushi-ebyoshii-10", "Ebyoshii 10 bocados", 749, "sushi-tempurizados", { desc: "Cobertura tempurizada, relleno Eby mix (camarón mix)." }),
-  p("sushi-sakeroll-5", "Sakeroll 5 bocados", 510, "sushi-tempurizados", { desc: "Cobertura pankonizada, relleno de sake mix (salmón mix) y salsa de la casa." }),
-  p("sushi-sakeroll-10", "Sakeroll 10 bocados", 769, "sushi-tempurizados", { desc: "Cobertura pankonizada, relleno de sake mix (salmón mix) y salsa de la casa." }),
-  p("sushi-crocante-5", "Crocante 5 bocados", 510, "sushi-tempurizados", { desc: "Cobertura pankonizada, relleno de cangrejo, aguacate y queso crema." }),
-  p("sushi-crocante-10", "Crocante 10 bocados", 769, "sushi-tempurizados", { desc: "Cobertura pankonizada, relleno de cangrejo, aguacate y queso crema." }),
-  p("sushi-dragon-5", "Dragón 5 bocados", 510, "sushi-tempurizados", { desc: "Cobertura pankonizada, relleno de camarón tempura y queso crema. (La carta no lista porción de 10 bocados para este rollo.)" }),
+  p("sushi-coco-roll-5", "Coco Roll 5 bocados", 510, "sushi-rollos", { desc: "Cobertura tempurizada de coco con relleno de camarón pankonizado, queso crema y aguacate." }),
+  p("sushi-coco-roll-10", "Coco Roll 10 bocados", 769, "sushi-rollos", { desc: "Cobertura tempurizada de coco con relleno de camarón pankonizado, queso crema y aguacate." }),
+  p("sushi-surimaque-5", "Surimaque 5 bocados", 485, "sushi-rollos", { desc: "Cobertura tempurizada, relleno de cangrejo, maqueño y queso crema." }),
+  p("sushi-surimaque-10", "Surimaque 10 bocados", 749, "sushi-rollos", { desc: "Cobertura tempurizada, relleno de cangrejo, maqueño y queso crema." }),
+  p("sushi-ebyoshii-5", "Ebyoshii 5 bocados", 485, "sushi-rollos", { desc: "Cobertura tempurizada, relleno Eby mix (camarón mix)." }),
+  p("sushi-ebyoshii-10", "Ebyoshii 10 bocados", 749, "sushi-rollos", { desc: "Cobertura tempurizada, relleno Eby mix (camarón mix)." }),
+  p("sushi-sakeroll-5", "Sakeroll 5 bocados", 510, "sushi-rollos", { desc: "Cobertura pankonizada, relleno de sake mix (salmón mix) y salsa de la casa." }),
+  p("sushi-sakeroll-10", "Sakeroll 10 bocados", 769, "sushi-rollos", { desc: "Cobertura pankonizada, relleno de sake mix (salmón mix) y salsa de la casa." }),
+  p("sushi-crocante-5", "Crocante 5 bocados", 510, "sushi-rollos", { desc: "Cobertura pankonizada, relleno de cangrejo, aguacate y queso crema." }),
+  p("sushi-crocante-10", "Crocante 10 bocados", 769, "sushi-rollos", { desc: "Cobertura pankonizada, relleno de cangrejo, aguacate y queso crema." }),
+  p("sushi-dragon-5", "Dragón 5 bocados", 510, "sushi-rollos", { desc: "Cobertura pankonizada, relleno de camarón tempura y queso crema. (La carta no lista porción de 10 bocados para este rollo.)" }),
 
   /* Sushi · Sashimi */
   p("sushi-sashimi-salmon-5", "Sashimi de salmón (5 unidades)", 525, "sushi-sashimi", { desc: "Cinco cortes de salmón fresco." }),
@@ -274,6 +273,16 @@ const config = {
   og_image: `${MEDIA_ORIGIN}/media/panel/${CLIENT_SLUG}/brand/munch-hero.png`,
   categories: Object.fromEntries(CATEGORIES.map(([slug, name]) => [slug, name])),
   category_order: CATEGORIES.map(([slug]) => slug),
+  // Jerarquía de primer nivel del menú: al elegir un grupo se filtra el catálogo y la barra
+  // de categorías muestra solo las de ese grupo. Sin grupo = vista general completa.
+  category_groups: {
+    question: "¿Qué buscas hoy?",
+    items: [
+      { slug: "sushi", name: "Sushi", emoji: "🍣", categories: ["sushi-entradas", "sushi-rollos", "sushi-sashimi", "sushi-arroces", "sushi-sopas", "sushi-combos", "sushi-extras"] },
+      { slug: "fastfood", name: "Fast Food", emoji: "🍔", categories: ["fastfood-hamburguesas", "fastfood-papas-carnes", "fastfood-alitas", "fastfood-combos", "fastfood-postres"] },
+      { slug: "tradicional", name: "Comida Tradicional", emoji: "🍲", categories: ["tradicional-desayunos", "tradicional-almuerzos", "tradicional-papas-patacones", "tradicional-arroces"] },
+    ],
+  },
   packaging: { enabled: true, mode: "per_product", label: "Empaque" },
   location: {
     // El menú usa estos IDs para `?sede=` y para el selector; `sedesFor` del panel los siembra
