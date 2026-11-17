@@ -119,7 +119,7 @@ async function startMesero({ orders = [], fetchImpl = null } = {}) {
 
 test("el HTML del mesero incluye media, fallback, aria-label y el aviso de cobro", async () => {
   const html = await renderMeseroPage(new Request("https://pizza.craft-systems.com/panel/mesero"), makeEnv(), site);
-  for (const marker of ["catalog-product", "catalog-media", "media-fallback", "Sin foto",
+  for (const marker of ["catalog-product", "catalog-media", "media-fallback", "catalog-name",
     "Confirmado · falta cobro", "Reimprimir", "Acuse de impresión"]) {
     assert.ok(html.includes(marker), marker);
   }
@@ -199,9 +199,10 @@ test("Nuevo pedido pinta tarjetas con imagen y fallback, y agrega al carrito", a
   juice.trigger("click");
   await flush();
   assert.match(toast.textContent, /\+1 Jugo natural/);
-  const bar = find(root, node => node.tagName === "button" && node.classList.contains("cart-bar"));
+  const bar = find(root, node => node.classList.contains("cart-bar"));
   assert.ok(bar, "la barra del pedido suma el producto");
-  bar.trigger("click");
+  assert.match(bar.textContent, /1 ítem/);
+  find(bar, node => node.tagName === "button" && node.textContent === "Cobrar").trigger("click");
   await flush();
   assert.match(doc.body.textContent, /Continuar al cobro/);
   assert.match(doc.body.textContent, /Jugo natural/);
@@ -223,7 +224,7 @@ test("caja: factura exige datos y envía Quito por defecto antes del datáfono",
   find(root, node => node.tagName === "button" && node.textContent === "Nueva venta").trigger("click");
   await flush();
   find(root, node => node.tagName === "button" && node.textContent.includes("Pizza margarita")).trigger("click");
-  find(root, node => node.classList.contains("cart-bar")).trigger("click");
+  find(root, node => node.tagName === "button" && node.textContent === "Cobrar").trigger("click");
   const byText = value => find(doc.body, node => node.tagName === "button" && node.textContent === value);
   byText("Factura").trigger("click");
   byText("Tarjeta · datáfono").trigger("click");

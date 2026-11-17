@@ -297,10 +297,10 @@ test("tarjetas muestran cliente, hora y total; el constructor bloquea agotados",
   tab.on.click();
   await flushRuntime();
   const products = walk(window.__testRoot).filter(n => n.attrs?.class === undefined && n.className === "catalog-product");
-  const soldOut = products.find(n => n.textContent.startsWith("Lasaña"));
+  const soldOut = products.find(n => n.textContent.includes("Lasaña"));
   assert.match(soldOut.textContent, /Agotado/);
   assert.equal("disabled" in soldOut.attrs, true);
-  assert.equal("disabled" in products.find(n => n.textContent.startsWith("Pizza")).attrs, false);
+  assert.equal("disabled" in products.find(n => n.textContent.includes("Pizza")).attrs, false);
 });
 
 test("ticketLines sangra variantes y notas de cada ítem", async () => {
