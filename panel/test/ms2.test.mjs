@@ -93,7 +93,7 @@ test("el papel de 58/80 mm usa 32/48 columnas", () => {
   assert.equal(ticketPageHeight(-1), 50);
 });
 
-test("la página del mesero tiene shim, escape, marcadores y no sondea", async () => {
+test("la página del mesero tiene shim, escape, marcadores y sondea cada 10 s", async () => {
   const env = makeEnv({ "pizza:config": { store_name: "<b>Pizzería</b>" } });
   const html = await renderMeseroPage(
     new Request("https://pizza.craft-systems.com/panel/mesero"),
@@ -101,7 +101,9 @@ test("la página del mesero tiene shim, escape, marcadores y no sondea", async (
     site,
   );
   assert.ok(html.indexOf("var __name=") < html.indexOf("meseroMain"));
-  assert.equal(html.includes("setInterval"), false);
+  // El sondeo de pedidos web es de 10 s y nunca usa innerHTML.
+  assert.match(html, /const POLL_MS = 10000/);
+  assert.match(html, /setInterval\(/);
   assert.equal(html.includes("<b>Pizzería</b>"), false);
   assert.match(html, /&lt;b&gt;Pizzería&lt;\/b&gt;/);
   for (const marker of [
@@ -267,7 +269,7 @@ test("una sesión vencida durante la carga conserva la pantalla de PIN", async (
 
 const walk = (node, out = []) => { out.push(node); (node.children || []).forEach(kid => walk(kid, out)); return out; };
 
-test("tarjetas muestran mesa + nombre, hora y total; el constructor bloquea agotados", async () => {
+test("tarjetas muestran cliente, hora y total; el constructor bloquea agotados", async () => {
   const env = makeEnv();
   const html = await renderMeseroPage(new Request("https://pizza.craft-systems.com/panel/mesero"), env, site);
   const order = (extra) => ({ id: "x", status: "pending", items: [], total: 18.5, created_at: 0, ...extra });
@@ -287,17 +289,18 @@ test("tarjetas muestran mesa + nombre, hora y total; el constructor bloquea agot
   });
   await flushRuntime();
   const text = window.__testRoot.textContent;
-  assert.match(text, /Mesa 4 · Andrea/);
-  assert.doesNotMatch(text, /Mesa 7 · Mesa 7/);
+  // Sin mesas: el título es el cliente y nunca "Mesa N".
+  assert.match(text, /Andrea/);
+  assert.doesNotMatch(text, /Mesa/);
   assert.match(text, /18[.,]50/);
   const tab = walk(window.__testRoot).find(n => n.tagName === "button" && n.textContent === "Nueva venta");
   tab.on.click();
   await flushRuntime();
   const products = walk(window.__testRoot).filter(n => n.attrs?.class === undefined && n.className === "catalog-product");
-  const soldOut = products.find(n => n.textContent.startsWith("Lasaña"));
+  const soldOut = products.find(n => n.textContent.includes("Lasaña"));
   assert.match(soldOut.textContent, /Agotado/);
   assert.equal("disabled" in soldOut.attrs, true);
-  assert.equal("disabled" in products.find(n => n.textContent.startsWith("Pizza")).attrs, false);
+  assert.equal("disabled" in products.find(n => n.textContent.includes("Pizza")).attrs, false);
 });
 
 test("ticketLines sangra variantes y notas de cada ítem", async () => {

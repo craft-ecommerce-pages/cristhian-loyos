@@ -269,14 +269,19 @@ font-size:13px;
 font-weight:650}
 .err:empty{display:none}
 .catalog-grid{display:grid;
-grid-template-columns:repeat(auto-fill,minmax(155px,1fr));
+grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
 gap:10px;
 margin:0 0 14px}
+@media (min-width:1100px){.catalog-grid{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
+}
+@media (max-width:430px){.catalog-grid{grid-template-columns:repeat(2,minmax(0,1fr));
+gap:8px}
+}
 .catalog-product{display:flex;
 flex-direction:column;
 justify-content:flex-start;
 gap:0;
-min-height:0;
+min-height:56px;
 padding:0;
 font-weight:650;
 overflow:hidden;
@@ -289,7 +294,7 @@ text-align:left;
 cursor:pointer}
 .catalog-media{display:block;
 width:100%;
-aspect-ratio:4/3;
+height:104px;
 background:var(--soft);
 overflow:hidden}
 .catalog-media img{display:block;
@@ -301,19 +306,22 @@ place-items:center;
 width:100%;
 height:100%;
 background:linear-gradient(135deg,#F3F0EA,#E8E3DA);
-color:var(--muted);
-font-size:11px;
-font-weight:700;
-letter-spacing:.08em;
-text-transform:uppercase}
-.media-fallback::before{content:"Sin foto"}
+font-size:34px;
+line-height:1}
 .catalog-body{display:flex;
 flex:1;
 flex-direction:column;
 justify-content:space-between;
 gap:4px;
 width:100%;
-padding:10px 11px}
+min-height:56px;
+padding:8px 10px 10px}
+.catalog-name{display:-webkit-box;
+-webkit-line-clamp:2;
+-webkit-box-orient:vertical;
+overflow:hidden;
+min-height:2.5em;
+line-height:1.25}
 .catalog-product:focus-visible{outline:3px solid var(--p);
 outline-offset:2px}
 .catalog-product{position:relative;
@@ -323,6 +331,11 @@ border-color:var(--p);
 background:rgba(196,105,28,.12)}
 @media (hover:hover){.catalog-product:not(:disabled):hover{border-color:var(--p)}}
 .catalog-product.in-cart{border-color:var(--p)}
+.catalog-product.bump{animation:bump .4s ease}
+@keyframes bump{0%{transform:scale(.97)}
+45%{transform:scale(1.05)}
+100%{transform:scale(1)}
+}
 .qty-badge{position:absolute;
 top:6px;
 right:6px;
@@ -331,7 +344,37 @@ border-radius:99px;
 background:var(--p);
 color:#fff;
 font-size:12px}
-.builder{padding-bottom:84px}
+.catalog-product.bump .qty-badge{animation:badge-pop .4s ease}
+@keyframes badge-pop{0%{transform:scale(.55);
+opacity:.35}
+100%{transform:scale(1);
+opacity:1}
+}
+.chips.groups{gap:10px;
+overflow-x:auto;
+scrollbar-width:none;
+padding-bottom:4px;
+margin:0 0 10px}
+.chips.groups::-webkit-scrollbar{display:none}
+.group-chip{flex:0 0 auto;
+display:inline-flex;
+align-items:center;
+gap:8px;
+min-height:52px;
+padding:0 18px;
+border:1px solid var(--line);
+border-radius:999px;
+background:var(--card);
+color:var(--ink);
+font-size:15px;
+font-weight:750;
+white-space:nowrap;
+cursor:pointer}
+.group-chip:active{border-color:var(--p)}
+.group-chip.selected{background:var(--p);
+border-color:var(--p);
+color:#fff}
+.builder{padding-bottom:96px}
 .builder>input{margin:0 0 10px}
 .cart-bar{position:fixed;
 left:clamp(12px,2vw,32px);
@@ -341,17 +384,40 @@ z-index:20;
 display:flex;
 justify-content:space-between;
 align-items:center;
+gap:14px;
 max-width:none;
 margin:0 auto;
-min-height:54px;
-padding:0 18px;
+min-height:62px;
+padding:8px 10px 8px 18px;
+border-radius:16px;
+background:var(--side);
+color:var(--side-ink);
+box-shadow:0 8px 24px rgba(0,0,0,.24)}
+.cart-info{display:flex;
+flex-direction:column;
+min-width:0;
+line-height:1.15}
+.cart-count{font-size:12.5px;
+font-weight:600;
+color:var(--side-ink2)}
+.cart-total{font-size:19px;
+font-weight:800;
+font-variant-numeric:tabular-nums}
+.cart-pay{min-width:130px;
+min-height:48px;
+padding:0 22px;
 border:0;
-border-radius:14px;
+border-radius:12px;
 background:var(--p);
 color:#fff;
 font-size:16px;
-font-weight:700;
-box-shadow:0 8px 24px rgba(0,0,0,.2)}
+font-weight:800;
+cursor:pointer}
+.cart-pay:disabled{opacity:.45;
+cursor:default}
+@media (max-width:430px){.cart-pay{min-width:104px;
+padding:0 16px}
+}
 .cart-bar[hidden]{display:none}
 .builder-name input{margin-top:6px;
 padding:8px;
@@ -481,6 +547,44 @@ font-weight:650}
 flex:none;
 padding:8px;
 text-align:right}
+.tab-badge{display:inline-grid;
+place-items:center;
+min-width:20px;
+height:20px;
+margin-left:6px;
+padding:0 6px;
+border-radius:99px;
+background:#b3261e;
+color:#fff;
+font-size:12px;
+font-weight:800;
+line-height:1}
+.tab-badge[hidden]{display:none}
+.transfer-focus{margin:12px 0;
+padding:14px;
+border:1px dashed var(--line);
+border-radius:14px;
+background:#fff8ee;
+text-align:center}
+.transfer-ref{margin:0;
+color:var(--ink2);
+font-size:13px;
+font-weight:700;
+letter-spacing:.08em;
+text-transform:uppercase}
+.transfer-number{margin:2px 0 6px;
+color:var(--ink);
+font-size:38px;
+font-weight:800;
+line-height:1.1}
+.transfer-amount{margin:0;
+color:var(--p);
+font-size:26px;
+font-weight:800}
+.transfer-say{margin:10px 0 14px;
+color:var(--ink);
+font-size:16px;
+line-height:1.4}
 details{margin:16px 0;
 color:var(--ink2);
 font-size:13px}
@@ -496,6 +600,9 @@ function meseroRuntime() {
   const S = window.__MESERO__ || {};
   const root = document.getElementById("mesero");
   const toastEl = document.getElementById("toast");
+  // El título original ("Caja · Tienda") se conserva para anteponer "(N) " solo cuando hay web sin atender.
+  const baseTitle =
+    (document.title && String(document.title).trim()) || "Caja";
   const ticket =
     typeof window.__meseroTicket === "function"
       ? window.__meseroTicket
@@ -553,12 +660,22 @@ function meseroRuntime() {
     busy = false,
     query = "",
     category = "",
+    // Último grupo y categoría del menú: viven en la página para no perderse al
+    // cobrar y empezar otro pedido (no se guardan en el servidor).
+    categoryGroup = "",
     repaintItems = null,
-    loadedAt = 0,
     shift = null,
     shiftSede = "",
     shiftStatus = "ok",
-    closedReport = null;
+    closedReport = null,
+    // Avisos de pedidos web: insignia, sondeo y pitido (nunca en la primera carga).
+    openSheets = 0,
+    badgeNode = null,
+    pollTimer = 0,
+    polling = false,
+    primed = false,
+    knownIds = new Set(),
+    audioCtx = null;
   // Botón "atrás" (Android/tablet): Nuevo pedido y cada modal son entradas del historial.
   const H =
     window.history && typeof window.history.pushState === "function"
@@ -569,6 +686,7 @@ function meseroRuntime() {
   function showSheet(node) {
     closeSheet();
     document.body.append(node);
+    openSheets = 1;
     if (where() !== "sheet") push("sheet");
   }
   // Cerrar/Cancelar = atrás; el popstate quita el modal.
@@ -639,6 +757,39 @@ function meseroRuntime() {
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
       .toLowerCase();
+  // Emoji líder de un texto ("🍣 Sushi · Rollos" → "🍣"); "" si no tiene.
+  const leadingEmoji = (value) => {
+    const match = text(value).match(
+      /^\s*(\p{Extended_Pictographic}(?:[\uFE0F\u200D\u{1F3FB}-\u{1F3FF}]|\p{Extended_Pictographic})*)/u,
+    );
+    return match ? match[1].trim() : "";
+  };
+  // Dentro de un grupo la familia sobra: "🍣 Sushi · Rollos" → "🍣 Rollos".
+  const shortCategory = (name) => {
+    const raw = text(name),
+      emoji = leadingEmoji(raw),
+      cut = raw.indexOf("·");
+    if (cut < 0) return raw;
+    const rest = raw.slice(cut + 1).trim();
+    return (emoji ? emoji + " " : "") + (rest || raw);
+  };
+  // Sin foto, la tarjeta usa el emoji de su categoría (el que puso el operador
+  // en el menú); si la categoría no trae emoji, uno por palabra clave.
+  const CAT_ICONS = [
+    ["hamburg", "🍔"], ["burger", "🍔"], ["pizza", "🍕"], ["pollo", "🍗"],
+    ["alit", "🍗"], ["papa", "🍟"], ["bebida", "🥤"], ["jugo", "🧃"],
+    ["cafe", "☕"], ["combo", "🍱"], ["postre", "🍰"], ["helado", "🍦"],
+    ["ensalada", "🥗"], ["sushi", "🍣"], ["roll", "🍣"], ["taco", "🌮"],
+    ["sandwi", "🥪"], ["sopa", "🍲"], ["arroz", "🍚"], ["desayuno", "🍳"],
+    ["carne", "🥩"], ["marisc", "🦐"], ["pescado", "🐟"],
+  ];
+  function categoryEmoji(slug, name) {
+    const own = leadingEmoji(name);
+    if (own) return own;
+    const key = fold(slug + " " + text(name));
+    const found = CAT_ICONS.find(([needle]) => key.includes(needle));
+    return found ? found[1] : "🍽️";
+  }
   const amount = (value) =>
     Number.isFinite(Number(value)) ? Number(value) : 0;
   const money = (value) => {
@@ -725,8 +876,22 @@ function meseroRuntime() {
       imageUrl(product?.imagen)
     );
   }
-  function mediaFallback() {
-    return h("span", { class: "media-fallback", "aria-hidden": "true" });
+  // Categoría principal del producto → emoji que el operador puso en el menú.
+  function productEmoji(product) {
+    const slugs = Array.isArray(product?.categories) ? product.categories : [];
+    const known = categories();
+    for (const slug of slugs) {
+      const found = known.find((item) => item.id === slug);
+      if (found) return categoryEmoji(found.id, found.name);
+    }
+    return "🍽️";
+  }
+  function mediaFallback(product) {
+    return h("span", {
+      class: "media-fallback",
+      "aria-hidden": "true",
+      text: productEmoji(product),
+    });
   }
   // La imagen es decorativa: el nombre ya está visible y el botón expone nombre + precio.
   function productMedia(product) {
@@ -741,6 +906,8 @@ function meseroRuntime() {
       alt: "",
       loading: "lazy",
       decoding: "async",
+      width: "300",
+      height: "225",
     });
     img.addEventListener("error", () => {
       img.remove();
@@ -1103,9 +1270,10 @@ function meseroRuntime() {
       catalog = boot.catalog || { products: [] };
       orders = Array.isArray(boot.orders) ? boot.orders : [];
       applySedes();
-      loadedAt = Date.now();
       await loadShift();
-      return render();
+      primeAlerts();
+      render();
+      return startPolling();
     }
     const result = await call("me");
     if (result.status === 401) return pinScreen("");
@@ -1117,7 +1285,9 @@ function meseroRuntime() {
     applySedes();
     await Promise.all([loadCatalog(), loadOrders(), loadShift()]);
     if (!me) return;
+    primeAlerts();
     render();
+    startPolling();
   }
   function applySedes() {
     sedes = (Array.isArray(me?.sedes) ? me.sedes : [])
@@ -1128,6 +1298,7 @@ function meseroRuntime() {
   }
   function sessionExpired() {
     me = null;
+    stopPolling();
     pinScreen(MESSAGES.sin_sesion);
   }
   async function loadCatalog() {
@@ -1179,7 +1350,132 @@ function meseroRuntime() {
         return true;
       })
       .sort((a, b) => amount(b?.created_at) - amount(a?.created_at));
-    loadedAt = Date.now();
+  }
+  // ── Avisos de pedidos web ──────────────────────────────────────────────────
+  // El cliente pide desde el menú y el pedido llega a la caja: sin recargar, el
+  // cajero ve una insignia, escucha un pitido y el título muestra "(N) ".
+  const POLL_MS = 10000;
+  const WEB_SOURCES = new Set(["web", "mesa", "menu", "cliente"]);
+  const isWebOrder = (order) => {
+    const source = fold(text(order?.source));
+    return source ? WEB_SOURCES.has(source) : true;
+  };
+  const waitingStatus = (order) =>
+    ["pending", "confirmed"].includes(text(order?.status));
+  // Pedidos web que todavía esperan al cajero (pendientes o por cobrar).
+  function webWaiting() {
+    return orders.filter((order) => waitingStatus(order) && isWebOrder(order))
+      .length;
+  }
+  function paintTitle() {
+    const count = webWaiting();
+    document.title = count ? "(" + count + ") " + baseTitle : baseTitle;
+  }
+  // Reprograma textos sin tocar la lista: seguro con el constructor o una hoja abierta.
+  function paintAlerts() {
+    const count = webWaiting();
+    if (badgeNode) {
+      badgeNode.textContent = count ? String(count) : "";
+      badgeNode.hidden = !count;
+    }
+    paintTitle();
+  }
+  // El AudioContext nace dormido: se desbloquea con el primer toque del cajero.
+  function unlockAudio() {
+    const Ctor = window.AudioContext || window.webkitAudioContext;
+    if (typeof Ctor !== "function") return;
+    try {
+      if (!audioCtx) audioCtx = new Ctor();
+      if (audioCtx.state === "suspended" && typeof audioCtx.resume === "function")
+        audioCtx.resume();
+    } catch {
+      audioCtx = null;
+    }
+  }
+  // Pitido corto y discreto; si el navegador no deja sonar, el aviso visual sigue.
+  function beep() {
+    unlockAudio();
+    if (!audioCtx) return;
+    try {
+      const at = Number(audioCtx.currentTime) || 0;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = 880;
+      if (gain.gain.setValueAtTime) {
+        gain.gain.setValueAtTime(0.0001, at);
+        gain.gain.exponentialRampToValueAtTime(0.12, at + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.28);
+      } else gain.gain.value = 0.1;
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(at);
+      osc.stop(at + 0.3);
+    } catch {
+      /* navegador sin WebAudio */
+    }
+  }
+  function vibrate() {
+    try {
+      const nav =
+        (window.navigator && window.navigator.vibrate && window.navigator) ||
+        (typeof navigator !== "undefined" && navigator.vibrate ? navigator : null);
+      if (nav) nav.vibrate([120, 80, 120]);
+    } catch {
+      /* el equipo no vibra */
+    }
+  }
+  if (typeof document.addEventListener === "function")
+    document.addEventListener("pointerdown", unlockAudio, { once: true });
+  // Primera carga (boot o login): nada suena, solo se memorizan los ids vistos.
+  function primeAlerts() {
+    knownIds = new Set(orders.map((order) => text(order.id)).filter(Boolean));
+    primed = true;
+    paintAlerts();
+  }
+  function stopPolling() {
+    if (pollTimer && typeof window.clearInterval === "function")
+      window.clearInterval(pollTimer);
+    pollTimer = 0;
+  }
+  function startPolling() {
+    if (pollTimer || typeof window.setInterval !== "function") return;
+    pollTimer = window.setInterval(() => {
+      if (!me) return stopPolling();
+      return pollOrders();
+    }, POLL_MS);
+  }
+  // Sondeo: la misma consulta de loadOrders. Con el constructor o una hoja
+  // abierta no se repinta nada (no se pierde lo digitado); solo el contador.
+  async function pollOrders() {
+    if (!me || polling) return;
+    if (document.visibilityState && document.visibilityState !== "visible")
+      return;
+    polling = true;
+    try {
+      await loadOrders();
+      if (!me) return;
+      const fresh = orders.filter((order) => {
+        const id = text(order.id);
+        return id && !knownIds.has(id) && isWebOrder(order);
+      });
+      orders.forEach((order) => {
+        const id = text(order.id);
+        if (id) knownIds.add(id);
+      });
+      if (primed && fresh.length) {
+        beep();
+        vibrate();
+      }
+      primed = true;
+      const safe = tab === "orders" && !builder && !openSheets && !busy;
+      if (safe) render();
+      else paintAlerts();
+    } catch {
+      /* la siguiente consulta reintenta */
+    } finally {
+      polling = false;
+    }
   }
   function top() {
     const staff = text(me?.staff?.name) || (me?.owner ? "Caja · dueño" : "Caja");
@@ -1191,23 +1487,42 @@ function meseroRuntime() {
     );
   }
   function tabs() {
+    const waiting = webWaiting();
+    const badge = h("span", {
+      class: "tab-badge",
+      "aria-hidden": "true",
+      text: waiting ? String(waiting) : "",
+    });
+    badge.hidden = !waiting;
+    // La insignia se actualiza también cuando el sondeo no puede repintar la lista.
+    badgeNode = badge;
     return h(
       "div",
       { class: "tabs", role: "tablist" },
-      button("Pedidos", "btn " + (tab === "orders" ? "selected" : ""), () =>
-        goTab("orders"),
+      h(
+        "button",
+        {
+          type: "button",
+          class: "btn " + (tab === "orders" ? "selected" : ""),
+          onclick: () => goTab("orders"),
+          "aria-label": waiting
+            ? "Pedidos, " + waiting + " web sin atender"
+            : "Pedidos",
+        },
+        "Pedidos",
+        badge,
       ),
       button("Nueva venta", "btn " + (tab === "new" ? "selected" : ""), () =>
         goTab("new"),
       ),
     );
   }
-  // "Mesa 4 · Andrea": la mesa y quién pidió; los manuales ya se llaman "Mesa N"/"Mostrador".
+  // Isla de patio y foodtruck: sin mesas. Los pedidos históricos de mesa se
+  // muestran como "Web" o con el nombre del cliente, nunca como "Mesa N".
   function orderTitle(order) {
     const name = clientName(order);
-    if (!order.table_no) return name || "Mostrador";
-    const table = "Mesa " + order.table_no;
-    return name && name !== table ? table + " · " + name : table;
+    if (!name || /^mesa\b/i.test(name)) return "Mostrador";
+    return name;
   }
   const STATE_LABEL = {
     pending: "Pendiente · sin comanda",
@@ -1841,9 +2156,8 @@ function meseroRuntime() {
     const pos = isPosOrder(order);
     const items = Array.isArray(order.items) ? order.items : [];
     const source =
-      { mesa: "Mesa", mesero: "Mesero", caja: "Caja", web: "Web" }[
-        order.source
-      ] || "Web";
+      { mesa: "Web", mesero: "Mesero", caja: "Caja", web: "Web" }[order.source] ||
+      "Web";
     const actions = [];
     if (state === "pending") {
       actions.push(button("Editar", "btn small", () => edit(order)));
@@ -2007,6 +2321,8 @@ function meseroRuntime() {
     const select = sedeSelect(async () => {
       await loadOrders();
       await loadShift();
+      // Cambiar de sede no es un pedido nuevo: se memoriza sin sonar.
+      primeAlerts();
       render();
     });
     const sedeField = h(
@@ -2035,6 +2351,8 @@ function meseroRuntime() {
             async () => {
               filter = id;
               await loadOrders();
+              // Otro filtro muestra otros pedidos: no son avisos nuevos.
+              primeAlerts();
               render();
             },
           ),
@@ -2062,7 +2380,6 @@ function meseroRuntime() {
     builder = {
       id: order?.id || "",
       sede_id: text(order?.sede_id) || sede,
-      table_no: text(order?.table_no),
       client_name: /^(Mesa .*|Mostrador)$/.test(clientName(order))
         ? ""
         : clientName(order),
@@ -2096,6 +2413,25 @@ function meseroRuntime() {
       .map((item) => ({ id: item.slug, name: item.name }))
       .filter((item) => text(item.id) && text(item.name));
   }
+  // Jerarquía del menú (config.category_groups). Sin ella, la caja queda igual.
+  function categoryGroups() {
+    const items = Array.isArray(catalog?.category_groups?.items)
+      ? catalog.category_groups.items
+      : [];
+    return items.filter((item) => item && text(item.slug) && text(item.name));
+  }
+  function activeGroup() {
+    return categoryGroups().find((item) => item.slug === categoryGroup) || null;
+  }
+  // Subcategorías del grupo, limitadas a las que existen en el catálogo vigente.
+  function groupCategories(group) {
+    const known = new Map(categories().map((item) => [item.id, item.name]));
+    return (Array.isArray(group?.categories) ? group.categories : [])
+      .filter((slug) => known.has(slug))
+      .map((slug) => ({ id: slug, name: known.get(slug) }));
+  }
+  // Productos recién agregados: dispara el "pop" de la tarjeta y su insignia.
+  const bumped = new Map();
   function cartTotal() {
     return builder.items.reduce(
       (sum, item) =>
@@ -2106,9 +2442,17 @@ function meseroRuntime() {
   function cartCount() {
     return builder.items.reduce((sum, item) => sum + (Number(item.qty) || 1), 0);
   }
-  // Catálogo en cuadrícula + barra flotante; mesa, cliente y notas viven en el modal del pedido.
+  // Catálogo en cuadrícula + barra fija de cobro. La jerarquía del menú
+  // (grupo → subcategoría) se recuerda en la página entre pedidos.
   function builderScreen() {
     if (!builder) newBuilder();
+    // Si el menú cambió, el grupo/categoría recordados se ajustan en vez de
+    // dejar la caja apuntando a una categoría que ya no existe.
+    const groups = categoryGroups();
+    if (categoryGroup && !groups.some((item) => item.slug === categoryGroup))
+      categoryGroup = "";
+    if (category && !categories().some((item) => item.id === category))
+      category = "";
     const list = h("div", { class: "catalog-grid" });
     const search = h("input", {
       type: "search",
@@ -2127,14 +2471,20 @@ function meseroRuntime() {
         .reduce((sum, item) => sum + item.qty, 0);
     const paintProducts = () => {
       const q = fold(query);
-      const found = visibleProducts().filter(
-        (product) =>
-          (!category || (product.categories || []).includes(category)) &&
-          (!q || fold(product.name || product.nombre).includes(q)),
-      );
-      chipButtons.forEach(([id, node]) =>
-        node.classList.toggle("selected", id === category),
-      );
+      const group = activeGroup();
+      // Un grupo sin categorías válidas no restringe nada (evita una pantalla vacía).
+      const inGroup =
+        group && Array.isArray(group.categories) && group.categories.length
+          ? new Set(group.categories)
+          : null;
+      const found = visibleProducts().filter((product) => {
+        // El buscador recorre TODO el catálogo, sin acentos e ignorando el grupo.
+        if (q) return fold(product.name || product.nombre).includes(q);
+        if (category) return (product.categories || []).includes(category);
+        if (inGroup)
+          return (product.categories || []).some((slug) => inGroup.has(slug));
+        return true;
+      });
       if (!found.length)
         return list.replaceChildren(
           h("p", { class: "empty", text: "Sin resultados." }),
@@ -2147,11 +2497,15 @@ function meseroRuntime() {
             product.stock === 0
               ? "Agotado"
               : money(product.price ?? product.precio);
+          const fresh = text(product.id) && bumped.has(text(product.id));
           return h(
             "button",
             {
               type: "button",
-              class: "catalog-product" + (qty ? " in-cart" : ""),
+              class:
+                "catalog-product" +
+                (qty ? " in-cart" : "") +
+                (fresh ? " bump" : ""),
               onclick: () => chooseProduct(product),
               // Igual que el menú: stock 0 = agotado, no se puede agregar.
               disabled: product.stock === 0,
@@ -2165,57 +2519,120 @@ function meseroRuntime() {
             h(
               "span",
               { class: "catalog-body" },
-              h("span", { text: name }),
+              h("span", { class: "catalog-name", text: name }),
               h("span", { class: "catalog-price", text: price }),
             ),
           );
         }),
       );
     };
-    const chipButtons = [];
-    const chip = (label, id) => {
-      const node = button(label, "btn small", () => {
-        category = id;
-        paintProducts();
-      });
-      chipButtons.push([id, node]);
-      return node;
+    // Fila 2: subcategorías del grupo activo (sin la familia del nombre) o todas
+    // las categorías cuando la caja no tiene jerarquía configurada.
+    const chips = h("div", {
+      class: "chips filters",
+      role: "group",
+      "aria-label": "Categorías",
+    });
+    const paintChips = () => {
+      const group = activeGroup();
+      const items = group ? groupCategories(group) : categories();
+      const short = !!group && items.length > 0;
+      const chip = (label, id) =>
+        button(
+          label,
+          "btn small" + (category === id ? " selected" : ""),
+          () => {
+            category = id;
+            paintChips();
+            paintProducts();
+          },
+          { "aria-pressed": category === id ? "true" : "false" },
+        );
+      chips.replaceChildren(
+        chip("Todo", ""),
+        ...items.map((item) =>
+          chip(short ? shortCategory(item.name) : item.name, item.id),
+        ),
+      );
     };
-    const chips = h(
-      "div",
-      { class: "chips filters" },
-      chip("Todo", ""),
-      categories().map((item) => chip(item.name, item.id)),
-    );
+    // Fila 1: grupos grandes del menú + "Todo". Sin category_groups no se pinta.
+    const groupRow = h("div", {
+      class: "chips groups",
+      role: "group",
+      "aria-label": "Grupos del menú",
+    });
+    const paintGroups = () => {
+      if (!groups.length) {
+        groupRow.hidden = true;
+        groupRow.replaceChildren();
+        return;
+      }
+      groupRow.hidden = false;
+      const pick = (slug) => {
+        if (slug === categoryGroup) return;
+        categoryGroup = slug;
+        category = ""; // cada grupo arranca en "Todo"
+        paintGroups();
+        paintChips();
+        paintProducts();
+      };
+      const groupChip = (label, slug) =>
+        h(
+          "button",
+          {
+            type: "button",
+            class: "group-chip" + (categoryGroup === slug ? " selected" : ""),
+            "aria-pressed": categoryGroup === slug ? "true" : "false",
+            onclick: () => pick(slug),
+          },
+          label,
+        );
+      groupRow.replaceChildren(
+        groupChip("Todo", ""),
+        ...groups.map((group) =>
+          groupChip(
+            [text(group.emoji), text(group.name)].filter(Boolean).join(" "),
+            group.slug,
+          ),
+        ),
+      );
+    };
     search.addEventListener("input", () => {
       query = search.value;
       paintProducts();
     });
-    const bar = h("button", {
-      type: "button",
-      class: "cart-bar",
-      onclick: openCart,
-    });
+    // Barra fija de cobro: siempre visible mientras se arma el pedido.
+    const barInfo = h("span", { class: "cart-info" });
+    const pay = button("Cobrar", "cart-pay", () => openCart());
+    const bar = h(
+      "div",
+      { class: "cart-bar", role: "region", "aria-label": "Pedido en curso" },
+      barInfo,
+      pay,
+    );
     const paintBar = () => {
       const count = cartCount();
-      bar.hidden = !count && !builder.id;
-      bar.replaceChildren(
+      barInfo.replaceChildren(
         h("span", {
-          text: (builder.id ? "Editar pedido" : "Ver pedido") + " · " + count,
+          class: "cart-count",
+          text: count === 1 ? "1 ítem" : count + " ítems",
         }),
-        h("b", { text: money(cartTotal()) }),
+        h("b", { class: "cart-total", text: money(cartTotal()) }),
       );
+      pay.disabled = !count && !builder.id;
     };
     repaintItems = () => {
       paintProducts();
       paintBar();
     };
+    paintGroups();
+    paintChips();
     repaintItems();
     return h(
       "section",
       { class: "builder" },
       builder.id
-        ? h("p", { class: "hint", text: "Editando pedido. Toca la barra para guardar." })
+        ? h("p", { class: "hint", text: "Editando pedido. Toca Cobrar para guardar." })
         : h(
             "label",
             { class: "field" },
@@ -2234,6 +2651,7 @@ function meseroRuntime() {
             }),
           ),
       search,
+      groupRow,
       chips,
       list,
       bar,
@@ -2352,7 +2770,9 @@ function meseroRuntime() {
   }
   function chooseProduct(product) {
     const groups = groupVariants(product);
-    if (!groups.length) return addItem(buildItem(product));
+    // Un toque = 1 unidad: solo se abre la hoja si hay opciones obligatorias.
+    if (!groups.some((group) => !group?.optional))
+      return addItem(buildItem({ ...product, __groups: groups }));
     const choices = {};
     const note = h("textarea", {
       maxlength: "200",
@@ -2446,6 +2866,11 @@ function meseroRuntime() {
     );
     if (same && !same.note) same.qty = Math.min(999, same.qty + 1);
     else builder.items.push({ ...item });
+    // Insignia + "pop" breve sobre la tarjeta: confirma el toque sin abrir nada.
+    if (text(item.product_id)) {
+      bumped.set(text(item.product_id), Date.now());
+      window.setTimeout(() => bumped.delete(text(item.product_id)), 700);
+    }
     repaintItems ? repaintItems() : render();
     toast("+1 " + item.nombre);
   }
@@ -2478,6 +2903,7 @@ function meseroRuntime() {
   }
   function closeSheet() {
     document.querySelectorAll(".sheet").forEach((item) => item.remove());
+    openSheets = 0;
   }
   function submitBuilder(buttonEl) {
     if (!builder.items.length)
@@ -2535,7 +2961,6 @@ function meseroRuntime() {
     if (!builder.id) builder.key = builder.key || uuid();
     const body = builder.id
       ? {
-          table_no: builder.table_no || undefined,
           client_name: builder.client_name || undefined,
           note: builder.note || undefined,
           items,
@@ -2648,11 +3073,18 @@ function meseroRuntime() {
   }
   function transferSheet(order) {
     const state = {};
+    const ref = shortNumber(order);
+    const due = moneyCents(order.total_cents);
     const submit = button("Transferencia verificada e imprimir", "btn primary wide", () => payOrder(order, submit, state));
     showSheet(h("div", { class: "sheet", role: "dialog", "aria-modal": "true", "aria-label": "Confirmar transferencia" },
       h("div", { class: "sheet-box" },
         h("div", { class: "bar" }, h("h2", { text: "Transferencia" }), button("Cerrar", "btn link", dismissSheet)),
-        h("p", { class: "total" }, h("span", { text: "Total a cobrar" }), h("b", { text: moneyCents(order.total_cents) })),
+        // El cajero compara contra el banco: número corto y monto exacto, grandes.
+        h("div", { class: "transfer-focus" },
+          h("p", { class: "transfer-ref", text: "Pedido" }),
+          h("p", { class: "transfer-number", text: ref }),
+          h("p", { class: "transfer-amount", text: due })),
+        h("p", { class: "transfer-say", text: "Busca en tu banco una transferencia de " + due + " con referencia " + ref + "." }),
         h("p", { class: "hint", text: "Comprueba el abono en la cuenta antes de confirmar." }), submit)));
   }
   // El servidor confirma el pago y crea la comanda una sola vez. La impresión
@@ -3029,6 +3461,11 @@ body{margin:0;font-family:monospace;font-size:11px;white-space:pre;line-height:1
     shiftSede = "";
     shiftStatus = "ok";
     closedReport = null;
+    stopPolling();
+    primed = false;
+    knownIds = new Set();
+    badgeNode = null;
+    document.title = baseTitle;
     pinScreen("");
   }
   function paperSelect() {
@@ -3075,18 +3512,12 @@ body{margin:0;font-family:monospace;font-size:11px;white-space:pre;line-height:1
         paperSelect(),
       ),
     );
+    paintAlerts();
   }
   document.addEventListener("visibilitychange", () => {
-    // ponytail: como mucho una recarga cada 30 s al volver a la app; el botón Actualizar no tiene límite.
-    if (
-      document.visibilityState === "visible" &&
-      me &&
-      tab === "orders" &&
-      Date.now() - loadedAt > 30000
-    )
-      loadOrders().then(() => {
-        if (me) render();
-      });
+    // Al volver a la app se consulta enseguida; el sondeo de 10 s ya evita
+    // consultas superpuestas y respeta pestaña visible.
+    if (document.visibilityState === "visible") pollOrders();
   });
   start();
 }

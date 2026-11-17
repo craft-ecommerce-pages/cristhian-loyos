@@ -276,8 +276,52 @@ function nameCookie(request) {
 }
 
 async function meseroCatalog(env, slug) {
-  const catalog = await load(env, slug);
-  return { version: catalog.version, ...catalog.doc };
+  const [catalog, config] = await Promise.all([
+    load(env, slug),
+    kvJson(env, `${slug}:config`, {}),
+  ]);
+  const known = new Set(
+    (Array.isArray(catalog.doc?.categories) ? catalog.doc.categories : [])
+      .map((item) => (item && typeof item.slug === "string" ? item.slug : ""))
+      .filter(Boolean),
+  );
+  return {
+    version: catalog.version,
+    ...catalog.doc,
+    // La jerarquía del menú (`{slug}:config` → category_groups) viaja saneada:
+    // el POS solo agrupa categorías que existen en el catálogo vigente.
+    category_groups: sanitizeCategoryGroups(config?.category_groups, known),
+  };
+}
+
+// `{question, items:[{slug,name,emoji,categories}]}` → solo grupos con slug y
+// nombre, sin duplicados y con las categorías que de verdad existen. Sin datos
+// válidos se responde null y la UI queda como antes de la jerarquía.
+function sanitizeCategoryGroups(raw, known) {
+  const list = raw && typeof raw === "object" && Array.isArray(raw.items) ? raw.items : null;
+  if (!list) return null;
+  const seen = new Set(), items = [];
+  for (const item of list) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const slug = typeof item.slug === "string" ? item.slug.trim().slice(0, 80) : "";
+    const name = typeof item.name === "string" ? item.name.trim().slice(0, 120) : "";
+    if (!slug || !name || seen.has(slug)) continue;
+    seen.add(slug);
+    const categories = [];
+    for (const category of Array.isArray(item.categories) ? item.categories : []) {
+      if (typeof category === "string" && known.has(category) && !categories.includes(category))
+        categories.push(category);
+    }
+    items.push({
+      slug,
+      name,
+      emoji: typeof item.emoji === "string" ? item.emoji.trim().slice(0, 16) : "",
+      categories,
+    });
+  }
+  if (!items.length) return null;
+  const question = typeof raw.question === "string" ? raw.question.trim().slice(0, 120) : "";
+  return { question, items };
 }
 
 // Todo lo que la página necesita al abrir, en el mismo HTML: 1 request en vez de 4. null = sin sesión (pide PIN).
