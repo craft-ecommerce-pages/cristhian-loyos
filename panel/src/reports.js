@@ -60,7 +60,8 @@ export async function salesReport(request, env, site) {
       `WHERE ${filter} GROUP BY o.sede_id ORDER BY o.sede_id`,
     ).bind(...values).all(),
     env.DB.prepare(
-      `SELECT COUNT(*) AS orders, COALESCE(SUM(o.total_cents), 0) AS total_cents FROM pos_orders o WHERE ${filter}`,
+      `SELECT COUNT(*) AS orders, COALESCE(SUM(o.total_cents), 0) AS total_cents, ` +
+      `COALESCE(SUM(o.total_cents - o.subtotal_cents), 0) AS tax_cents FROM pos_orders o WHERE ${filter}`,
     ).bind(...values).first(),
   ]);
 
@@ -81,14 +82,21 @@ export async function salesReport(request, env, site) {
     total_cents: whole(row.total_cents),
   }));
 
+  // Las categorías siguen sumando la BASE de cada línea (sin IVA). El IVA cobrado
+  // sale de la diferencia congelada por pedido (total_cents - subtotal_cents), no
+  // de la config vigente: un pedido anterior al IVA aporta 0. Invariante:
+  // Σ base de categorías + tax_cents == charged_cents == Σ total_cents incluidos.
   const totalCents = whole(charged?.total_cents);
+  const taxCents = whole(charged?.tax_cents);
   const groupsCents = groups.reduce((sum, group) => sum + group.total_cents, 0);
   return json({
     groups,
     total_cents: totalCents,
+    tax_cents: taxCents,
+    charged_cents: totalCents,
     by_sede: bySede,
     // >0 ⇒ hay cobros sin línea de snapshot (o líneas de más): POS debe completar el snapshot.
-    unreconciled_cents: totalCents - groupsCents,
+    unreconciled_cents: totalCents - groupsCents - taxCents,
     orders: whole(charged?.orders),
   });
 }

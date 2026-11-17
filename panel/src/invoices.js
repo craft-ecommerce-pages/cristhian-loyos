@@ -307,23 +307,9 @@ function invoiceLine(item, index, cfg, blocked) {
 
   // `discountCents` se expresa sin impuesto cuando el precio de venta los incluye:
   // es lo que el SRI compara en `precioTotalSinImpuesto = cantidad * precioUnitario - descuento`.
-  let baseCents = grossCents, lineTaxCents = 0, discountCents = grossDiscountCents;
-  let netUnitCents = quantity > 0 ? grossBeforeCents / quantity : 0;
-  if (taxRateBp != null && taxCode) {
-    if (cfg.pricesIncludeTax === true) {
-      const baseBefore = Math.round(grossBeforeCents * 10000 / (10000 + taxRateBp));
-      baseCents = Math.round(grossCents * 10000 / (10000 + taxRateBp));
-      lineTaxCents = grossCents - baseCents;
-      discountCents = Math.max(0, baseBefore - baseCents);
-      netUnitCents = quantity > 0 ? baseBefore / quantity : 0;
-    } else if (cfg.pricesIncludeTax === false) {
-      lineTaxCents = Math.round(grossCents * taxRateBp / 10000);
-    } else {
-      lineTaxCents = null;
-    }
-  } else {
-    lineTaxCents = null;
-  }
+  const { baseCents, taxCents: lineTaxCents, discountCents, netUnitCents } = lineTaxSplit({
+    grossBeforeCents, discountCents: grossDiscountCents, taxRateBp, taxCode, pricesIncludeTax: cfg.pricesIncludeTax, quantity,
+  });
 
   const description = clampText(raw.description ?? raw.descripcion ?? raw.nombre ?? raw.name, 300);
   if (!description) blocked.push("line_description_missing");
@@ -343,6 +329,44 @@ function invoiceLine(item, index, cfg, blocked) {
     taxCode: taxCode || null,
     netUnitAmount: round6(netUnitCents / 100),
   };
+}
+
+// Reparto base/IVA de una línea: ÚNICA regla de redondeo del sistema. La usan el
+// borrador de factura (arriba) y el alta de pedidos (`orders.js#pricePosItems`),
+// de modo que el total cobrado y el total facturado no puedan divergir.
+//  · `grossBeforeCents` es cantidad × precio unitario, ya redondeado a entero.
+//  · `taxCode` omitido (undefined) = la tasa ya está validada por el llamador;
+//    `null`/cadena vacía = la tasa no tiene código SRI, así que no se calcula
+//    impuesto (el borrador lo bloquea como `tax_rate_unsupported`).
+//  · `taxCents` es `null` cuando no hay tasa utilizable; el llamador decide.
+export function lineTaxSplit({
+  grossBeforeCents, discountCents = 0, taxRateBp = null, pricesIncludeTax = null, taxCode = undefined, quantity = 1,
+}) {
+  const grossCents = grossBeforeCents - discountCents;
+  const netUnitCentsBase = quantity > 0 ? grossBeforeCents / quantity : 0;
+  const taxable = taxRateBp != null && (taxCode === undefined ? true : Boolean(taxCode));
+  if (!taxable) {
+    return { baseCents: grossCents, taxCents: null, discountCents, netUnitCents: netUnitCentsBase };
+  }
+  if (pricesIncludeTax === true) {
+    const baseBefore = Math.round(grossBeforeCents * 10000 / (10000 + taxRateBp));
+    const baseCents = Math.round(grossCents * 10000 / (10000 + taxRateBp));
+    return {
+      baseCents,
+      taxCents: grossCents - baseCents,
+      discountCents: Math.max(0, baseBefore - baseCents),
+      netUnitCents: quantity > 0 ? baseBefore / quantity : 0,
+    };
+  }
+  if (pricesIncludeTax === false) {
+    return {
+      baseCents: grossCents,
+      taxCents: Math.round(grossCents * taxRateBp / 10000),
+      discountCents,
+      netUnitCents: netUnitCentsBase,
+    };
+  }
+  return { baseCents: grossCents, taxCents: null, discountCents, netUnitCents: netUnitCentsBase };
 }
 
 function lineUnitCents(line, cfg) {

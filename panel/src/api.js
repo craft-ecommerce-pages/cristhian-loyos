@@ -15,7 +15,7 @@ import {
   confirmPosOrder, createManualOrder, createPosOrder, createPublicPosOrder, editMeseroOrder, editPosOrder,
   getPosOrderStatus, listKitchenOrders, listMeseroOrders, listOrders, listPosOrders, markOrderReady, meseroOrders,
   payCash, payDatafono, payTransfer, posOrderRow, posPaymentByRef, printKitchenOrder, printMeseroOrder, publicSedes, rejectPosOrder,
-  sedesAllowed, sedesFor, setMeseroOrderStatus, setOrderStatus, transferInfo, upsertSedes, webCashEnabled,
+  sedesAllowed, sedesFor, setMeseroOrderStatus, setOrderStatus, taxSettings, transferInfo, upsertSedes, webCashEnabled,
 } from "./orders.js";
 import { handleGetInvoice, handleInvoiceRide, handleRetryInvoice } from "./invoices.js";
 import { handleTurnosApi } from "./turnos.js";
@@ -41,10 +41,13 @@ export async function handlePublicApi(request, env, ctx, site) {
     // `bendo` solo se anuncia si el adaptador lo permite (mock, o live con credenciales).
     // `cash` está apagado por defecto: el autopedido se paga por transferencia o
     // tarjeta y solo se habilita con `web_cash: true` en la config KV del menú.
-    const transfer = await transferInfo(env, site.slug);
+    // `tax` es la tasa efectiva que el servidor suma al cobrar (`rate_bp` en
+    // puntos base y si el precio publicado ya la incluye), para estimar el IVA
+    // en la UI sin calcular precios por su cuenta.
+    const [transfer, tax] = await Promise.all([transferInfo(env, site.slug), taxSettings(env, site.slug)]);
     return json({
       cash: await webCashEnabled(env, site.slug), transfer: Boolean(transfer), transfer_details: transfer,
-      bendo: bendoAvailable(env),
+      bendo: bendoAvailable(env), tax,
     });
   }
   if (path === "orders" && request.method === "POST") return createPublicPosOrder(request, env, ctx, site);
@@ -288,16 +291,18 @@ export async function meseroBoot(request, env, site) {
 }
 
 async function meseroMe(request, env, site, session) {
-  const [config, settings, allowed, allSedes] = await Promise.all([
+  const [config, settings, allowed, allSedes, tax] = await Promise.all([
     kvJson(env, `${site.slug}:config`, {}),
     env.DB.prepare("SELECT tables_enabled FROM panel_settings WHERE slug = ?").bind(site.slug).first(),
     sedesAllowed(env, site.slug, session),
     sedesFor(env, site.slug),
+    taxSettings(env, site.slug),
   ]);
   const name = session.owner ? "Dueño" : nameCookie(request) || await staffName(env, site.slug, session.staff_id);
   return {
     staff: { id: session.owner ? OWNER_STAFF : session.staff_id, name }, owner: session.owner,
-    store: { name: typeof config.store_name === "string" ? config.store_name : "", currency: config.currency || "$" },
+    // `tax` = tasa efectiva del IVA que suma el servidor ({rate_bp, prices_include_tax}).
+    store: { name: typeof config.store_name === "string" ? config.store_name : "", currency: config.currency || "$", tax },
     tables_enabled: Number(settings?.tables_enabled) === 1,
     // Sedes donde este operador puede cobrar/confirmar; el dueño ve todas.
     sedes: allSedes.filter(sede => sede.activa && (allowed === null || allowed.has(sede.id)))

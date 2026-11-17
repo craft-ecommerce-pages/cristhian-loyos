@@ -6,7 +6,7 @@ import { bendoAvailable } from "./bendo.js";
 import { OWNER_STAFF } from "./caja.js";
 import { load, slugify } from "./catalog.js";
 import { dayOf, error, json, noContent } from "./contract.js";
-import { prepareInvoice, submitInvoice } from "./invoices.js";
+import { lineTaxSplit, loadInvoiceConfig, prepareInvoice, submitInvoice } from "./invoices.js";
 import { openShiftFor } from "./turnos.js";
 
 const MAX_BYTES = 16 * 1024;
@@ -432,13 +432,61 @@ export function reportCategoryOf(product) {
   return "tradicional";
 }
 
+/* ── IVA del cobro: misma configuración y mismo redondeo que la factura ─────
+   Decisión del titular: los precios del catálogo son BASE SIN IVA. La fuente
+   única de la tasa es KV `${slug}:invoices` (`pricesIncludeTax`,
+   `defaultTaxRateBp`, `taxRatesByCategory`), igual que el borrador de factura.
+   Sin configuración, o con `pricesIncludeTax: true`, no se añade IVA: se
+   conserva el comportamiento anterior. */
+
+// Se lee UNA vez por pedido y viaja a `pricePosItems`; nunca por línea.
+async function taxConfigFor(env, slug) {
+  const config = await loadInvoiceConfig(env, slug);
+  const enabled = config.pricesIncludeTax === false;
+  return {
+    enabled,
+    pricesIncludeTax: config.pricesIncludeTax === true,
+    rateBp: enabled && Number.isSafeInteger(config.defaultTaxRateBp) ? config.defaultTaxRateBp : null,
+    byCategory: enabled ? config.taxRatesByCategory || {} : {},
+  };
+}
+
+// Tasa de una línea con la prioridad de `invoices.js#lineTaxRateBp`: categoría
+// primero, tasa por defecto después. Solo se suma IVA si la config lo permite.
+function lineTaxRateBp(tax, category) {
+  if (!tax?.enabled) return null;
+  const byCategory = tax.byCategory || {};
+  if (Number.isSafeInteger(byCategory[category])) return byCategory[category];
+  return Number.isSafeInteger(tax.rateBp) ? tax.rateBp : null;
+}
+
+// Lo que las UIs necesitan para estimar el IVA; el servidor siempre manda.
+export async function taxSettings(env, slug) {
+  const tax = await taxConfigFor(env, slug);
+  return { rate_bp: tax.enabled && Number.isSafeInteger(tax.rateBp) ? tax.rateBp : 0, prices_include_tax: tax.pricesIncludeTax };
+}
+
+// Suma base e IVA de un snapshot ya congelado, sin volver a mirar la config.
+function linesTotals(lines) {
+  let subtotalCents = 0, taxCents = 0;
+  for (const line of Array.isArray(lines) ? lines : []) {
+    if (!isObject(line)) continue;
+    const qty = Number(line.qty) || 0, unit = Number(line.unit_cents) || 0;
+    subtotalCents += Number.isInteger(line.base_cents) ? line.base_cents : qty * unit;
+    if (Number.isInteger(line.tax_cents)) taxCents += line.tax_cents;
+  }
+  return { subtotal_cents: subtotalCents, tax_cents: taxCents, total_cents: subtotalCents + taxCents };
+}
+
 // Valida catálogo/disponibilidad y devuelve el snapshot de líneas en centavos.
-export async function pricePosItems(env, slug, items) {
+// `tax` se lee una sola vez por pedido (`taxConfigFor`); si se omite, se lee aquí.
+export async function pricePosItems(env, slug, items, tax = null) {
   let doc;
   try { ({ doc } = await load(env, slug)); } catch { return { error: "catalogo_no_disponible", status: 503 }; }
+  const rates = tax || await taxConfigFor(env, slug);
   const products = new Map((doc.products || []).map(product => [product.id, product]));
   const lines = [];
-  let total = 0;
+  let subtotalCents = 0, taxCents = 0;
   for (const item of items) {
     const product = products.get(item.product_id);
     if (!product || product.active !== true || product.catalog_visible !== true) {
@@ -450,15 +498,25 @@ export async function pricePosItems(env, slug, items) {
     const price = unitCents(product, item.variant_id);
     if (price?.missing) return { error: "variante_no_existe", status: 400, product_id: item.product_id };
     if (!price || price.unit == null) return { error: "precio_no_disponible", status: 409, product_id: item.product_id };
-    const subtotal = price.unit * item.qty;
-    total += subtotal;
+    const baseCents = price.unit * item.qty;
+    const category = reportCategoryOf(product);
+    const rateBp = lineTaxRateBp(rates, category);
+    // Mismo reparto y mismo redondeo que `invoiceDraftFromOrder`: base de línea =
+    // cantidad × precio unitario; IVA de línea con `lineTaxSplit`.
+    const split = lineTaxSplit({
+      grossBeforeCents: baseCents, taxRateBp: rateBp, pricesIncludeTax: false, quantity: item.qty,
+    });
+    const lineTaxCents = Number.isInteger(split.taxCents) ? split.taxCents : 0;
+    subtotalCents += baseCents;
+    taxCents += lineTaxCents;
     lines.push({
-      product_id: product.id, name: product.name, qty: item.qty, unit_cents: price.unit, subtotal_cents: subtotal,
-      report_category: reportCategoryOf(product),
+      product_id: product.id, name: product.name, qty: item.qty, unit_cents: price.unit, subtotal_cents: baseCents,
+      base_cents: baseCents, tax_rate_bp: rateBp, tax_cents: lineTaxCents,
+      report_category: category,
       ...(item.variant_id == null ? {} : { variant_id: item.variant_id }), ...(item.note == null ? {} : { note: item.note }),
     });
   }
-  return { lines, total_cents: total };
+  return { lines, subtotal_cents: subtotalCents, tax_cents: taxCents, total_cents: subtotalCents + taxCents };
 }
 
 export async function currencyOf(env, slug) {
@@ -510,6 +568,7 @@ export function posOrderData(row, extra = {}) {
   let items = [];
   try { items = JSON.parse(row.items); } catch { /* snapshot roto: la orden sigue listándose */ }
   const totalCents = Number(row.total_cents) || 0;
+  const subtotalCents = Number(row.subtotal_cents) || 0;
   const ready = row.ready_at != null;
   return {
     id: row.id, sede_id: row.sede_id, number: row.number == null ? null : Number(row.number),
@@ -518,7 +577,9 @@ export function posOrderData(row, extra = {}) {
     // para que la comanda, la impresión y los reportes sigan anclados al cobro.
     source: row.source, status: ready ? "ready" : row.status,
     status_at: row.status_at == null ? null : Number(row.status_at),
-    currency: row.currency, subtotal_cents: Number(row.subtotal_cents) || 0, total_cents: totalCents,
+    currency: row.currency, subtotal_cents: subtotalCents, total_cents: totalCents,
+    // El IVA nunca se guarda aparte: es el total cobrado menos la base de las líneas.
+    tax_cents: totalCents - subtotalCents,
     total: totalCents / 100, // compatibilidad con las pantallas que muestran soles/dólares
     items: Array.isArray(items) ? items : [],
     customer_name: row.customer_name || "", customer_phone: row.customer_phone || "",
@@ -720,7 +781,7 @@ async function insertPosOrder(env, values) {
       "VALUES (?, ?, ?, ?, ?, (SELECT n FROM order_seq WHERE slug = ? AND day = ?), ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     ).bind(
       values.id, values.slug, values.sede_id, values.created_at, values.created_at, values.slug, day, values.source,
-      values.currency, values.total_cents, values.total_cents, JSON.stringify(values.items), values.customer_name,
+      values.currency, values.subtotal_cents, values.total_cents, JSON.stringify(values.items), values.customer_name,
       values.customer_phone, values.delivery_mode, values.address, values.table_no, values.note, values.staff_id,
       values.idempotency_key, values.idempotency_hash, values.payment_method,
       billing.document_type || null, billing.document_number || null, billing.email || null, billing.address || null,
@@ -755,10 +816,10 @@ export async function createPosOrder(env, site, body, options = {}) {
       return error("metodo_pago_invalido", 400);
     }
   }
-  const priced = await pricePosItems(env, site.slug, order.items);
+  const priced = await pricePosItems(env, site.slug, order.items, await taxConfigFor(env, site.slug));
   if (priced.error) return error(priced.error, priced.status, priced.product_id ? { product_id: priced.product_id } : {});
   // Consumidor final sin factura: el SRI limita ese comprobante a USD 50.00. El
-  // monto válido es el que calcula el servidor, nunca el que envía el navegador.
+  // monto válido es el que calcula el servidor CON IVA, nunca el del navegador.
   if (source === "web" && !order.billing && priced.total_cents > WEB_FINAL_CONSUMER_MAX_CENTS) {
     return error("datos_fiscales_requeridos", 400, { campo: "billing" });
   }
@@ -771,7 +832,7 @@ export async function createPosOrder(env, site, body, options = {}) {
   try {
     await insertPosOrder(env, {
       ...order, id, slug: site.slug, created_at: now, source, currency,
-      total_cents: priced.total_cents, items: priced.lines,
+      subtotal_cents: priced.subtotal_cents, total_cents: priced.total_cents, items: priced.lines,
       staff_id: source === "web" ? null : String(options.session.staff_id || ""),
       idempotency_hash: hash,
     });
@@ -871,10 +932,13 @@ export async function getPosOrderStatus(env, site, encodedId, token) {
   const retryable = row.payment_method === "bendo" &&
     payment?.status === "failed" && row.status !== "paid" && row.status !== "rejected";
   const paymentMessage = publicPaymentMessage(paymentStatus, row.payment_method || "cash");
+  const totalCents = Number(row.total_cents), subtotalCents = Number(row.subtotal_cents) || 0;
   return json({
     id: row.id, number: row.number == null ? null : Number(row.number),
     status: row.ready_at != null ? "ready" : row.status,
-    total_cents: Number(row.total_cents), currency: row.currency, sede_id: row.sede_id,
+    // Base (sin IVA), IVA y total cobrado: los tres en centavos enteros.
+    subtotal_cents: subtotalCents, tax_cents: totalCents - subtotalCents, total_cents: totalCents,
+    currency: row.currency, sede_id: row.sede_id,
     sede: sede ? { id: sede.id, nombre: sede.nombre, direccion: sede.direccion } : null,
     payment_method: row.payment_method || "cash", payment_status: paymentStatus,
     ...(paymentMessage ? { payment_message: paymentMessage } : {}), retryable,
@@ -960,19 +1024,20 @@ export async function editPosOrder(env, site, session, encodedId, body) {
   if (has("items")) {
     const parsed = parsePosOrder({ sede_id: order.sede_id, items: body.items, idempotency_key: order.idempotency_key });
     if (parsed.error) return error(parsed.error, 400);
-    const priced = await pricePosItems(env, site.slug, parsed.items);
+    const priced = await pricePosItems(env, site.slug, parsed.items, await taxConfigFor(env, site.slug));
     if (priced.error) return error(priced.error, priced.status, priced.product_id ? { product_id: priced.product_id } : {});
     lines = priced.lines;
   }
   const table = has("table_no") ? (body.table_no == null || body.table_no === "" ? null : String(body.table_no).slice(0, 10)) : order.table_no;
   const note = has("note") ? (body.note == null || body.note === "" ? null : String(body.note).slice(0, 200)) : order.note;
   const name = has("client_name") ? String(body.client_name ?? "").slice(0, 120) : order.customer_name;
-  const total = lines.reduce((sum, line) => sum + line.unit_cents * line.qty, 0);
+  // Las líneas conservadas mantienen su IVA congelado; las nuevas se reprecian.
+  const totals = linesTotals(lines);
   const now = Date.now();
   const changed = await env.DB.prepare(
     "UPDATE pos_orders SET items = ?, subtotal_cents = ?, total_cents = ?, table_no = ?, note = ?, customer_name = ?, " +
     "updated_at = ? WHERE slug = ? AND id = ? AND status = 'pending'",
-  ).bind(JSON.stringify(lines), total, total, table, note, name, now, site.slug, order.id).run();
+  ).bind(JSON.stringify(lines), totals.subtotal_cents, totals.total_cents, table, note, name, now, site.slug, order.id).run();
   if (!changed.meta.changes) return error("estado_invalido", 409);
   return json({ order: posOrderData(await posOrderRow(env, site.slug, order.id)) });
 }
