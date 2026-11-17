@@ -2157,7 +2157,7 @@ function runtime() {
       h("div", { class: "actions" },
         btn("+ Nueva orden", "btn primary small", () => newOrderScreen()),
         h("a", { class: "btn small", href: "/panel/cocina", target: "_blank", rel: "noopener", text: "Abrir cocina" }),
-        h("a", { class: "btn small", href: "/panel/mesero", target: "_blank", rel: "noopener", text: "Abrir modo mesero" }))),
+        h("a", { class: "btn small", href: "/panel/pos", target: "_blank", rel: "noopener", text: "Abrir caja POS" }))),
       notice, posSection, list, h("div", { class: "club-pagination" }, prev, page, next)));
     load();
   }
@@ -2436,7 +2436,7 @@ function runtime() {
         h("p", { class: "muted small", text: "Pedido de caja o teléfono. Queda pendiente hasta que confirmes y cobres." })),
       h("div", { class: "actions" },
         h("a", { class: "btn small", href: "/panel/cocina", target: "_blank", rel: "noopener", text: "Abrir cocina" }),
-        h("a", { class: "btn small", href: "/panel/mesero", target: "_blank", rel: "noopener", text: "Modo mesero" }))),
+        h("a", { class: "btn small", href: "/panel/pos", target: "_blank", rel: "noopener", text: "Caja POS" }))),
       h("div", { class: "neworder" },
         h("div", { class: "neworder-main" }, pickBox, search, grid),
         h("div", { class: "neworder-side" }, cartBox)),

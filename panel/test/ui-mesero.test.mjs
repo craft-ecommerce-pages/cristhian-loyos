@@ -164,10 +164,14 @@ test("sin pay-transfer el mesero muestra error honesto y no cae a pay-cash", asy
     if (String(url).endsWith("/pay-transfer")) return Response.json({ error: "ruta_no_encontrada" }, { status: 404 });
     return Response.json({ orders: [transfer] });
   };
-  const { root, toast } = await startMesero({ orders: [transfer], fetchImpl });
+  const { root, doc, toast } = await startMesero({ orders: [transfer], fetchImpl });
   const button = find(root, node => node.tagName === "button" && node.textContent === "Confirmar transferencia");
   assert.ok(button);
   button.trigger("click");
+  await flush();
+  const confirm = find(doc.body, node => node.tagName === "button" && node.textContent === "Transferencia verificada e imprimir");
+  assert.ok(confirm);
+  confirm.trigger("click");
   await flush();
   assert.ok(calls.some(call => call.url.endsWith("/pay-transfer")));
   assert.equal(calls.some(call => call.url.endsWith("/pay-cash")), false, "no falsea el método");
@@ -176,7 +180,7 @@ test("sin pay-transfer el mesero muestra error honesto y no cae a pay-cash", asy
 
 test("Nuevo pedido pinta tarjetas con imagen y fallback, y agrega al carrito", async () => {
   const { root, doc, toast } = await startMesero();
-  const nav = find(root, node => node.tagName === "button" && node.textContent === "Nuevo pedido");
+  const nav = find(root, node => node.tagName === "button" && node.textContent === "Nueva venta");
   assert.ok(nav);
   nav.trigger("click");
   await flush();
@@ -199,7 +203,50 @@ test("Nuevo pedido pinta tarjetas con imagen y fallback, y agrega al carrito", a
   assert.ok(bar, "la barra del pedido suma el producto");
   bar.trigger("click");
   await flush();
-  assert.match(doc.body.textContent, /Enviar pedido/);
+  assert.match(doc.body.textContent, /Continuar al cobro/);
   assert.match(doc.body.textContent, /Jugo natural/);
-  assert.match(doc.body.textContent, /Total/);
+  assert.match(doc.body.textContent, /Subtotal de productos/);
+});
+
+test("caja: factura exige datos y envía Quito por defecto antes del datáfono", async () => {
+  let sent = null;
+  const created = { ...confirmedOrder, id: "venta-factura", status: "pending", payment_method: "bendo" };
+  const fetchImpl = async (url, init = {}) => {
+    if (String(url).endsWith("/panel/api/mesero/orders") && init.method === "POST") {
+      sent = JSON.parse(init.body);
+      return Response.json({ id: created.id, number: 32, status: "pending", total_cents: 950 }, { status: 201 });
+    }
+    if (String(url).includes("/panel/api/mesero/orders?")) return Response.json({ orders: [created] });
+    return Response.json({ shift: null });
+  };
+  const { root, doc, toast } = await startMesero({ fetchImpl });
+  find(root, node => node.tagName === "button" && node.textContent === "Nueva venta").trigger("click");
+  await flush();
+  find(root, node => node.tagName === "button" && node.textContent.includes("Pizza margarita")).trigger("click");
+  find(root, node => node.classList.contains("cart-bar")).trigger("click");
+  const byText = value => find(doc.body, node => node.tagName === "button" && node.textContent === value);
+  byText("Factura").trigger("click");
+  byText("Tarjeta · datáfono").trigger("click");
+  byText("Continuar al cobro").trigger("click");
+  await flush();
+  assert.equal(sent, null, "sin datos fiscales no se crea el pedido");
+  assert.match(toast.textContent, /cédula|RUC/i);
+  for (const [label, value] of [
+    ["Número de cédula o RUC", "1712345678"],
+    ["Nombre y apellido o razón social", "Ana Pérez"],
+    ["Teléfono", "0991234567"],
+    ["Correo electrónico", "ana@example.com"],
+  ]) {
+    const field = find(doc.body, node => node.tagName === "input" && node.getAttribute("aria-label") === label);
+    assert.ok(field, label);
+    field.value = value;
+    field.trigger("input");
+  }
+  byText("Continuar al cobro").trigger("click");
+  await flush();
+  assert.equal(sent.billing.document_type, "cedula");
+  assert.equal(sent.billing.document_number, "1712345678");
+  assert.equal(sent.billing.address, "Quito");
+  assert.equal(sent.payment_method, "bendo");
+  assert.ok(find(doc.body, node => node.getAttribute("aria-label") === "Cobrado con datáfono"));
 });

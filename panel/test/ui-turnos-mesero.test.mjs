@@ -93,7 +93,7 @@ const openShift = {
   opening_float_cents: 2000, movements: [],
 };
 
-async function startMesero({ orders = [], serverShift = null, fetchImpl } = {}) {
+async function startMesero({ orders = [], serverShift = null, fetchImpl, simulatePrint = false } = {}) {
   const env = makeEnv();
   const html = await renderMeseroPage(new Request(`${URL_BASE}/panel/mesero`), env, site);
   const match = /<script id="meseroMain">([\s\S]*?)<\/script>/.exec(html);
@@ -102,11 +102,19 @@ async function startMesero({ orders = [], serverShift = null, fetchImpl } = {}) 
   const toastEl = new Node("div");
   const body = new Node("body");
   let blobSeq = 0;
+  let printCalls = 0;
   const blobs = new Map();
   const doc = {
     visibilityState: "visible",
     body,
-    createElement: tag => new Node(tag),
+    createElement: tag => {
+      const node = new Node(tag);
+      if (tag === "iframe" && simulatePrint) {
+        node.contentWindow = { focus() {}, print() { printCalls++; } };
+        Object.defineProperty(node, "src", { set() { queueMicrotask(() => node.trigger("load")); } });
+      }
+      return node;
+    },
     createTextNode: text => new Node("#text", String(text)),
     getElementById: id => id === "mesero" ? root : id === "toast" ? toastEl : null,
     addEventListener() {},
@@ -170,7 +178,7 @@ async function startMesero({ orders = [], serverShift = null, fetchImpl } = {}) 
     URLMock, BlobMock,
   );
   await flush();
-  return { root, doc, toast: toastEl, calls, state, blobs };
+  return { root, doc, toast: toastEl, calls, state, blobs, printCalls: () => printCalls };
 }
 
 // Respuestas que imitan el contrato de panel/src/turnos.js (parte D).
@@ -371,7 +379,7 @@ test("un cierre fallido se reintenta con la misma clave idempotente", async () =
 
 test("cobrar con la caja cerrada explica que hay que abrirla", async () => {
   const base = shiftRoute({ shift: null });
-  const { root, toast, calls } = await startMesero({
+  const { root, doc, toast, calls } = await startMesero({
     orders: [confirmedOrder],
     fetchImpl: async call => {
       if (/\/pay-cash$/.test(call.path))
@@ -383,10 +391,40 @@ test("cobrar con la caja cerrada explica que hay que abrirla", async () => {
   assert.ok(pay, "el cobro manual está disponible");
   pay.trigger("click");
   await flush();
+  const received = byLabel(doc.body, "Efectivo recibido");
+  assert.ok(received);
+  received.value = "110";
+  received.trigger("input");
+  byText(doc.body, "button", "Confirmar efectivo e imprimir").trigger("click");
+  await flush();
   assert.equal(toast.textContent, "Abre la caja de esta sede para cobrar.");
   assert.ok(calls.some(call => /\/pay-cash$/.test(call.path)));
   assert.ok(calls.filter(call => call.path === "/panel/api/turnos/actual").length >= 2,
     "refresca el estado de caja tras el 409");
+});
+
+test("efectivo calcula cambio y abre comanda solo tras confirmar el cobro", async () => {
+  const paid = { ...confirmedOrder, status: "paid", print_count: 0 };
+  const { root, doc, calls, printCalls } = await startMesero({
+    orders: [confirmedOrder], serverShift: openShift, simulatePrint: true,
+    fetchImpl: async call => {
+      if (/\/pay-cash$/.test(call.path)) return Response.json({ order: paid });
+      if (/\/print$/.test(call.path)) return Response.json({ order_id: paid.id, print_count: 1 });
+      if (call.path === "/panel/api/turnos/actual") return Response.json({ shift: openShift });
+      return Response.json({ orders: [confirmedOrder] });
+    },
+  });
+  byText(root, "button", "Cobrar efectivo").trigger("click");
+  const received = byLabel(doc.body, "Efectivo recibido");
+  received.value = "200";
+  received.trigger("input");
+  assert.match(doc.body.textContent, /Cambio: \$90\.00/);
+  assert.equal(calls.some(call => /\/pay-cash$|\/print$/.test(call.path)), false);
+  byText(doc.body, "button", "Confirmar efectivo e imprimir").trigger("click");
+  await flush();
+  assert.equal(calls.filter(call => /\/pay-cash$/.test(call.path)).length, 1);
+  assert.equal(printCalls(), 1);
+  assert.equal(calls.filter(call => /\/print$/.test(call.path)).length, 1);
 });
 
 test("el HTML del mesero serializa el ticket Z y su barra de caja", async () => {

@@ -107,6 +107,42 @@ test("pedido web: sede obligatoria, precios del catálogo en centavos y token op
   assert.deepEqual(await response.json(), { error: "variante_no_existe", product_id: "familiar" });
 });
 
+test("caja: factura guarda datos fiscales válidos y consumidor final no los inventa", async () => {
+  const env = posEnv(), cookie = await ownerCookie(env), ctx = makeCtx();
+  const base = {
+    sede_id: "centro", delivery_mode: "pickup", payment_method: "cash",
+    items: [{ product_id: "margarita", qty: 1 }],
+  };
+  const invoice = {
+    ...base, idempotency_key: "caja-factura-0001",
+    client_name: "Ana Pérez", client_phone: "0991234567",
+    billing: { document_type: "cedula", document_number: "1712345678", email: "ana@example.com", address: "Quito" },
+  };
+  let response = await panel.fetch(body("/panel/api/mesero/orders", invoice, { headers: { cookie } }), env, ctx);
+  assert.equal(response.status, 201);
+  const created = await response.json();
+  const row = rowOf(env, created.id);
+  assert.equal(row.billing_document_type, "cedula");
+  assert.equal(row.billing_document_number, "1712345678");
+  assert.equal(row.billing_email, "ana@example.com");
+  assert.equal(row.billing_address, "Quito");
+
+  response = await panel.fetch(body("/panel/api/mesero/orders", {
+    ...invoice, idempotency_key: "caja-factura-0002",
+    billing: { ...invoice.billing, email: "invalido" },
+  }, { headers: { cookie } }), env, ctx);
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { error: "datos_fiscales_invalidos", campo: "billing.email" });
+
+  response = await panel.fetch(body("/panel/api/mesero/orders", {
+    ...base, idempotency_key: "caja-final-0001",
+  }, { headers: { cookie } }), env, ctx);
+  assert.equal(response.status, 201);
+  const final = rowOf(env, (await response.json()).id);
+  assert.equal(final.billing_document_number, null);
+  assert.equal(final.customer_name, "");
+});
+
 test("catálogo: producto apagado, sin stock o inactivo en sede", async () => {
   const env = posEnv([{ ...margarita, stock: 1 }, { ...margarita, id: "apagado", active: false }]);
   let response = await panel.fetch(body("/api/orders", webOrder({ items: [{ product_id: "margarita", qty: 2 }] })), env, makeCtx());

@@ -21,11 +21,11 @@ export async function renderMeseroPage(request, env, site) {
   return `<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#111820"><meta name="color-scheme" content="light"><meta name="robots" content="noindex">
-<title>${esc("Modo mesero · " + store)}</title><style>${MESERO_CSS}</style></head><body>
+<title>${esc("Caja · " + store)}</title><style>${MESERO_CSS}</style></head><body>
 <header class="top"><a class="top-back" href="/panel" rel="noreferrer">← Panel</a>
-<span class="top-name">${esc(store)}</span><span class="top-tag">Modo mesero</span></header>
+<span class="top-name">${esc(store)}</span><span class="top-tag">Caja</span></header>
 <main id="mesero" class="wrap"><div class="boot" role="status"><span class="spin" aria-hidden="true"></span>
-Cargando Modo mesero…</div></main>
+Cargando caja…</div></main>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 <script id="meseroData">var __name=function(f){return f};window.__MESERO__=${inline({ store, boot })};</script>
 <script id="meseroTicket">var __ticket=${String(ticketLines)};window.__meseroTicket=__ticket;</script>
@@ -111,9 +111,10 @@ font-size:11.5px;
 font-weight:700;
 letter-spacing:.06em;
 text-transform:uppercase}
-.wrap{max-width:620px;
+.wrap{width:100%;
+max-width:none;
 margin:0 auto;
-padding:16px 14px calc(32px + env(safe-area-inset-bottom))}
+padding:16px clamp(12px,2vw,32px) calc(32px + env(safe-area-inset-bottom))}
 .boot{display:flex;
 align-items:center;
 justify-content:center;
@@ -268,7 +269,7 @@ font-size:13px;
 font-weight:650}
 .err:empty{display:none}
 .catalog-grid{display:grid;
-grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
+grid-template-columns:repeat(auto-fill,minmax(155px,1fr));
 gap:10px;
 margin:0 0 14px}
 .catalog-product{display:flex;
@@ -333,14 +334,14 @@ font-size:12px}
 .builder{padding-bottom:84px}
 .builder>input{margin:0 0 10px}
 .cart-bar{position:fixed;
-left:12px;
-right:12px;
+left:clamp(12px,2vw,32px);
+right:clamp(12px,2vw,32px);
 bottom:calc(12px + env(safe-area-inset-bottom));
 z-index:20;
 display:flex;
 justify-content:space-between;
 align-items:center;
-max-width:620px;
+max-width:none;
 margin:0 auto;
 min-height:54px;
 padding:0 18px;
@@ -388,15 +389,22 @@ font-size:18px}
 .sheet{position:fixed;
 inset:0;
 z-index:30;
-display:flex;
-align-items:end;
-background:rgba(0,0,0,.35)}
-.sheet-box{width:100%;
-max-height:88vh;
+display:grid;
+place-items:center;
+padding:16px;
+background:rgba(0,0,0,.5)}
+.sheet-box{width:min(100%,680px);
+max-height:min(90vh,850px);
 overflow:auto;
-padding:20px 14px calc(20px + env(safe-area-inset-bottom));
+padding:20px;
 background:var(--card);
-border-radius:18px 18px 0 0}
+border-radius:18px;
+box-shadow:0 20px 60px rgba(0,0,0,.28)}
+.choice-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:8px 0 16px}
+.choice-row.payment{grid-template-columns:repeat(3,minmax(0,1fr))}
+.choice-row .btn{width:100%}
+.change-box{padding:14px;border-radius:12px;background:#e6f4ed;color:#0f5c42;font-size:18px;font-weight:800}
+@media(max-width:560px){.sheet{padding:8px}.sheet-box{padding:16px;max-height:94vh}.choice-row.payment{grid-template-columns:1fr 1fr}}
 .option{display:flex;
 gap:10px;
 align-items:center;
@@ -509,7 +517,7 @@ function meseroRuntime() {
     demasiados_intentos:
       "Demasiados intentos. Espera unos minutos y vuelve a probar.",
     meseros_no_disponibles:
-      "Los meseros no están disponibles; entra con la cuenta del dueño.",
+      "La caja no está disponible; entra con la cuenta del dueño.",
     sin_sesion: "Tu sesión venció. Vuelve a entrar con tu PIN.",
     pedido_invalido: "Revisa los datos del pedido.",
     estado_invalido: "Ese pedido ya no se puede modificar.",
@@ -1033,7 +1041,7 @@ function meseroRuntime() {
       autocomplete: "one-time-code",
       maxlength: "6",
       placeholder: "••••",
-      "aria-label": "PIN del mesero",
+      "aria-label": "PIN de caja",
     });
     const err = h("p", { class: "err", role: "alert" });
     const submit = h(
@@ -1047,15 +1055,15 @@ function meseroRuntime() {
     const form = h(
       "form",
       { class: "card pin", novalidate: true },
-      h("h1", { text: "Modo mesero" }),
+      h("h1", { text: "Caja POS" }),
       h("p", {
         class: "muted",
-        text: "Entra con tu PIN para revisar pedidos y mandar comandas a cocina.",
+        text: "Entra con la sesión del dueño o el PIN de caja.",
       }),
       h(
         "label",
         { class: "field" },
-        h("span", { text: "PIN del mesero" }),
+        h("span", { text: "PIN de caja" }),
         pin,
       ),
       submit,
@@ -1104,7 +1112,7 @@ function meseroRuntime() {
     if (result.status === 503)
       return pinScreen(MESSAGES.meseros_no_disponibles);
     if (result.status !== 200)
-      return pinScreen("No pudimos abrir el Modo mesero. Intenta de nuevo.");
+      return pinScreen("No pudimos abrir la caja. Intenta de nuevo.");
     me = result.data || {};
     applySedes();
     await Promise.all([loadCatalog(), loadOrders(), loadShift()]);
@@ -1174,7 +1182,7 @@ function meseroRuntime() {
     loadedAt = Date.now();
   }
   function top() {
-    const staff = text(me?.staff?.name) || (me?.owner ? "Dueño" : "Mesero");
+    const staff = text(me?.staff?.name) || (me?.owner ? "Caja · dueño" : "Caja");
     return h(
       "div",
       { class: "bar" },
@@ -1189,7 +1197,7 @@ function meseroRuntime() {
       button("Pedidos", "btn " + (tab === "orders" ? "selected" : ""), () =>
         goTab("orders"),
       ),
-      button("Nuevo pedido", "btn " + (tab === "new" ? "selected" : ""), () =>
+      button("Nueva venta", "btn " + (tab === "new" ? "selected" : ""), () =>
         goTab("new"),
       ),
     );
@@ -1839,14 +1847,12 @@ function meseroRuntime() {
     const actions = [];
     if (state === "pending") {
       actions.push(button("Editar", "btn small", () => edit(order)));
-      actions.push(
-        button("Confirmar", "btn primary small", (event) =>
-          changeStatus(order, "confirm", event.currentTarget),
-        ),
-      );
-      actions.push(
-        button("Cobrado con datáfono", "btn small", () => datafonoSheet(order)),
-      );
+      if (pos) {
+        if (!order.payment_method || order.payment_method === "cash") actions.push(button("Cobrar efectivo", "btn primary small", () => cashSheet(order)));
+        if (order.payment_method === "transfer") actions.push(button("Confirmar transferencia", "btn primary small", () => transferSheet(order)));
+        actions.push(button("Tarjeta · datáfono", "btn small", () => datafonoSheet(order)));
+      } else actions.push(button("Confirmar", "btn primary small", (event) =>
+        changeStatus(order, "confirm", event.currentTarget)));
       actions.push(
         button("Rechazar", "btn danger small", (event) =>
           changeStatus(order, "reject", event.currentTarget),
@@ -1855,14 +1861,8 @@ function meseroRuntime() {
     } else if (state === "confirmed") {
       // Confirmar disponibilidad NO cobra: la comanda sale a cocina solo al pagar.
       if (pos) {
-        const transfer = text(order.payment_method) === "transfer";
-        actions.push(
-          button(
-            transfer ? "Confirmar transferencia" : "Cobrar efectivo",
-            "btn primary small",
-            (event) => payOrder(order, event.currentTarget),
-          ),
-        );
+        if (!order.payment_method || order.payment_method === "cash") actions.push(button("Cobrar efectivo", "btn primary small", () => cashSheet(order)));
+        if (order.payment_method === "transfer") actions.push(button("Confirmar transferencia", "btn primary small", () => transferSheet(order)));
         // Cobro manual con datáfono: se cobra en el terminal y se registra la
         // autorización del voucher (docs/DATAFONO-MANUAL.md).
         actions.push(
@@ -2067,6 +2067,13 @@ function meseroRuntime() {
         ? ""
         : clientName(order),
       note: text(order?.note),
+      billing_mode: "final",
+      document_type: "cedula",
+      document_number: "",
+      client_phone: "",
+      client_email: "",
+      billing_address: "",
+      payment_method: "cash",
       key: "",
       items: (Array.isArray(order?.items) ? order.items : []).map((item) => {
         const variant = itemVariant(item);
@@ -2236,12 +2243,13 @@ function meseroRuntime() {
     const box = h("div", { class: "sheet-box" });
     const field = (label, input) =>
       h("label", { class: "field" }, h("span", { text: label }), input);
-    const input = (key, max, label, tag = "input") => {
+    const input = (key, max, label, tag = "input", attrs = {}) => {
       const node = h(tag, {
         maxlength: String(max),
         value: builder[key],
-        placeholder: "Opcional",
+        placeholder: attrs.placeholder || "Opcional",
         "aria-label": label,
+        ...attrs,
       });
       node.addEventListener("input", () => {
         builder[key] = node.value.slice(0, max);
@@ -2286,10 +2294,22 @@ function meseroRuntime() {
         );
       });
       const send = button(
-        builder.id ? "Guardar cambios" : "Enviar pedido",
+        builder.id ? "Guardar cambios" : "Continuar al cobro",
         "btn primary wide",
         () => submitBuilder(send),
       );
+      const choice = (label, key, value) => button(
+        label,
+        "btn" + (builder[key] === value ? " selected" : ""),
+        () => { builder[key] = value; paint(); },
+        { "aria-pressed": builder[key] === value ? "true" : "false" },
+      );
+      const invoice = builder.billing_mode === "invoice" && !builder.id;
+      const documentType = h("select", { "aria-label": "Tipo de documento" },
+        h("option", { value: "cedula", text: "Cédula" }),
+        h("option", { value: "ruc", text: "RUC" }));
+      documentType.value = builder.document_type;
+      documentType.addEventListener("change", () => { builder.document_type = documentType.value; });
       box.replaceChildren(
         h(
           "div",
@@ -2301,11 +2321,27 @@ function meseroRuntime() {
         h(
           "div",
           { class: "total" },
-          h("b", { text: "Total" }),
+          h("b", { text: "Subtotal de productos" }),
           h("b", { text: money(cartTotal()) }),
         ),
-        input("client_name", 60, "Cliente"),
+        !builder.id ? h("p", { class: "hint", text: "El total a cobrar se confirma con el precio y el IVA calculados por el servidor." }) : null,
+        !builder.id ? h("h3", { text: "Cliente" }) : null,
+        !builder.id ? h("div", { class: "choice-row", role: "group", "aria-label": "Tipo de comprobante" },
+          choice("Consumidor final", "billing_mode", "final"),
+          choice("Factura", "billing_mode", "invoice")) : null,
+        invoice ? field("Cédula o RUC", documentType) : null,
+        invoice ? input("document_number", 13, "Número de cédula o RUC", "input", { inputmode: "numeric", required: true, placeholder: "10 o 13 dígitos" }) : null,
+        invoice ? input("client_name", 120, "Nombre y apellido o razón social", "input", { required: true, placeholder: "Nombre completo" }) : null,
+        invoice ? input("client_phone", 40, "Teléfono", "input", { type: "tel", required: true, placeholder: "0999999999" }) : null,
+        invoice ? input("client_email", 254, "Correo electrónico", "input", { type: "email", required: true, placeholder: "cliente@correo.com" }) : null,
+        invoice ? input("billing_address", 300, "Dirección", "input", { placeholder: "Quito (predeterminado)" }) : null,
+        builder.id ? input("client_name", 60, "Cliente") : null,
         input("note", 200, "Nota general", "textarea"),
+        !builder.id ? h("h3", { text: "Forma de pago" }) : null,
+        !builder.id ? h("div", { class: "choice-row payment", role: "group", "aria-label": "Forma de pago" },
+          choice("Efectivo", "payment_method", "cash"),
+          choice("Transferencia", "payment_method", "transfer"),
+          choice("Tarjeta · datáfono", "payment_method", "bendo")) : null,
         send,
       );
     };
@@ -2446,6 +2482,15 @@ function meseroRuntime() {
   function submitBuilder(buttonEl) {
     if (!builder.items.length)
       return toast("Agrega al menos un producto.", true);
+    if (!builder.id && builder.billing_mode === "invoice") {
+      const number = text(builder.document_number);
+      if (builder.document_type === "cedula" ? !/^\d{10}$/.test(number) : !/^\d{13}$/.test(number))
+        return toast("Ingresa una cédula de 10 dígitos o un RUC de 13 dígitos.", true);
+      if (!text(builder.client_name)) return toast("Ingresa el nombre o razón social.", true);
+      if (!/^\+?\d{7,15}$/.test(text(builder.client_phone))) return toast("Ingresa un teléfono válido.", true);
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(text(builder.client_email)))
+        return toast("Ingresa un correo electrónico válido.", true);
+    }
     return act(buttonEl, () => saveBuilder());
   }
   async function saveBuilder() {
@@ -2499,7 +2544,15 @@ function meseroRuntime() {
           sede_id: sede,
           idempotency_key: builder.key,
           delivery_mode: "pickup",
-          client_name: builder.client_name || undefined,
+          client_name: builder.billing_mode === "invoice" ? text(builder.client_name) : undefined,
+          client_phone: builder.billing_mode === "invoice" ? text(builder.client_phone) : undefined,
+          billing: builder.billing_mode === "invoice" ? {
+            document_type: builder.document_type,
+            document_number: text(builder.document_number),
+            email: text(builder.client_email),
+            address: text(builder.billing_address) || "Quito",
+          } : undefined,
+          payment_method: builder.payment_method,
           note: builder.note || undefined,
           items,
         };
@@ -2512,6 +2565,7 @@ function meseroRuntime() {
     if (result.status !== 200 && result.status !== 201)
       return toast(message(result, "No pudimos guardar el pedido."), true);
     const created = !builder.id;
+    const paymentMethod = builder.payment_method;
     const saved = result.data?.order || null;
     closeSheet();
     builder = null;
@@ -2520,19 +2574,17 @@ function meseroRuntime() {
     tab = "orders";
     filter = "pending";
     await loadOrders();
-    toast(
-      created
-        ? "Pedido " +
-            shortNumber(
-              saved || {
-                id: result.data?.id,
-                number: result.data?.number,
-              },
-            ) +
-            " creado como pendiente. Confírmalo y cobra antes de la comanda."
-        : "Pedido " + shortNumber(saved || {}) + " guardado",
-    );
+    const createdOrder = created ? orders.find((order) => order.id === result.data?.id) : null;
+    toast(created ? "Pedido creado. Confirma el cobro para enviar la comanda." : "Pedido " + shortNumber(saved || {}) + " guardado");
     render();
+    if (created) {
+      if (H) H.replaceState({ m: "orders" }, "");
+      if (!createdOrder) return toast("Pedido guardado. Actualiza la lista para cobrarlo.", true);
+      if (paymentMethod === "cash") cashSheet(createdOrder);
+      else if (paymentMethod === "transfer") transferSheet(createdOrder);
+      else datafonoSheet(createdOrder);
+      return;
+    }
     // Deshace las entradas Nuevo pedido + modal: "atrás" desde la lista ya sale al panel.
     const steps = { sheet: 2, new: 1 }[where()] || 0;
     if (steps) H.go(-steps);
@@ -2564,23 +2616,51 @@ function meseroRuntime() {
       render();
     });
   }
-  // Cobro manual: efectivo por pay-cash y transferencia por pay-transfer.
-  // Ambos son idempotentes y son la única acción que libera la comanda.
-  function payOrder(order, buttonEl) {
+  function cashSheet(order) {
+    const due = Number(order.total_cents) || 0;
+    const received = h("input", { type: "text", inputmode: "decimal", autocomplete: "off", placeholder: "0,00", "aria-label": "Efectivo recibido" });
+    const change = h("p", { class: "change-box", role: "status", text: "Cambio: —" });
+    const error = h("p", { class: "err", role: "alert" });
+    const submit = button("Confirmar efectivo e imprimir", "btn primary wide", () => {
+      const tendered = centsFrom(received.value);
+      if (tendered == null || tendered < due) {
+        error.textContent = "El efectivo recibido debe cubrir " + moneyCents(due) + ".";
+        received.focus();
+        return;
+      }
+      error.textContent = "";
+      payOrder(order, submit, state, "Cambio: " + moneyCents(tendered - due));
+    });
+    const state = {};
+    received.addEventListener("input", () => {
+      const tendered = centsFrom(received.value);
+      change.textContent = tendered == null ? "Cambio: —" : tendered < due
+        ? "Faltan " + moneyCents(due - tendered)
+        : "Cambio: " + moneyCents(tendered - due);
+    });
+    showSheet(h("div", { class: "sheet", role: "dialog", "aria-modal": "true", "aria-label": "Cobro en efectivo" },
+      h("div", { class: "sheet-box" },
+        h("div", { class: "bar" }, h("h2", { text: "Cobro en efectivo" }), button("Cerrar", "btn link", dismissSheet)),
+        h("p", { class: "total" }, h("span", { text: "Total a cobrar" }), h("b", { text: moneyCents(due) })),
+        h("label", { class: "field" }, h("span", { text: "Efectivo recibido" }), received),
+        change, error, submit)));
+    received.focus();
+  }
+  function transferSheet(order) {
+    const state = {};
+    const submit = button("Transferencia verificada e imprimir", "btn primary wide", () => payOrder(order, submit, state));
+    showSheet(h("div", { class: "sheet", role: "dialog", "aria-modal": "true", "aria-label": "Confirmar transferencia" },
+      h("div", { class: "sheet-box" },
+        h("div", { class: "bar" }, h("h2", { text: "Transferencia" }), button("Cerrar", "btn link", dismissSheet)),
+        h("p", { class: "total" }, h("span", { text: "Total a cobrar" }), h("b", { text: moneyCents(order.total_cents) })),
+        h("p", { class: "hint", text: "Comprueba el abono en la cuenta antes de confirmar." }), submit)));
+  }
+  // El servidor confirma el pago y crea la comanda una sola vez. La impresión
+  // se intenta solo después de la respuesta pagada.
+  function payOrder(order, buttonEl, state = {}, successMessage = "") {
     const transfer = text(order.payment_method) === "transfer";
-    if (
-      typeof window.confirm === "function" &&
-      !window.confirm(
-        (transfer
-          ? "¿Verificaste la transferencia de " + shortNumber(order) + "?"
-          : "¿Confirmas que recibiste el pago en efectivo de " +
-            shortNumber(order) +
-            "?") + " La comanda se enviará a cocina.",
-      )
-    )
-      return;
     return act(buttonEl, async () => {
-      const key = uuid();
+      const key = idempotency(state, { order_id: order.id, method: transfer ? "transfer" : "cash" });
       const path = "orders/" + encodeURIComponent(order.id);
       const result = await callRoot(
         path + (transfer ? "/pay-transfer" : "/pay-cash"),
@@ -2595,6 +2675,8 @@ function meseroRuntime() {
           true,
         );
       if (result.status === 409) {
+        closeSheet();
+        if (H) H.replaceState({ m: "orders" }, "");
         // Cobrar con la caja cerrada no es un cambio de estado del pedido.
         if (result.data?.error === "caja_cerrada") {
           toast(MESSAGES.caja_cerrada, true);
@@ -2613,11 +2695,13 @@ function meseroRuntime() {
       const updated = result.data?.order;
       if (updated) upsert(updated);
       else await loadOrders();
-      toast(
-        (transfer ? "Transferencia confirmada." : "Cobrado.") +
-          " La comanda ya está en cocina; imprímela desde Cocina.",
-      );
+      closeSheet();
+      if (H) H.replaceState({ m: "orders" }, "");
       render();
+      const paid = updated || orders.find((item) => item.id === order.id);
+      if (paid) await printPaid(paid);
+      else toast((transfer ? "Transferencia confirmada." : "Cobrado.") + " Imprime la comanda desde Pedidos.");
+      if (successMessage) toast("Pago registrado. " + successMessage + ".");
     });
   }
   // Cobro manual con datáfono: se cobra primero en el terminal de Bendo y aquí
@@ -2702,18 +2786,20 @@ function meseroRuntime() {
         return;
       }
       const updated = result.data?.order;
-      dismissSheet();
+      closeSheet();
+      if (H) H.replaceState({ m: "orders" }, "");
       if (updated) upsert(updated);
       else await loadOrders();
-      toast(
-        "Cobrado con datáfono. La comanda ya está en cocina; imprímela desde Cocina.",
-      );
       render();
+      const paid = updated || orders.find((item) => item.id === order.id);
+      if (paid) await printPaid(paid);
+      else toast("Cobrado con datáfono. Imprime la comanda desde Pedidos.");
     };
     const form = h(
       "form",
       { novalidate: true },
       h("h2", { text: "Cobrado con datáfono" }),
+      h("p", { class: "total" }, h("span", { text: "Total a cobrar" }), h("b", { text: moneyCents(order.total_cents) })),
       h("p", {
         class: "hint",
         text: "Cobra primero en el datáfono y copia el número de autorización del voucher.",
@@ -2900,7 +2986,9 @@ body{margin:0;font-family:monospace;font-size:11px;white-space:pre;line-height:1
       )
         return;
     }
-    return act(buttonEl, async () => {
+    return act(buttonEl, () => printPaid(order));
+  }
+  async function printPaid(order) {
       // Primero se abre la impresión: si el navegador falla, no se registra
       // un acuse que parezca una comanda impresa.
       const opened = await printTicket({
@@ -2931,7 +3019,6 @@ body{margin:0;font-family:monospace;font-size:11px;white-space:pre;line-height:1
       toast(
         "Acuse registrado. Revisa la comanda en la impresora; la app no confirma el papel.",
       );
-    });
   }
   async function logout() {
     await call("logout", {});

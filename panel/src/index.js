@@ -51,7 +51,7 @@ export default {
       return new Response(await renderCajaPage(request, env, site), { headers: pageHeaders });
     if (url.pathname === "/panel/cocina" && request.method === "GET")
       return new Response(await renderKitchenPage(request, env, site), { headers: { ...pageHeaders, "cache-control": "private, no-store" } });
-    if (url.pathname === "/panel/mesero" && request.method === "GET")
+    if ((url.pathname === "/panel/pos" || url.pathname === "/panel/mesero") && request.method === "GET")
       // Lleva sesión, catálogo y pedidos dentro del HTML: nunca se cachea.
       return new Response(await renderMeseroPage(request, env, site), { headers: { ...pageHeaders, "cache-control": "private, no-store" } });
     if (url.pathname === "/panel" || url.pathname === "/panel/" || url.pathname === "/panel/reset")

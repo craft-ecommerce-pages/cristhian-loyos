@@ -481,7 +481,7 @@ test("mesero: el cobro con datáfono pide autorización y últimos 4 con etiquet
   assert.match(paid.body.idempotency_key, /^[A-Za-z0-9_.:-]{8,100}$/);
   assert.equal(paid.body.authorization_code, "A7K2");
   assert.equal(paid.body.card_last4, "9876");
-  assert.match(toast.textContent, /Cobrado con datáfono\. La comanda ya está en cocina/);
+  assert.equal(find(doc.body, node => node.getAttribute("role") === "dialog"), null, "el cobro cierra el diálogo antes de imprimir");
 });
 
 test("mesero: sin autorización válida no llama y el 409 de caja cerrada se explica", async () => {

@@ -641,7 +641,8 @@ function parsePosOrder(body, options = {}) {
   const phone = (typeof customer.phone === "string" ? customer.phone : body.client_phone) ?? "";
   if ([...String(name)].length > 120 || [...String(phone)].length > 40) return { error: "pedido_invalido", status: 400 };
   let billing = null;
-  if (web) {
+  const wantsInvoice = web || Object.hasOwn(customer, "billing") || Object.hasOwn(body, "billing");
+  if (wantsInvoice) {
     if (!String(name).trim()) return { error: "cliente_requerido", status: 400, campo: "customer.name" };
     if (!PHONE_RE.test(String(phone).trim())) return { error: "telefono_invalido", status: 400, campo: "customer.phone" };
     billing = parseBilling(body, customer);

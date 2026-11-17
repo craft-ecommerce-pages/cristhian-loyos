@@ -290,7 +290,7 @@ test("tarjetas muestran mesa + nombre, hora y total; el constructor bloquea agot
   assert.match(text, /Mesa 4 · Andrea/);
   assert.doesNotMatch(text, /Mesa 7 · Mesa 7/);
   assert.match(text, /18[.,]50/);
-  const tab = walk(window.__testRoot).find(n => n.tagName === "button" && n.textContent === "Nuevo pedido");
+  const tab = walk(window.__testRoot).find(n => n.tagName === "button" && n.textContent === "Nueva venta");
   tab.on.click();
   await flushRuntime();
   const products = walk(window.__testRoot).filter(n => n.attrs?.class === undefined && n.className === "catalog-product");
