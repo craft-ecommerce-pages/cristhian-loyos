@@ -154,7 +154,7 @@ function matches(node,selector){
   if(selector==='#cartStep2 .step2-body')return node.classList.contains('step2-body')&&ancestor(node,'#cartStep2');
   return matchesSimple(node,selector);
 }
-function menu({checkout=true,fetchImpl,search='',transfer=null,path='/'}={}){
+function menu({checkout=true,fetchImpl,search='',transfer=null,path='/',paymentOptions={cash:true,transfer:false,bendo:false}}={}){
   const doc={elements:[],listeners:{},documentElement:{style:{setProperty(){}}},currentScript:{src:'https://engine.test/v1/catalog.js'}};
   doc.body=new Element(doc,'body');doc.head=new Element(doc,'head');
   doc.createElement=tag=>{const e=new Element(doc);e.tagName=tag;return e;};
@@ -201,7 +201,7 @@ function menu({checkout=true,fetchImpl,search='',transfer=null,path='/'}={}){
   const fetch=async(url,options)=>{
     if(url==='productos.json')return {ok:true,json:async()=>products};
     if(url==='config.json')return {ok:true,json:async()=>baseConfig};
-    if(url==='/api/payment-options')return {ok:true,status:200,json:async()=>({cash:true,transfer:true,bendo:false})};
+    if(url==='/api/payment-options')return {ok:true,status:200,json:async()=>paymentOptions};
     calls.push([url,options]);
     const result=await fetchImpl(url,options);
     if(result instanceof Error)throw result;
@@ -234,6 +234,9 @@ function fillBilling(m,overrides={}){
   set('fieldDocNumber','0912345678');set('fieldEmail','ana@test.com');
   set('fieldBillingAddress','Av. Siempre Viva 123');
   Object.entries(overrides).forEach(([id,value])=>set(id,value));
+  // Con factura: el interruptor arranca apagado (consumidor final) y se enciende aquí.
+  const toggle=m.doc.getElementById('fieldBillingToggle');
+  if(toggle){toggle.checked=true;toggle.handlers.change?.();}
 }
 
 test('checkout nativo: sede + datos fiscales + /api/orders + recibo /gracias, sin WhatsApp',async()=>{
@@ -305,7 +308,7 @@ test('transferencia: muestra solo la cuenta oficial y el enlace de WhatsApp sin 
   const transfer={bank:'Banco Pichincha',account_number:'2200123456',holder:'Munch S.A.',account_type:'Ahorros'};
   const transferStatus=async url=>url.startsWith('/api/orders/')
     ?{body:{...statusBody,payment_method:'transfer'}}:{status:201,body:receipt};
-  const m=menu({fetchImpl:transferStatus,transfer});await m.ready();
+  const m=menu({fetchImpl:transferStatus,transfer,paymentOptions:{cash:true,transfer:true,bendo:false}});await m.ready();
   m.doc.getElementById('fieldSede').value='sede-01';
   fillBilling(m);
   m.doc.getElementById('fieldPayment').value='transfer';

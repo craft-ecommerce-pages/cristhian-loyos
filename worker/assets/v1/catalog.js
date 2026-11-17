@@ -138,6 +138,17 @@
     if(!bank||!account||!holder||wa.length<7||wa.length>15) return null;
     return {bank,account,holder,account_type:pick('account_type','tipo_cuenta','type')};
   }
+  // Límite del SRI para consumidor final: por encima de USD 50 el pedido web exige datos
+  // fiscales. Mismo umbral que el servidor (WEB_FINAL_CONSUMER_MAX_CENTS en orders.js).
+  const FINAL_CONSUMER_MAX_CENTS=5000;
+  function invoiceRequired(totalCents){ return Number(totalCents)>FINAL_CONSUMER_MAX_CENTS; }
+  // Métodos de pago que la API pública habilita, en el orden del menú: tarjeta (Bendo),
+  // transferencia y efectivo (solo si la config lo permite). Cualquier valor distinto de
+  // `true` no habilita el método; nunca se inventa efectivo.
+  function paymentMethods(options){
+    const src=options&&typeof options==='object'?options:{};
+    return ['bendo','transfer','cash'].filter(method=>src[method]===true);
+  }
   // Validación UX del contrato fiscal. Devuelve {campo: mensaje}; el servidor sigue siendo la
   // fuente de verdad y valida otra vez longitud/formato antes de persistir.
   function billingFieldErrors(values){
@@ -159,6 +170,15 @@
     if([...address].length<5) errors.address='Ingresa la dirección de facturación.';
     else if([...address].length>300) errors.address='La dirección es demasiado larga.';
     return errors;
+  }
+  // Errores visibles según el interruptor de factura: apagado (consumidor final) solo
+  // valida nombre y teléfono; encendido exige además tipo, número, correo y dirección.
+  function billingErrorsFor(values,withInvoice){
+    const errors=billingFieldErrors(values);
+    if(withInvoice) return errors;
+    const out={};
+    for(const key of ['name','phone']) if(errors[key]) out[key]=errors[key];
+    return out;
   }
   // Retorno de la pasarela/recibo: id y token opacos. Acepta los alias nuevos sin perder el
   // contrato existente (?pedido&token&pago). El token NUNCA se registra en analítica.
@@ -218,6 +238,7 @@
   if(typeof module!=='undefined' && module.exports) module.exports={clubBanner,panelCount,panelOrder,
     checkoutOrders,ordersEndpoint,sedeList,sedeFromQuery,defaultSede,orderVariantLabel,variantOptionExists,
     orderCartItems,orderStatusLabel,orderStatusFinal,nextOrderKey,transferInfo,billingFieldErrors,
+    billingErrorsFor,invoiceRequired,paymentMethods,
     parseOrderReturn,orderPaymentLabel,thanksRetryAllowed,thanksPurchaseEligible,thanksPollFinal,
     cardPaymentMethod,paymentStartPath};
 
@@ -270,6 +291,7 @@
       'Serás dirigido al pago seguro con tarjeta. La confirmación llega al volver.':'You will be redirected to the secure card payment. Confirmation arrives when you return.',
       'No se pudo abrir el pago con tarjeta. Reintenta.':'We could not open the card payment. Try again.',
       'Datos de facturación':'Billing details','Tipo de documento':'Document type','Cédula':'ID card','RUC':'Tax ID (RUC)','Número de documento':'Document number','Correo electrónico':'Email','Dirección de facturación':'Billing address','Estos datos se usan solo para tu comprobante. No se envían por WhatsApp.':'This information is used only for your receipt. It is never sent through WhatsApp.',
+      'Quiero factura con mis datos':'I want an invoice with my details','Consumidor final':'Final consumer','Para compras mayores a $50 el SRI exige tus datos':'For purchases over $50 the tax authority requires your details','Los pedidos en línea no están disponibles. Pide directamente en caja.':'Online orders are unavailable. Please order at the counter.','Tu pedido {0}':'Your order {0}','Elige un método de pago para continuar.':'Choose a payment method to continue.',
       'Te avisaremos por WhatsApp al número que ingresaste cuando tu pedido esté listo.':'We will notify you on WhatsApp at the number you entered when your order is ready.',
       'Revisa los datos de facturación':'Please review your billing details','Ingresa tu nombre y apellido.':'Please enter your full name.','Ingresa un teléfono válido (7 a 15 dígitos).':'Please enter a valid phone number (7 to 15 digits).','Elige el tipo de documento.':'Choose a document type.','El documento solo puede tener números.':'The document can only contain numbers.','La cédula debe tener 10 dígitos.':'The ID card must have 10 digits.','El RUC debe tener 13 dígitos.':'The RUC must have 13 digits.','Ingresa un documento válido.':'Please enter a valid document.','Ingresa un correo electrónico válido.':'Please enter a valid email address.','Ingresa la dirección de facturación.':'Please enter your billing address.','La dirección es demasiado larga.':'The address is too long.',
       'Pago pendiente en caja':'Payment pending at the counter','Pago pendiente de verificación':'Payment pending verification','Pago confirmado en caja':'Payment confirmed at the counter','Transferencia verificada':'Transfer verified',
@@ -324,6 +346,7 @@
     const t=(s,...a)=>((isEN()&&EN[s])||s).replace(/\{(\d)\}/g,(_,i)=>a[i]);
   const orderScriptURL = new URL('order-checkout.js', document.currentScript.src).href;
   let checkoutBusy = false;
+  let paymentsBlocked = false; // ningún método de pago habilitado → pedido en línea cerrado
   async function orderCheckout(){
     if(window.CraftOrderCheckout) return window.CraftOrderCheckout;
     await (window.craftOrderLoading ||= new Promise((resolve, reject) => {
@@ -1192,6 +1215,7 @@
       $cartTotal.textContent=formatPrice(total);
       $cartItemCount.textContent=t('{0} item(s) · {1} producto(s)',qty,cartItems.length);
       $btnCheckout.disabled=qty===0||storeClosed;
+      syncBillingSwitch();
 
       // Líneas de recargos (empaque/envío) en el footer (creadas al vuelo; el HTML del cliente no las trae).
       let feeLine=document.getElementById('cartFeeLine');
@@ -1282,6 +1306,7 @@
       notice.textContent=preorderNote();
       document.getElementById('cartBack').style.display='';
       syncTableMode();
+      syncBillingSwitch();
     }
 
     // Solo el shell edge habilita comandas; los índices legacy conservan su checkout sin cambios.
@@ -1476,6 +1501,75 @@
       });
     }
 
+    /* ── Factura opt-in: consumidor final por defecto ───────────────────────── */
+    // Sin factura no se envía `billing`; el servidor guarda consumidor final.
+    // Sobre USD 50 el SRI exige datos fiscales: el interruptor queda encendido y
+    // bloqueado. El límite se mide sobre el total visible del carrito (ítems + recargos).
+    function cartCents(){ return Math.round((cartTotalPrice()+feesTotal(currentMode()))*100); }
+    function billingChecked(){
+      const toggle=document.getElementById('fieldBillingToggle');
+      return !!(toggle&&toggle.checked===true);
+    }
+    function billingRequired(){ return invoiceRequired(cartCents()); }
+    function syncBillingSwitch(){
+      const toggle=document.getElementById('fieldBillingToggle');
+      const fields=document.getElementById('billingFields');
+      if(!toggle||!fields) return;
+      const required=billingRequired();
+      if(required) toggle.checked=true;
+      toggle.disabled=required;
+      fields.hidden=!toggle.checked;
+      const consumer=document.getElementById('billingConsumerNote');
+      if(consumer) consumer.hidden=toggle.checked;
+      const note=document.getElementById('billingRequirementNote');
+      if(note){
+        note.hidden=!required;
+        note.textContent=required?t('Para compras mayores a $50 el SRI exige tus datos'):'';
+      }
+      if(!toggle.checked) showBillingErrors({});
+    }
+    // Interruptor "Quiero factura con mis datos" antes de los campos fiscales del
+    // template. Apagado (por defecto) el pedido va como consumidor final.
+    function setupBillingSwitch(){
+      const fields=document.getElementById('billingFields');
+      if(!fields||document.getElementById('fieldBillingToggle')) return;
+      const wrap=document.createElement('div');
+      wrap.className='billing-cta';
+      const label=document.createElement('label');
+      label.className='billing-toggle';label.setAttribute('for','fieldBillingToggle');
+      const toggle=document.createElement('input');
+      toggle.type='checkbox';toggle.id='fieldBillingToggle';
+      const track=document.createElement('span');
+      track.className='billing-toggle-track';track.setAttribute('aria-hidden','true');
+      const text=document.createElement('span');
+      text.className='billing-toggle-text';text.textContent=t('Quiero factura con mis datos');
+      label.append(toggle,track,text);
+      const consumer=document.createElement('p');
+      consumer.className='billing-consumer';consumer.id='billingConsumerNote';
+      consumer.textContent=t('Consumidor final');
+      const note=document.createElement('p');
+      note.className='billing-required';note.id='billingRequirementNote';note.hidden=true;
+      wrap.append(label,consumer,note);
+      fields.before(wrap);
+      toggle.addEventListener('change',syncBillingSwitch);
+      syncBillingSwitch();
+    }
+    // El servidor manda cuando el total supera el límite del SRI (o cambió el precio):
+    // enciende el interruptor, enfoca el primer campo fiscal y explica el motivo.
+    function requireInvoiceFromServer(campo){
+      const toggle=document.getElementById('fieldBillingToggle');
+      const fields=document.getElementById('billingFields');
+      if(toggle){toggle.checked=true;toggle.disabled=true;}
+      if(fields) fields.hidden=false;
+      const consumer=document.getElementById('billingConsumerNote');if(consumer) consumer.hidden=true;
+      const note=document.getElementById('billingRequirementNote');
+      if(note){note.hidden=false;note.textContent=t('Para compras mayores a $50 el SRI exige tus datos');}
+      const field=String(campo||'').replace(/^billing\./,'');
+      const key=FIELD_IDS[field]?field:'document_type';
+      document.getElementById(FIELD_IDS[key])?.focus();
+      if(field&&FIELD_IDS[field]) showServerFieldError('datos_fiscales_invalidos',campo);
+    }
+
     function updatePaymentHint(){
       const payment=document.getElementById('fieldPayment');
       const hint=document.getElementById('paymentHint');
@@ -1486,34 +1580,65 @@
         transfer:transfer?'Transfiere y envía tu comprobante por WhatsApp. La caja verifica el pago antes de preparar.':'Transferencia no disponible: la cuenta bancaria aún no está configurada.',
         bendo:'Serás dirigido al pago seguro con tarjeta. La confirmación llega al volver.',
       };
-      hint.textContent=hints[payment.value]||hints.cash;
+      hint.textContent=hints[payment.value]||t('Elige un método de pago para continuar.');
     }
-    // Opción de pago por método. El template trae efectivo, transferencia y
-    // tarjeta (Bendo); esta última se crea aquí si falta, para no depender del HTML.
+    // Opción de pago por método. El template trae efectivo, transferencia y tarjeta
+    // (Bendo); el menú muestra solo las que /api/payment-options habilita.
     function paymentOption(payment,method){
       if(!payment||typeof payment.querySelector!=='function') return null;
       return payment.querySelector(`option[value="${method}"]`)||null;
     }
-    function ensurePaymentOption(payment,method){
-      const found=paymentOption(payment,method);
-      if(found||!payment||typeof document==='undefined') return found;
-      const option=document.createElement('option');
-      option.setAttribute('value',method);
-      option.textContent='';
-      payment.append(option);
-      return option;
+    // Sin ningún método habilitado no se puede pedir en línea: botón desactivado y
+    // aviso para que el cliente pida directamente en caja.
+    function showNoPayments(){
+      paymentsBlocked=true;
+      const confirm=document.getElementById('btnConfirm');
+      if(confirm) confirm.disabled=true;
+      const message=document.getElementById('paymentUnavailable');
+      if(message){message.textContent=t('Los pedidos en línea no están disponibles. Pide directamente en caja.');message.hidden=false;}
+      const select=document.getElementById('fieldPayment');
+      if(select) select.hidden=true;
     }
-    // El método `bendo` solo se habilita cuando la API pública confirma que hay
-    // pasarela disponible; si no, queda visible pero deshabilitado.
-    function setBendoOption(payment,available){
-      const option=ensurePaymentOption(payment,'bendo');
-      if(!option) return null;
-      option.disabled=!available;
-      option.textContent=t(available?'Tarjeta de crédito o débito':'Tarjeta de crédito o débito (no disponible)');
-      return option;
+    // Aplica la fuente oficial de métodos de pago: quita los no disponibles, deja la
+    // etiqueta definitiva y preselecciona tarjeta → transferencia → efectivo. La
+    // transferencia exige además cuenta oficial completa (transferInfo).
+    function applyPaymentOptions(payment,options){
+      const methods=paymentMethods(options).filter(method=>method!=='transfer'||!!transferInfo(config));
+      paymentsBlocked=methods.length===0;
+      for(const method of ['cash','transfer','bendo']){
+        const option=paymentOption(payment,method);
+        if(!option) continue;
+        if(!methods.includes(method)){option.remove();continue;}
+        option.disabled=false;
+        option.textContent=t(method==='bendo'?'Tarjeta de crédito o débito':method==='transfer'?'Transferencia bancaria':'Efectivo en caja');
+      }
+      const message=document.getElementById('paymentUnavailable');
+      if(message) message.hidden=!paymentsBlocked;
+      if(paymentsBlocked){showNoPayments();return;}
+      const select=document.getElementById('fieldPayment');
+      if(select){
+        select.hidden=false;
+        if(!methods.includes(String(select.value||''))) select.value=methods[0];
+      }
+      const confirm=document.getElementById('btnConfirm');
+      if(confirm&&!storeClosed) confirm.disabled=false;
     }
-    // UI del checkout nativo: pickup sin toggle, CTA Munch sin WhatsApp, campos fiscales
-    // visibles y opciones de pago habilitadas solo con contrato oficial.
+    // Carga la fuente oficial de métodos (al abrir el checkout y si el servidor
+    // responde metodo_pago_invalido). Sin respuesta no se inventa ningún método.
+    function loadPaymentOptions(checkout,payment){
+      return fetch(ordersEndpoint(checkout,'/api/payment-options'),{cache:'no-store'})
+        .then(r=>r.ok?r.json():null).then(options=>{
+          // La fuente pública oficial manda: si el servidor entrega detalles
+          // bancarios saneados, se usan también en el recibo y en el enlace wa.me.
+          if(options?.transfer_details&&typeof options.transfer_details==='object'){
+            config.bank_transfer={...(config.bank_transfer||{}),...options.transfer_details};
+          }
+          applyPaymentOptions(payment,options);
+          updatePaymentHint();
+        }).catch(()=>{applyPaymentOptions(payment,null);updatePaymentHint();});
+    }
+    // UI del checkout nativo: pickup sin toggle, CTA Munch sin WhatsApp, factura opt-in
+    // y métodos de pago decididos por /api/payment-options.
     function setupNativeCheckout(checkout){
       document.querySelector('.dtog-btn[data-mode="mesa"]')?.remove();
       document.querySelector('.dtog-btn[data-mode="delivery"]')?.remove();
@@ -1526,31 +1651,24 @@
         if(addressWrap) addressWrap.style.display='none';
       }
       renderSedeField();
-      const billing=document.getElementById('billingFields');if(billing)billing.hidden=false;
+      setupBillingSwitch();
       const note=document.getElementById('notifyNote');if(note)note.hidden=false;
       const confirm=document.getElementById('btnConfirm');
       if(confirm){confirm.classList.remove('btn-whatsapp');confirm.classList.add('btn-confirm');confirm.innerHTML=t('Confirmar pedido');}
       const paymentWrap=document.getElementById('fieldPaymentWrap');if(paymentWrap)paymentWrap.hidden=false;
       const payment=document.getElementById('fieldPayment');
-      const transfer=transferInfo(config);
-      const transferOpt=payment?.querySelector('option[value="transfer"]');
-      if(transferOpt&&!transfer){transferOpt.disabled=true;transferOpt.textContent='Transferencia (no disponible)';}
-      else if(transferOpt){transferOpt.textContent='Transferencia bancaria';}
-      // Tarjeta Bendo: oculta/deshabilitada por defecto hasta que el servidor confirme.
-      setBendoOption(payment,false);
-      fetch(ordersEndpoint(checkout,'/api/payment-options'),{cache:'no-store'})
-        .then(r=>r.ok?r.json():null).then(options=>{
-          setBendoOption(payment,options?.bendo===true);
-          // La fuente pública oficial manda: si el servidor entrega detalles
-          // bancarios saneados, se usan también en el recibo y en el enlace wa.me.
-          if(options?.transfer_details&&typeof options.transfer_details==='object'){
-            config.bank_transfer={...(config.bank_transfer||{}),...options.transfer_details};
-          }
-          if(transferOpt&&(options?.transfer===false||!transferInfo(config))){transferOpt.disabled=true;transferOpt.textContent='Transferencia (no disponible)';}
-          else if(transferOpt){transferOpt.disabled=false;transferOpt.textContent='Transferencia bancaria';}
-          if(payment&&payment.selectedOptions?.[0]?.disabled) payment.value='cash';
-          updatePaymentHint();
-        }).catch(()=>{updatePaymentHint();});
+      // Aviso de "sin métodos": se crea al vuelo porque el template no lo trae.
+      if(paymentWrap&&!document.getElementById('paymentUnavailable')){
+        const unavailable=document.createElement('p');
+        unavailable.id='paymentUnavailable';unavailable.className='payment-unavailable';unavailable.hidden=true;
+        paymentWrap.append(unavailable);
+      }
+      // La selección queda oculta y el pedido bloqueado hasta que la API confirme
+      // qué métodos existen: nunca se envía efectivo por omisión.
+      if(payment) payment.hidden=true;
+      paymentsBlocked=true;
+      if(confirm) confirm.disabled=true;
+      loadPaymentOptions(checkout,payment);
       payment?.addEventListener('change',updatePaymentHint);
       updatePaymentHint();
       wireBillingValidation();
@@ -1750,8 +1868,8 @@
       section.innerHTML=`<div class="thanks-shell">
         <div class="thanks-head">
           <span class="thanks-kicker">${esc(config.store_name||'Munch')}</span>
+          <p class="thanks-number">${t('Tu pedido {0}',orderNumberLabel(record.number))}</p>
           <h1 class="thanks-title">${t(thanksTitle(record))}</h1>
-          <p class="thanks-number">${orderNumberLabel(record.number)}</p>
           <span class="thanks-badge ${tone}"${method?'':' hidden'}>${t(orderPaymentLabel(record))}</span>
           ${sede?`<p class="thanks-sede">${t('Sede')}: ${esc(sede.nombre)}</p>`:''}
         </div>
@@ -1883,9 +2001,20 @@
       if(checkoutBusy) return;
       if(checkoutBlocked()){showToast((config.hours&&config.hours.closed_msg)||t('Estamos cerrados ahora'));return;}
       const cargo=billingValues();
-      if(!showBillingErrors(billingFieldErrors(cargo))){showToast(t('Revisa los datos de facturación'));return;}
+      const withInvoice=billingChecked();
+      const errors=billingErrorsFor(cargo,withInvoice);
+      if(!showBillingErrors(errors)){
+        const fiscal=withInvoice&&Object.keys(errors).some(key=>key!=='name'&&key!=='phone');
+        showToast(t(fiscal?'Revisa los datos de facturación':'Completa tu nombre y teléfono'));
+        return;
+      }
       const mode=currentMode();
-      const paymentMethod=document.getElementById('fieldPayment')?.value||'cash';
+      // Siempre se envía un método elegido entre los que la API habilitó: el servidor
+      // rechaza el efectivo por omisión y un valor vacío.
+      const paymentMethod=String(document.getElementById('fieldPayment')?.value||'');
+      if(paymentsBlocked||!paymentMethod){
+        showToast(t('Los pedidos en línea no están disponibles. Pide directamente en caja.'));return;
+      }
       if(paymentMethod==='transfer'&&!transferInfo(config)){
         showToast(t('Transferencia no disponible'));return;
       }
@@ -1897,10 +2026,12 @@
       const items=orderCartItems(cartItems,products);
       if(!items.length){showToast(t('Tu pedido está vacío'));return;}
       writeSede(sedeId);
-      const customer={name:cargo.name,phone:cargo.phone,billing:{
+      // Consumidor final: sin `billing`, el servidor no guarda datos fiscales.
+      const customer={name:cargo.name,phone:cargo.phone};
+      if(withInvoice) customer.billing={
         document_type:cargo.document_type,document_number:cargo.document_number,
         email:cargo.email,address:cargo.address,
-      }};
+      };
       const fingerprint=JSON.stringify({sede_id:sedeId,items,customer,delivery_mode:mode,payment_method:paymentMethod,address:address||null});
       const key=await orderKey(fingerprint);
       const button=document.getElementById('btnConfirm'),label=button?.textContent;
@@ -1918,7 +2049,9 @@
         const ok=response.status===200||response.status===201;
         if(!ok||!receipt||typeof receipt.id!=='string'||!Number.isSafeInteger(receipt.number)||receipt.number<1||typeof receipt.order_token!=='string'){
           if(response.status===409) forgetOrderKey();
-          if(response.status===400) showServerFieldError(receipt&&receipt.error,receipt&&receipt.campo);
+          if(response.status===400&&receipt?.error==='metodo_pago_invalido') loadPaymentOptions(checkout,document.getElementById('fieldPayment'));
+          if(response.status===400&&receipt?.error==='datos_fiscales_requeridos') requireInvoiceFromServer(receipt.campo);
+          else if(response.status===400) showServerFieldError(receipt&&receipt.error,receipt&&receipt.campo);
           throw new Error(orderErrorMessage(response.status,receipt&&receipt.error));
         }
         const record=orderRecord(receipt,paymentMethod,sedeId);
