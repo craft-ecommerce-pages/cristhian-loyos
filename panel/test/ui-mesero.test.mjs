@@ -145,15 +145,9 @@ test("una transferencia confirmada y un pedido listo muestran sus acciones hones
   const { root } = await startMesero({ orders: [transfer, ready] });
   assert.match(root.textContent, /Confirmar transferencia/);
   assert.match(root.textContent, /Listo para avisar/);
-  assert.match(root.textContent, /La app no envía mensajes solo|no envía mensajes/);
-  const link = find(root, node => node.tagName === "a" && node.textContent === "Avisar por WhatsApp");
-  assert.ok(link, "el aviso listo es un enlace manual");
-  const href = link.getAttribute("href");
-  assert.match(href, /^https:\/\/wa\.me\/0991234567\?text=/);
-  const message = decodeURIComponent(href.split("?text=")[1]);
-  assert.match(message, /pedido #33/);
-  assert.match(message, /Centro/);
-  assert.doesNotMatch(message, /RUC|cédula|cedula|correo|dirección|direccion/i);
+  assert.match(root.textContent, /Listo para retirar/);
+  const remember = find(root, node => node.tagName === "button" && node.textContent === "Avisar por WhatsApp");
+  assert.ok(remember, "el aviso listo se reenvía a mano");
 });
 
 test("sin pay-transfer el mesero muestra error honesto y no cae a pay-cash", async () => {
@@ -169,7 +163,7 @@ test("sin pay-transfer el mesero muestra error honesto y no cae a pay-cash", asy
   assert.ok(button);
   button.trigger("click");
   await flush();
-  const confirm = find(doc.body, node => node.tagName === "button" && node.textContent === "Transferencia verificada e imprimir");
+  const confirm = find(doc.body, node => node.tagName === "button" && node.textContent === "Confirmar transferencia e imprimir");
   assert.ok(confirm);
   confirm.trigger("click");
   await flush();
@@ -235,7 +229,7 @@ test("caja: factura exige datos y envía Quito por defecto antes del datáfono",
   for (const [label, value] of [
     ["Número de cédula o RUC", "1712345678"],
     ["Nombre y apellido o razón social", "Ana Pérez"],
-    ["Teléfono", "0991234567"],
+    ["WhatsApp para avisar (opcional)", "0991234567"],
     ["Correo electrónico", "ana@example.com"],
   ]) {
     const field = find(doc.body, node => node.tagName === "input" && node.getAttribute("aria-label") === label);

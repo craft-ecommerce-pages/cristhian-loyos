@@ -281,7 +281,7 @@ test("Payphone retirado: no se acepta en pedidos nuevos y su retorno ya no exist
   assert.deepEqual(await returned.json(), { error: "ruta_no_encontrada" });
 });
 
-test("opciones de pago: transferencia solo con cuenta y WhatsApp oficiales", async () => {
+test("opciones de pago: transferencia solo con cuenta oficial completa", async () => {
   const env = pedidoEnv(), ctx = makeCtx();
   let options = await (await panel.fetch(request("/api/payment-options"), env, ctx)).json();
   assert.equal(options.transfer, false, "sin config no se habilita ni se inventan cuentas");
@@ -303,15 +303,15 @@ test("opciones de pago: transferencia solo con cuenta y WhatsApp oficiales", asy
   });
   assert.equal(JSON.stringify(options).includes("1790012345001"), false, "no expone el RUC del titular");
 
-  // Sin WhatsApp oficial de comprobantes no se habilita la transferencia.
+  // El comprobante se sube desde el menú: el WhatsApp oficial ya no es requisito.
   delete config.location.telefono_principal;
   delete config.whatsapp_number;
   await env.MENUS.put("pizza:config", JSON.stringify(config));
   options = await (await panel.fetch(request("/api/payment-options"), env, ctx)).json();
-  assert.equal(options.transfer, false, "sin WhatsApp de comprobantes se deshabilita");
+  assert.equal(options.transfer, true, "sin WhatsApp oficial la transferencia sigue disponible");
+  assert.equal(options.transfer_details.bank, "Banco Pichincha");
 
   // Configuración incompleta: se deshabilita en vez de mostrar una cuenta a medias.
-  config.location.telefono_principal = "0991234567";
   config.bank_transfer = { bank: "Banco Pichincha" };
   await env.MENUS.put("pizza:config", JSON.stringify(config));
   options = await (await panel.fetch(request("/api/payment-options"), env, ctx)).json();

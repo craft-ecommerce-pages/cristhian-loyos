@@ -105,6 +105,12 @@
     "mode": "per_product",
     "label": "Empaque"
   },
+  "bank_transfer": {
+    "bank": "Banco Pichincha",
+    "account_type": "Cuenta Transaccional",
+    "account_number": "2216922010",
+    "holder": "Loyos Morán Mathyuz Ismael"
+  },
   "location": {
     "sedes": [
       {

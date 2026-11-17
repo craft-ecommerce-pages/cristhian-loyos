@@ -284,6 +284,15 @@ const config = {
     ],
   },
   packaging: { enabled: true, mode: "per_product", label: "Empaque" },
+  // Cuenta oficial para transferencias: el cliente sube su comprobante en el
+  // checkout y la caja lo revisa. `account_type` y `note` son opcionales; sin
+  // banco, cuenta y titular la transferencia se deshabilita (nunca se inventa).
+  bank_transfer: {
+    bank: "Banco Pichincha",
+    account_type: "Cuenta Transaccional",
+    account_number: "2216922010",
+    holder: "Loyos Morán Mathyuz Ismael",
+  },
   location: {
     // El menú usa estos IDs para `?sede=` y para el selector; `sedesFor` del panel los siembra
     // una vez en D1. `locationField` del panel acepta id/universidad/activa al editar.

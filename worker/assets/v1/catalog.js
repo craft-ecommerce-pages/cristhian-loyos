@@ -119,9 +119,9 @@
     return uuid;
   }
   // ── Recibo /gracias y datos de facturación (helpers puros, testables en Node) ──
-  // Datos bancarios SOLO si la config oficial los trae completos y existe un WhatsApp
-  // oficial de comprobantes. Nunca hay cuentas por defecto: una config incompleta
-  // devuelve null y la transferencia se deshabilita en la UI.
+  // Datos bancarios SOLO si la config oficial los trae completos (banco, cuenta y
+  // titular). El tipo de cuenta y la nota son opcionales. Ya no se exige WhatsApp:
+  // el comprobante se sube desde el checkout y la caja lo revisa.
   function transferInfo(config){
     const raw=(config&&config.checkout_orders&&config.checkout_orders.transfer)||
       (config&&config.payments&&config.payments.transfer)||
@@ -134,9 +134,33 @@
     const bank=pick('bank','bank_name','banco');
     const account=pick('account_number','account','numero_cuenta','cuenta');
     const holder=pick('holder','holder_name','titular');
-    const wa=String((config&&config.location&&config.location.telefono_principal)||(config&&config.whatsapp_number)||'').replace(/\D/g,'');
-    if(!bank||!account||!holder||wa.length<7||wa.length>15) return null;
-    return {bank,account,holder,account_type:pick('account_type','tipo_cuenta','type')};
+    if(!bank||!account||!holder) return null;
+    const info={bank,account,holder,account_type:pick('account_type','tipo_cuenta','type')};
+    const note=pick('note','nota');
+    if(note) info.note=note;
+    return info;
+  }
+  // ¿Este método exige comprobante antes de confirmar? Solo la transferencia.
+  function transferReceiptRequired(method){ return method==='transfer'; }
+  // Teléfono enmascarado para el aviso de /gracias: 0991234567 → 099***4567.
+  function maskPhone(raw){
+    const digits=String(raw==null?'':raw).replace(/\D/g,'');
+    if(digits.length<8) return digits;
+    return digits.slice(0,3)+'***'+digits.slice(-4);
+  }
+  // Texto fijo del retiro y aviso de pedido listo (sin enlaces de WhatsApp).
+  function thanksPickupText(){ return 'Retira tu pedido en el local con este número.'; }
+  function thanksReadyText(rawPhone){
+    const value=String(rawPhone==null?'':rawPhone);
+    const masked=value.includes('*')?value:maskPhone(value);
+    return masked?`Te avisaremos por WhatsApp al ${masked} cuando tu pedido esté listo.`:'';
+  }
+  // Estado visible del pago por transferencia en /gracias.
+  function thanksTransferState(order){
+    const status=String(order&&order.status||'pending');
+    if(status==='paid'||status==='ready') return 'Pago confirmado';
+    if(order&&order.receipt_uploaded) return 'Comprobante recibido · esperando confirmación de caja';
+    return 'Pago pendiente de verificación';
   }
   // Límite del SRI para consumidor final: por encima de USD 50 el pedido web exige datos
   // fiscales. Mismo umbral que el servidor (WEB_FINAL_CONSUMER_MAX_CENTS en orders.js).
@@ -270,7 +294,8 @@
     orderCartItems,orderStatusLabel,orderStatusFinal,nextOrderKey,transferInfo,billingFieldErrors,
     billingErrorsFor,invoiceRequired,paymentMethods,taxBreakdown,normalizeTax,taxRateLabel,
     parseOrderReturn,orderPaymentLabel,thanksRetryAllowed,thanksPurchaseEligible,thanksPollFinal,
-    cardPaymentMethod,paymentStartPath};
+    cardPaymentMethod,paymentStartPath,transferReceiptRequired,maskPhone,thanksPickupText,thanksReadyText,
+    thanksTransferState};
 
   // El motor solo corre en el navegador: el guard permite testear clubBanner en Node sin DOM.
   if(typeof document!=='undefined') (function(){
@@ -1278,6 +1303,8 @@
       $btnCheckout.disabled=qty===0||storeClosed;
       syncBillingSwitch();
       paintCartTax(qty,subtotalCents,estimate);
+      // El monto de transferencia debe seguir al carrito (IVA incluido).
+      if(document.getElementById('transferPanel')) refreshTransferPanel();
 
       // Líneas de recargos (empaque/envío) en el footer (creadas al vuelo; el HTML del cliente no las trae).
       let feeLine=document.getElementById('cartFeeLine');
@@ -1459,6 +1486,8 @@
       document_number:'fieldDocNumber',email:'fieldEmail',address:'fieldBillingAddress'};
     let orderPollTimer=null,orderStorageKey='';
     let thanksTimer=null,thanksRecord=null,thanksCheckout=null,thanksBusy=false,thanksError='',thanksBound=false;
+    // Comprobante elegido en el checkout (se sube después de crear el pedido).
+    let transferReceiptFile=null;
     function readSede(){try{return sessionStorage.getItem(SEDE_KEY)||'';}catch(e){return '';}}
     function writeSede(id){try{if(id)sessionStorage.setItem(SEDE_KEY,id);else sessionStorage.removeItem(SEDE_KEY);}catch(e){}}
     function renderSedeField(){
@@ -1632,6 +1661,138 @@
       if(field&&FIELD_IDS[field]) showServerFieldError('datos_fiscales_invalidos',campo);
     }
 
+    /* ── Transferencia: datos de la cuenta, monto exacto y comprobante ─────── */
+    // Total que el servidor cobrará por transferencia: base + IVA + recargos.
+    function cartPayableCents(){
+      const feeCents=Math.round(feesTotal(currentMode())*100);
+      const lines=cartItems.map(item=>Math.round(Number(item.precio)*100)*Math.max(1,Number(item.qty)||1));
+      const estimate=taxBreakdown(lines,paymentTax);
+      const subtotal=estimate.subtotal_cents+feeCents;
+      return {subtotal_cents:subtotal,tax_cents:estimate.tax_cents,total_cents:subtotal+estimate.tax_cents};
+    }
+    function receiptAccepted(file){
+      return !!file && /^(image\/(jpeg|png|webp)|application\/pdf)$/i.test(String(file.type||''));
+    }
+    function receiptTooBig(file){ return Number(file&&file.size)>5*1024*1024; }
+    // Las fotos se comprimen en el navegador (JPEG, lado mayor 1600 px, 0.8);
+    // los PDF se suben tal cual. Sin soporte de canvas se usa el original.
+    async function compressReceipt(file){
+      if(!file||!String(file.type||'').startsWith('image/')||typeof createImageBitmap!=='function') return file;
+      try{
+        const bitmap=await createImageBitmap(file);
+        const longest=Math.max(bitmap.width||0,bitmap.height||0);
+        if(!longest) return file;
+        const scale=Math.min(1,1600/longest);
+        const canvas=document.createElement('canvas');
+        canvas.width=Math.max(1,Math.round(bitmap.width*scale));
+        canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+        const context=canvas.getContext&&canvas.getContext('2d');
+        if(!context) return file;
+        context.drawImage(bitmap,0,0,canvas.width,canvas.height);
+        if(typeof canvas.toBlob!=='function'||typeof File!=='function') return file;
+        const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',0.8));
+        if(!blob) return file;
+        const name=String(file.name||'comprobante').replace(/\.[^.]+$/,'')||'comprobante';
+        return new File([blob],name+'.jpg',{type:'image/jpeg'});
+      }catch(e){ return file; }
+    }
+    function transferPanelHost(){
+      let host=document.getElementById('transferPanel');
+      if(host) return host;
+      host=document.createElement('section');
+      host.id='transferPanel';
+      host.className='transfer-panel';
+      host.hidden=true;
+      const body=document.querySelector('#cartStep2 .step2-body')||document.body;
+      if(body&&typeof body.appendChild==='function') body.appendChild(host);
+      return host;
+    }
+    function buildTransferPanel(){
+      const host=transferPanelHost();
+      if(!host||host.__built) return host;
+      host.__built=true;
+      const title=document.createElement('h3');title.textContent=t('Transferencia');
+      const data=document.createElement('dl');data.className='transfer-bank';
+      const row=(label)=>{
+        const wrap=document.createElement('div');
+        const dt=document.createElement('dt');dt.textContent=t(label);
+        const dd=document.createElement('dd');
+        wrap.append(dt,dd);data.append(wrap);
+        return dd;
+      };
+      const bank=row('Banco'),type=row('Tipo de cuenta'),account=row('Cuenta'),holder=row('Titular'),
+        amount=row('Monto exacto con IVA');
+      const copy=document.createElement('button');
+      copy.type='button';copy.id='fieldReceiptCopy';copy.className='btn-copy';copy.textContent=t('Copiar');
+      copy.addEventListener('click',async()=>{
+        try{
+          if(typeof navigator!=='undefined'&&navigator.clipboard&&navigator.clipboard.writeText){
+            await navigator.clipboard.writeText(account.textContent);
+            showToast(t('Cuenta copiada'));
+            return;
+          }
+        }catch(e){}
+        showToast(t('Copia la cuenta manualmente'));
+      });
+      if(account.parentNode&&typeof account.parentNode.append==='function') account.parentNode.append(copy);
+      const upload=document.createElement('label');upload.className='transfer-upload';
+      const uploadText=document.createElement('span');uploadText.textContent=t('Sube tu comprobante');
+      const file=document.createElement('input');
+      file.type='file';file.id='fieldReceipt';file.accept='image/*,application/pdf';
+      const hint=document.createElement('small');hint.id='fieldReceiptHint';hint.className='transfer-upload-hint';
+      hint.textContent=t('Imagen o PDF, máximo 5 MB');
+      file.addEventListener('change',()=>{
+        const chosen=file.files&&file.files[0]||null;
+        if(chosen&&!receiptAccepted(chosen)){transferReceiptFile=null;showToast(t('Sube una imagen o PDF'));}
+        else transferReceiptFile=chosen;
+        hint.textContent=transferReceiptFile?String(transferReceiptFile.name||t('Comprobante elegido')):t('Imagen o PDF, máximo 5 MB');
+      });
+      upload.append(uploadText,file,hint);
+      host.append(title,data,upload);
+      host.__nodes={bank,type,account,holder,amount};
+      return host;
+    }
+    // Se llama al cambiar el método de pago y al cambiar el carrito.
+    function refreshTransferPanel(){
+      const host=document.getElementById('transferPanel')||buildTransferPanel();
+      if(!host) return;
+      const payment=document.getElementById('fieldPayment');
+      const info=transferInfo(config);
+      const show=!!info&&String(payment&&payment.value||'')==='transfer';
+      host.hidden=!show;
+      if(!show) return;
+      const nodes=host.__nodes||{};
+      if(nodes.bank) nodes.bank.textContent=info.bank;
+      if(nodes.account) nodes.account.textContent=info.account;
+      if(nodes.holder) nodes.holder.textContent=info.holder;
+      if(nodes.type){
+        nodes.type.textContent=info.account_type||'';
+        const wrap=typeof nodes.type.closest==='function'?nodes.type.closest('div'):null;
+        if(wrap) wrap.hidden=!info.account_type;
+      }
+      if(nodes.amount) nodes.amount.textContent=formatPrice(cartPayableCents().total_cents/100);
+    }
+    // Sube el comprobante elegido justo después de crear el pedido. Nunca lanza:
+    // el pedido ya existe y /gracias permite reintentar la subida.
+    async function uploadOrderReceipt(checkout,record,file){
+      if(!record||!checkout||!record.id||!record.token) return false;
+      if(!receiptAccepted(file)){showToast(t('Sube una imagen o PDF de tu comprobante'));return false;}
+      const prepared=await compressReceipt(file);
+      if(receiptTooBig(prepared)){showToast(t('El comprobante no puede superar 5 MB'));return false;}
+      try{
+        const response=await fetch(ordersEndpoint(checkout,`/api/orders/${encodeURIComponent(record.id)}/receipt`),{
+          method:'POST',
+          headers:{'content-type':prepared.type||'application/octet-stream','x-order-token':record.token},
+          body:prepared,
+        });
+        const data=await response.json().catch(()=>null);
+        if(!response.ok||!data||!data.receipt) return false;
+        record.receipt_uploaded=true;record.receipt=data.receipt;
+        saveOrderRecord(record);
+        return true;
+      }catch(e){ return false; }
+    }
+
     function updatePaymentHint(){
       const payment=document.getElementById('fieldPayment');
       const hint=document.getElementById('paymentHint');
@@ -1639,10 +1800,11 @@
       const transfer=transferInfo(config);
       const hints={
         cash:'Paga en caja; el pedido se prepara después del cobro.',
-        transfer:transfer?'Transfiere y envía tu comprobante por WhatsApp. La caja verifica el pago antes de preparar.':'Transferencia no disponible: la cuenta bancaria aún no está configurada.',
+        transfer:transfer?'Transfiere el monto exacto y sube tu comprobante. La caja lo revisa antes de preparar.':'Transferencia no disponible: la cuenta bancaria aún no está configurada.',
         bendo:'Serás dirigido al pago seguro con tarjeta. La confirmación llega al volver.',
       };
       hint.textContent=hints[payment.value]||t('Elige un método de pago para continuar.');
+      refreshTransferPanel();
     }
     // Opción de pago por método. El template trae efectivo, transferencia y tarjeta
     // (Bendo); el menú muestra solo las que /api/payment-options habilita.
@@ -1738,6 +1900,9 @@
       payment?.addEventListener('change',updatePaymentHint);
       updatePaymentHint();
       wireBillingValidation();
+      // Bloque de transferencia (datos + comprobante), oculto salvo con ese método.
+      buildTransferPanel();
+      refreshTransferPanel();
     }
     // Menús legacy (sin checkout_orders) conservan su CTA de WhatsApp: el template es neutral
     // para que el checkout nativo nunca prometa WhatsApp antes de que corra el motor.
@@ -1769,7 +1934,7 @@
         ...(variantLabel(item.variantes)?{variant_id:variantLabel(item.variantes)}:{}),...(item.nota?{note:item.nota}:{}),
       })).map(receiptLine).filter(Boolean);
     }
-    function orderRecord(receipt,paymentMethod,sedeId){
+    function orderRecord(receipt,paymentMethod,sedeId,extra){
       const items=Array.isArray(receipt.items)?receipt.items.map(receiptLine).filter(Boolean):localOrderLines();
       const total=Number(receipt.total_cents);
       return {
@@ -1777,6 +1942,7 @@
         total_cents:Number.isFinite(total)?total:0,currency:typeof receipt.currency==='string'?receipt.currency:(config.currency||'USD'),
         payment_method:paymentMethod,sede_id:sedeId,items,created_at:Number(receipt.created_at)||Date.now(),
         payment_status:'pending',
+        ...(extra&&typeof extra==='object'?extra:{}),
       };
     }
     function saveOrderRecord(record){
@@ -1811,6 +1977,9 @@
       if(['pending','paid','rejected','unknown','failed'].includes(data.payment_status)) out.payment_status=data.payment_status;
       if(typeof data.payment_message==='string') out.payment_message=[...data.payment_message].slice(0,200).join('');
       if(typeof data.retryable==='boolean') out.retryable=data.retryable;
+      if(typeof data.receipt_uploaded==='boolean') out.receipt_uploaded=data.receipt_uploaded;
+      if(Number.isSafeInteger(data.subtotal_cents)&&data.subtotal_cents>=0) out.subtotal_cents=data.subtotal_cents;
+      if(Number.isSafeInteger(data.tax_cents)&&data.tax_cents>=0) out.tax_cents=data.tax_cents;
       if(Array.isArray(data.items)) out.items=data.items.slice(0,60).map(receiptLine).filter(Boolean);
       return out;
     }
@@ -1827,19 +1996,6 @@
       }catch(e){}
     }
     function clearThanksPoll(){if(thanksTimer){clearTimeout(thanksTimer);thanksTimer=null;}}
-    function transferWhatsAppNumber(){
-      const raw=(config.location&&config.location.telefono_principal)||config.whatsapp_number||'';
-      return String(raw).replace(/\D/g,'');
-    }
-    function transferMessage(record){
-      const sede=sedeList(config).find(item=>item.id===record.sede_id);
-      const lines=(record.items||[]).map(item=>`${item.qty}x ${item.name}`).join(', ');
-      let message=`Hola, envío mi comprobante del pedido ${orderNumberLabel(record.number)}.`;
-      if(sede) message+=`\nSede: ${sede.nombre}`;
-      if(lines) message+=`\n${lines}`;
-      if(Number.isFinite(Number(record.total_cents))) message+=`\nTotal: ${formatPrice(Number(record.total_cents)/100)}`;
-      return message;
-    }
     function thanksTone(record){
       const status=String(record&&record.status||'pending');
       const payment=derivedPaymentStatus(record);
@@ -1887,6 +2043,10 @@
       const method=String(record.payment_method||'');
       const payment=derivedPaymentStatus(record);
       const total=Number(record.total_cents);
+      const itemsTotal=(record.items||[]).reduce((sum,item)=>sum+(Number(item.subtotal_cents)||0),0);
+      const subtotalCents=Number.isInteger(record.subtotal_cents)?record.subtotal_cents:itemsTotal;
+      const totalCents=Number.isFinite(total)?total:0;
+      const taxCents=Number.isInteger(record.tax_cents)?record.tax_cents:Math.max(0,totalCents-subtotalCents);
       const lines=(record.items||[]).map(item=>{
         const subtotal=Number(item.subtotal_cents);
         return `<li><span class="thanks-line-name"><strong>${item.qty}×</strong> ${esc(item.name)}${item.variant_id?`<small>${esc(item.variant_id)}</small>`:''}${item.note?`<small>${esc(item.note)}</small>`:''}</span><span>${Number.isFinite(subtotal)?formatPrice(subtotal/100):''}</span></li>`;
@@ -1898,7 +2058,7 @@
           <p class="thanks-muted">${t('Muestra este número en caja.')}</p>`;
       } else if(method==='transfer'){
         const info=transferInfo(config);
-        payHTML=`<h2>${t('Método de pago')}</h2><p class="thanks-pay-state"><strong>${t(orderPaymentLabel(record))}</strong></p>`;
+        payHTML=`<h2>${t('Método de pago')}</h2><p class="thanks-pay-state"><strong>${t(thanksTransferState(record))}</strong></p>`;
         if(info){
           payHTML+=`<dl class="thanks-bank">
             <div><dt>${t('Banco')}</dt><dd>${esc(info.bank)}</dd></div>
@@ -1909,6 +2069,19 @@
         } else {
           payHTML+=`<p class="thanks-warn">${t('Transferencia no disponible')}</p>
             <p class="thanks-muted">${t('La cuenta bancaria aún no está configurada. Paga en efectivo en caja.')}</p>`;
+        }
+        const paidTransfer=record.status==='paid'||record.status==='ready';
+        if(record.receipt_uploaded&&!paidTransfer){
+          payHTML+=`<p class="thanks-receipt-ok"><strong>${t('Comprobante recibido · esperando confirmación de caja')}</strong></p>`;
+        } else if(!record.receipt_uploaded&&!paidTransfer){
+          // La subida puede fallar después de crear el pedido: se reintenta aquí.
+          payHTML+=`<p class="thanks-warn">${t('Sube tu comprobante para que la caja confirme el pago.')}</p>
+            <div class="thanks-receipt">
+              <label class="thanks-receipt-label" for="thanksReceipt">${t('Sube tu comprobante')}</label>
+              <input type="file" id="thanksReceipt" accept="image/*,application/pdf">
+              <small class="thanks-muted">${t('Imagen o PDF, máximo 5 MB')}</small>
+              <button type="button" class="btn-secondary" id="thanksUpload">${t('Subir comprobante')}</button>
+            </div>`;
         }
       } else if(method){
         // Tarjeta (Bendo y filas históricas): textos neutrales ("tarjeta"), nunca
@@ -1927,10 +2100,8 @@
       } else {
         payHTML=`<h2>${t('Método de pago')}</h2><p class="thanks-muted">${t('Verificando tu pago…')}</p>`;
       }
-      const waNumber=transferWhatsAppNumber();
-      const waLink=method==='transfer'&&transferInfo(config)&&waNumber
-        ? `https://wa.me/${waNumber}?text=${encodeURIComponent(transferMessage(record))}`:'';
       const retry=thanksRetryAllowed(record);
+      const readyText=record.customer_phone_masked?thanksReadyText(record.customer_phone_masked):'';
       section.innerHTML=`<div class="thanks-shell">
         <div class="thanks-head">
           <span class="thanks-kicker">${esc(config.store_name||'Munch')}</span>
@@ -1942,22 +2113,39 @@
         <section class="thanks-card">
           <h2>${t('Resumen')}</h2>
           ${lines?`<ul class="thanks-lines">${lines}</ul>`:`<p class="thanks-muted">${t('Resumen no disponible. Muestra tu número en caja.')}</p>`}
-          <div class="thanks-total"><span>${t('Total')}</span><strong>${Number.isFinite(total)?formatPrice(total/100):''}</strong></div>
+          <div class="thanks-tax-row"><span>${t('Subtotal')}</span><span>${formatPrice(subtotalCents/100)}</span></div>
+          <div class="thanks-tax-row"><span>${t('IVA')}</span><span>${formatPrice(taxCents/100)}</span></div>
+          <div class="thanks-total"><span>${t('Total')}</span><strong>${Number.isFinite(total)?formatPrice(totalCents/100):''}</strong></div>
           <p class="thanks-muted">${methodLabel}</p>
         </section>
         <section class="thanks-card thanks-payment">${payHTML}</section>
         <div class="thanks-actions">
           <button type="button" class="btn-confirm" id="thanksRefresh">${t('Actualizar estado')}</button>
-          ${waLink?`<a class="btn-whatsapp" href="${waLink}" target="_blank" rel="noopener">${t('Envía tu comprobante por WhatsApp')}</a>`:''}
           ${retry?`<button type="button" class="btn-secondary" id="thanksRetry">${t('Reintentar pago con tarjeta')}</button>`:''}
           <a class="btn-secondary" href="/">${t('Volver al menú')}</a>
         </div>
-        <p class="thanks-notice">${t('Cuando tu pedido esté listo te avisaremos por WhatsApp al número que registraste.')}</p>
+        <p class="thanks-pickup">${t(thanksPickupText())}</p>
+        ${readyText?`<p class="thanks-notice">${esc(readyText)}</p>`:''}
         <p class="thanks-privacy">${t('Tus datos fiscales no se muestran en esta página.')}</p>
         ${thanksError==='notfound'?`<p class="thanks-warn">${t('No pudimos consultar el estado. Reintenta.')}</p>`:''}
       </div>`;
       section.querySelector('#thanksRefresh')?.addEventListener('click',()=>refreshThanks(true));
       section.querySelector('#thanksRetry')?.addEventListener('click',retryThanksPayment);
+      section.querySelector('#thanksUpload')?.addEventListener('click',uploadThanksReceipt);
+    }
+    // Reintento de la subida desde /gracias: el pedido ya existe y su token es la
+    // única autorización necesaria.
+    async function uploadThanksReceipt(){
+      if(!thanksRecord||!thanksCheckout||thanksBusy) return;
+      const input=document.getElementById('thanksReceipt');
+      const file=input&&input.files&&input.files[0];
+      if(!file){showToast(t('Elige tu comprobante'));return;}
+      thanksBusy=true;
+      const ok=await uploadOrderReceipt(thanksCheckout,thanksRecord,file);
+      thanksBusy=false;
+      showToast(ok?t('Comprobante recibido'):t('No pudimos subir el comprobante. Reintenta.'));
+      renderThanks();
+      if(ok) refreshThanks(false);
     }
     function scheduleThanksPoll(){
       clearThanksPoll();
@@ -2084,6 +2272,11 @@
       if(paymentMethod==='transfer'&&!transferInfo(config)){
         showToast(t('Transferencia no disponible'));return;
       }
+      if(transferReceiptRequired(paymentMethod)&&!transferReceiptFile){
+        showToast(t('Sube tu comprobante para pagar por transferencia'));
+        document.getElementById('fieldReceipt')?.focus();
+        return;
+      }
       const address=mode==='delivery'?document.getElementById('fieldAddress').value.trim():'';
       if(mode==='delivery'&&!requireCoverage())return;
       if(mode==='delivery'&&!address){showToast(t('Ingresa tu dirección de entrega'));return;}
@@ -2120,9 +2313,21 @@
           else if(response.status===400) showServerFieldError(receipt&&receipt.error,receipt&&receipt.campo);
           throw new Error(orderErrorMessage(response.status,receipt&&receipt.error));
         }
-        const record=orderRecord(receipt,paymentMethod,sedeId);
+        const totals=cartPayableCents();
+        const record=orderRecord(receipt,paymentMethod,sedeId,{
+          customer_phone_masked:maskPhone(customer.phone),
+          subtotal_cents:totals.subtotal_cents,tax_cents:totals.tax_cents,
+          receipt_uploaded:false,
+        });
         forgetOrderKey();
         saveOrderRecord(record);
+        // Transferencia: la captura se sube ahora. Si falla, el pedido ya existe
+        // y /gracias ofrece reintentar; nunca se pierde la orden.
+        if(transferReceiptRequired(paymentMethod)){
+          if(transferReceiptFile) await uploadOrderReceipt(checkout,record,transferReceiptFile);
+          transferReceiptFile=null;
+          saveOrderRecord(record);
+        }
         const provider=paymentStartPath(paymentMethod);
         if(provider){
           try{

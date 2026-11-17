@@ -529,10 +529,10 @@ export async function currencyOf(env, slug) {
 
 /* ── Transferencia: datos bancarios solo si están configurados oficialmente ──
    No se inventan cuentas. La fuente es `config.bank_transfer` en KV (la carga
-   el integrador/administrador con valores oficiales del titular) y el WhatsApp
-   oficial de comprobantes (`location.telefono_principal` o `whatsapp_number`).
-   Si falta la cuenta o el WhatsApp, la opción queda deshabilitada y no se
-   publica nada. */
+   el integrador/administrador con valores oficiales del titular). El comprador
+   sube su comprobante desde el menú y la caja lo revisa; ya no se usa WhatsApp
+   para enviar comprobantes. Basta banco, cuenta y titular; el tipo de cuenta y
+   la nota son opcionales. */
 export async function transferInfo(env, slug) {
   const config = await env.MENUS.get(`${slug}:config`, "json").catch(() => null);
   const raw = isObject(config?.bank_transfer) ? config.bank_transfer : null;
@@ -543,8 +543,7 @@ export async function transferInfo(env, slug) {
   const account = typeof raw.account_number === "string" && /^[\dA-Za-z\s-]{4,64}$/.test(raw.account_number.trim())
     ? raw.account_number.trim() : "";
   const holder = text(raw.holder, 120);
-  const whatsapp = String(config?.location?.telefono_principal || config?.whatsapp_number || "").replace(/\D/g, "");
-  if (!bank || !account || !holder || whatsapp.length < 7 || whatsapp.length > 15) return null;
+  if (!bank || !account || !holder) return null;
   const note = text(raw.note, 200);
   return { bank, account_type: accountType, account_number: account, holder, ...(note ? { note } : {}) };
 }
@@ -559,8 +558,23 @@ export async function orderToken(env, slug, id) {
 
 /* ── Consulta y autorización ──────────────────────────────────────────────── */
 
+// Resumen del comprobante de transferencia vigente. Se calcula en la misma
+// consulta que la fila (`RECEIPT_COLUMNS`) para no sumar viajes a D1.
+export const RECEIPT_COLUMNS =
+  "(SELECT COUNT(*) FROM transfer_receipts r WHERE r.slug = pos_orders.slug AND r.order_id = pos_orders.id) AS receipt_count, " +
+  "(SELECT MAX(r.created_at) FROM transfer_receipts r WHERE r.slug = pos_orders.slug AND r.order_id = pos_orders.id) AS receipt_latest_at";
+
 export async function posOrderRow(env, slug, id) {
-  return env.DB.prepare(`SELECT ${POS_COLUMNS} FROM pos_orders WHERE id = ? AND slug = ?`).bind(id, slug).first();
+  return env.DB.prepare(
+    `SELECT ${POS_COLUMNS}, ${RECEIPT_COLUMNS} FROM pos_orders WHERE id = ? AND slug = ?`,
+  ).bind(id, slug).first();
+}
+
+function receiptData(row) {
+  const count = Number(row?.receipt_count) || 0;
+  if (!count) return null;
+  const latest = Number(row?.receipt_latest_at);
+  return { count, latest_at: Number.isFinite(latest) ? latest : null };
 }
 
 export function posOrderData(row, extra = {}) {
@@ -589,6 +603,8 @@ export function posOrderData(row, extra = {}) {
     ready_at: ready ? Number(row.ready_at) : null,
     print_count: row.print_count == null ? 0 : Number(row.print_count),
     comanda_at: row.comanda_at == null ? null : Number(row.comanda_at),
+    // Comprobante de transferencia para la caja: {count, latest_at} o null.
+    receipt: receiptData(row),
     ...extra,
   };
 }
@@ -801,7 +817,14 @@ export async function createPosOrder(env, site, body, options = {}) {
   const source = options.source === "caja" || options.source === "mesero" ? options.source : "web";
   const order = parsePosOrder(body, { source });
   if (order.error) return error(order.error, order.status, order.campo ? { campo: order.campo } : {});
-  if (order.delivery_mode !== "pickup") return error("solo_retiro", 400);
+  // Todo se retira en el local: la web rechaza cualquier otro modo y la caja
+  // siempre guarda `pickup`, aunque el navegador mande otra cosa.
+  if (source === "web") {
+    if (order.delivery_mode !== "pickup") return error("modo_entrega_invalido", 400);
+  } else {
+    order.delivery_mode = "pickup";
+    order.address = null;
+  }
   const sede = await sedeById(env, site.slug, order.sede_id);
   if (!sede || !sede.activa) return error("sede_invalida", 400);
   if (source !== "web") {
@@ -942,6 +965,9 @@ export async function getPosOrderStatus(env, site, encodedId, token) {
     sede: sede ? { id: sede.id, nombre: sede.nombre, direccion: sede.direccion } : null,
     payment_method: row.payment_method || "cash", payment_status: paymentStatus,
     ...(paymentMessage ? { payment_message: paymentMessage } : {}), retryable,
+    // La captura del comprobante llegó a la caja; el pago sigue pendiente de
+    // verificación hasta que un cajero confirme la transferencia.
+    receipt_uploaded: Number(row.receipt_count) > 0,
     created_at: Number(row.created_at),
     paid_at: row.paid_at == null ? null : Number(row.paid_at),
     ready_at: row.ready_at == null ? null : Number(row.ready_at),
@@ -1068,7 +1094,7 @@ export async function listPosOrders(env, site, session, request) {
     values.push(...ids);
   }
   const rows = await env.DB.prepare(
-    `SELECT ${POS_COLUMNS} FROM pos_orders WHERE ${clauses.join(" AND ")} ` +
+    `SELECT ${POS_COLUMNS}, ${RECEIPT_COLUMNS} FROM pos_orders WHERE ${clauses.join(" AND ")} ` +
     `ORDER BY created_at ${status === "active" ? "ASC" : "DESC"} LIMIT ? OFFSET ?`,
   ).bind(...values, limit, offset).all();
   const orders = (rows.results || []).map(row => posOrderData(row));
@@ -1464,5 +1490,106 @@ export async function printKitchenOrder(env, site, session, encodedId, body) {
   return json({
     order_id: order.id, print_count: Number(comanda?.print_count) || 0,
     printed_at: Number(comanda?.printed_at) || null,
+  });
+}
+
+/* ── Comprobantes de transferencia (0014) ──────────────────────────────────
+   El comprador sube la captura desde el checkout y la caja la revisa antes de
+   confirmar la transferencia. El archivo se guarda en R2 bajo `private/…`
+   (nunca servido por `/media`) y se entrega solo por la ruta autenticada del
+   panel. Varias subidas son válidas: la más reciente es la vigente. */
+
+const RECEIPT_MAX_BYTES = 5 * 1024 * 1024;
+const RECEIPT_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
+
+// Tipo real por magic bytes; el Content-Type declarado no basta.
+function receiptMagic(bytes) {
+  const has = (at, values) => values.every((value, index) => bytes[at + index] === value);
+  const ascii = (at, text) => has(at, [...text].map(char => char.charCodeAt(0)));
+  if (bytes.length >= 3 && has(0, [0xff, 0xd8, 0xff])) return { contentType: "image/jpeg", ext: "jpg" };
+  if (bytes.length >= 4 && has(0, [0x89, 0x50, 0x4e, 0x47])) return { contentType: "image/png", ext: "png" };
+  if (bytes.length >= 12 && ascii(0, "RIFF") && ascii(8, "WEBP")) return { contentType: "image/webp", ext: "webp" };
+  if (bytes.length >= 4 && ascii(0, "%PDF")) return { contentType: "application/pdf", ext: "pdf" };
+  return null;
+}
+
+async function receiptSummary(env, slug, orderId) {
+  const row = await env.DB.prepare(
+    "SELECT COUNT(*) AS count, MAX(created_at) AS latest_at FROM transfer_receipts WHERE slug = ? AND order_id = ?",
+  ).bind(slug, orderId).first();
+  return {
+    count: Number(row?.count) || 0,
+    latest_at: row?.latest_at == null ? null : Number(row.latest_at),
+  };
+}
+
+// Público: autorizado por el token opaco del pedido, igual que el estado.
+export async function uploadTransferReceipt(request, env, site, encodedId) {
+  const id = decodedId(encodedId);
+  if (!id) return error("pedido_no_existe", 404);
+  const token = request.headers.get("x-order-token") || new URL(request.url).searchParams.get("token") || "";
+  const row = await posOrderRow(env, site.slug, id);
+  if (!row) return error("pedido_no_existe", 404);
+  if (!token || !timingEqual(token, await orderToken(env, site.slug, id))) return error("pedido_no_existe", 404);
+  const declared = request.headers.get("content-type")?.split(";", 1)[0].trim().toLowerCase();
+  if (!RECEIPT_TYPES.has(declared)) return error("tipo_comprobante_invalido", 415);
+  const length = Number(request.headers.get("content-length"));
+  if (Number.isFinite(length) && length > RECEIPT_MAX_BYTES) return error("comprobante_muy_grande", 413);
+  const ip = request.headers.get("cf-connecting-ip") || "sin-ip";
+  if (env.LOGIN_LIMITER && !(await env.LOGIN_LIMITER.limit({ key: `rr:${site.slug}:${ip}` })).success) {
+    return error("demasiados_intentos", 429);
+  }
+  if (row.payment_method !== "transfer" || !["pending", "confirmed"].includes(row.status)) {
+    return error("estado_invalido", 409);
+  }
+  let data;
+  try { data = await request.arrayBuffer(); } catch { return error("comprobante_invalido", 415); }
+  if (!data.byteLength) return error("comprobante_invalido", 415);
+  if (data.byteLength > RECEIPT_MAX_BYTES) return error("comprobante_muy_grande", 413);
+  const magic = receiptMagic(new Uint8Array(data));
+  if (!magic) return error("comprobante_invalido", 415);
+  if (!env?.MEDIA || typeof env.MEDIA.put !== "function") return error("comprobante_no_disponible", 503);
+  // La key privada nunca se publica: solo viaja por la ruta autenticada del panel.
+  const receiptId = crypto.randomUUID();
+  const key = `private/receipts/${site.slug}/${row.id}/${receiptId}.${magic.ext}`;
+  await env.MEDIA.put(key, data, {
+    httpMetadata: { contentType: magic.contentType, cacheControl: "private, no-store" },
+  });
+  await env.DB.prepare(
+    "INSERT INTO transfer_receipts (id, slug, order_id, r2_key, content_type, size_bytes, created_at) " +
+    "VALUES (?, ?, ?, ?, ?, ?, ?)",
+  ).bind(receiptId, site.slug, row.id, key, magic.contentType, data.byteLength, Date.now()).run();
+  return json({ receipt: await receiptSummary(env, site.slug, row.id) }, 201);
+}
+
+// Caja/panel: sesión con permiso sobre la sede del pedido. `?n=` permite ver los
+// comprobantes anteriores (1 = el más reciente).
+export async function getTransferReceipt(env, site, session, encodedId, request) {
+  const found = await posOrderForAction(env, site, session, encodedId);
+  if (found.response) return found.response;
+  if (!env?.MEDIA || typeof env.MEDIA.get !== "function") return error("comprobante_no_disponible", 503);
+  const raw = new URL(request.url).searchParams.get("n");
+  let offset = 0;
+  if (raw != null && raw !== "") {
+    const n = Number(raw);
+    if (!Number.isInteger(n) || n < 1) return error("comprobante_invalido", 400);
+    offset = n - 1;
+  }
+  const receipt = await env.DB.prepare(
+    "SELECT r2_key, content_type FROM transfer_receipts WHERE slug = ? AND order_id = ? " +
+    "ORDER BY created_at DESC, rowid DESC LIMIT 1 OFFSET ?",
+  ).bind(site.slug, found.order.id, offset).first();
+  if (!receipt) return error("comprobante_no_existe", 404);
+  const object = await env.MEDIA.get(receipt.r2_key).catch(() => null);
+  if (!object) return error("comprobante_no_existe", 404);
+  const body = request.method === "HEAD" ? null : (object.body ?? object.v ?? null);
+  return new Response(body, {
+    status: 200,
+    headers: {
+      "content-type": receipt.content_type,
+      "cache-control": "private, no-store",
+      "content-disposition": "inline",
+      "x-content-type-options": "nosniff",
+    },
   });
 }

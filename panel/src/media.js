@@ -1,6 +1,8 @@
 // Media pública del cliente: `GET /media/<key>` desde el binding R2 `MEDIA`.
 // Evita depender de un dominio de media externo: el mismo bucket sirve al panel
 // y al menú (workers.dev o dominio propio) con caché inmutable.
+// `private/*` (comprobantes de transferencia y otros documentos) NUNCA se sirve
+// por esta ruta pública: se entrega solo por la ruta autenticada del panel.
 const NOT_FOUND = () => new Response("No existe", { status: 404, headers: { "cache-control": "no-store" } });
 
 export async function handleMedia(request, env) {
@@ -11,7 +13,7 @@ export async function handleMedia(request, env) {
   const pathname = new URL(request.url).pathname;
   let key;
   try { key = decodeURIComponent(pathname.slice("/media/".length)); } catch { return NOT_FOUND(); }
-  if (!key || key.startsWith("/") || key.includes("..") || key.length > 512) return NOT_FOUND();
+  if (!key || key.startsWith("/") || key.startsWith("private/") || key.includes("..") || key.length > 512) return NOT_FOUND();
   const object = await env.MEDIA.get(key).catch(() => null);
   if (!object) return NOT_FOUND();
   const meta = object.httpMetadata || object.o?.httpMetadata || {};

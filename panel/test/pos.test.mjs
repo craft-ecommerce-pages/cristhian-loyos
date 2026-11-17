@@ -188,7 +188,7 @@ test("estado público con token: líneas, sede, método y sin PII", async () => 
   const status = await response.json();
   assert.deepEqual(Object.keys(status).sort(), [
     "created_at", "currency", "id", "items", "number", "paid_at", "payment_method", "payment_status",
-    "ready_at", "retryable", "sede", "sede_id", "status", "subtotal_cents", "tax_cents", "total_cents",
+    "ready_at", "receipt_uploaded", "retryable", "sede", "sede_id", "status", "subtotal_cents", "tax_cents", "total_cents",
   ]);
   assert.equal(status.status, "pending");
   assert.equal(status.payment_method, "cash");
@@ -359,7 +359,7 @@ test("Munch: retiro obligatorio y método de pago persistido", async () => {
   const env = posEnv(), ctx = makeCtx();
   const delivery = await panel.fetch(body("/api/orders", webOrder({ delivery_mode: "delivery", address: "Calle 9" })), env, ctx);
   assert.equal(delivery.status, 400);
-  assert.equal((await delivery.json()).error, "solo_retiro");
+  assert.equal((await delivery.json()).error, "modo_entrega_invalido");
   const transfer = await panel.fetch(body("/api/orders", webOrder({ payment_method: "transfer" })), env, ctx);
   assert.equal(transfer.status, 201);
   const created = await transfer.json();

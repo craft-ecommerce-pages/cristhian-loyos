@@ -13,9 +13,9 @@ import {
 import { handleCatalog, load } from "./catalog.js";
 import {
   confirmPosOrder, createManualOrder, createPosOrder, createPublicPosOrder, editMeseroOrder, editPosOrder,
-  getPosOrderStatus, listKitchenOrders, listMeseroOrders, listOrders, listPosOrders, markOrderReady, meseroOrders,
+  getPosOrderStatus, getTransferReceipt, listKitchenOrders, listMeseroOrders, listOrders, listPosOrders, markOrderReady, meseroOrders,
   payCash, payDatafono, payTransfer, posOrderRow, posPaymentByRef, printKitchenOrder, printMeseroOrder, publicSedes, rejectPosOrder,
-  sedesAllowed, sedesFor, setMeseroOrderStatus, setOrderStatus, taxSettings, transferInfo, upsertSedes, webCashEnabled,
+  sedesAllowed, sedesFor, setMeseroOrderStatus, setOrderStatus, taxSettings, transferInfo, uploadTransferReceipt, upsertSedes, webCashEnabled,
 } from "./orders.js";
 import { handleGetInvoice, handleInvoiceRide, handleRetryInvoice } from "./invoices.js";
 import { handleTurnosApi } from "./turnos.js";
@@ -57,6 +57,9 @@ export async function handlePublicApi(request, env, ctx, site) {
     return startPublicBendo(request, env, site, publicBendo[1], await readJson(request));
   const status = /^orders\/([^/]+)$/.exec(path);
   if (status && request.method === "GET") return getPosOrderStatus(env, site, status[1], url.searchParams.get("token"));
+  // Comprobante de transferencia: binario crudo autorizado por el token del pedido.
+  const receipt = /^orders\/([^/]+)\/receipt$/.exec(path);
+  if (receipt && request.method === "POST") return uploadTransferReceipt(request, env, site, receipt[1]);
   if (request.method === "GET" && path === "bendo/return") return handleBendoReturn(request, env, site);
   // Webhook de Bendo: no exige content-type JSON (lee el texto, máx. 16 KB) y se
   // autentica con la firma HMAC propia de la query, no con el cuerpo.
@@ -70,7 +73,8 @@ export async function handleApi(request, env, ctx, site) {
   if (!path) return error("ruta_no_encontrada", 404);
   // Modo mesero: su propia cookie caja_s o la sesión del dueño; nunca depende del plan del club.
   if (path === "mesero" || path.startsWith("mesero/")) return handleMeseroApi(request, env, ctx, site, path);
-  if (request.method !== "GET" && !(request.method === "POST" && path === "upload") && !isJson(request)) return error("content_type_invalido", 415);
+  if (request.method !== "GET" && request.method !== "HEAD" &&
+    !(request.method === "POST" && path === "upload") && !isJson(request)) return error("content_type_invalido", 415);
 
   if (request.method === "POST" && path === "login") return login(request, env, site);
   if (request.method === "POST" && path === "reset") return reset(request, env, site);
@@ -79,7 +83,7 @@ export async function handleApi(request, env, ctx, site) {
   // POS: acciones de pedido (confirmar/rechazar/cobrar/listo), pantallas de caja/cocina
   // y turnos de caja. Todos comparten la resolución de sesión de handlePosApi
   // (dueño o cookie caja_s); las rutas turnos/* las atiende turnos.js.
-  if (path === "pos/orders" || path === "kitchen" || path.startsWith("kitchen/") || path === "turnos" ||
+  if (path === "pos/orders" || path.startsWith("pos/orders/") || path === "kitchen" || path.startsWith("kitchen/") || path === "turnos" ||
     path.startsWith("turnos/") ||
     /^orders\/[^/]+\/(confirm|reject|pay-cash|pay-transfer|pay-datafono|bendo|ready)$/.test(path)) return handlePosApi(request, env, ctx, site, path);
 
@@ -143,6 +147,11 @@ async function handlePosApi(request, env, ctx, site, path) {
   // nunca recibe ventas/esperado/diferencia antes de cerrar (arqueo ciego).
   if (path === "turnos" || path.startsWith("turnos/")) return handleTurnosApi(request, env, site, session, path);
   if (request.method === "GET" && path === "pos/orders") return listPosOrders(env, site, session, request);
+  // Comprobante de transferencia: imagen/PDF inline con permiso sobre la sede.
+  const receipt = /^pos\/orders\/([^/]+)\/receipt$/.exec(path);
+  if (receipt && (request.method === "GET" || request.method === "HEAD")) {
+    return getTransferReceipt(env, site, session, receipt[1], request);
+  }
   if (request.method === "GET" && path === "kitchen/orders") return listKitchenOrders(env, site, session, request);
   const print = /^kitchen\/orders\/([^/]+)\/print$/.exec(path);
   if (print && request.method === "POST") return printKitchenOrder(env, site, session, print[1], await readJson(request));

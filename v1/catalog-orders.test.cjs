@@ -8,7 +8,8 @@ const {webcrypto}=require('node:crypto');
 const source=fs.readFileSync(__dirname+'/catalog.js','utf8');
 const {checkoutOrders,ordersEndpoint,sedeList,sedeFromQuery,defaultSede,orderCartItems,
   orderStatusLabel,orderStatusFinal,nextOrderKey,transferInfo,billingFieldErrors,parseOrderReturn,
-  orderPaymentLabel,thanksRetryAllowed,thanksPurchaseEligible,thanksPollFinal}=require('./catalog.js');
+  orderPaymentLabel,thanksRetryAllowed,thanksPurchaseEligible,thanksPollFinal,
+  transferReceiptRequired,maskPhone,thanksPickupText,thanksReadyText,thanksTransferState}=require('./catalog.js');
 
 /* ── helpers puros ───────────────────────────────────────────────────────── */
 test('checkoutOrders: solo habilita con enabled:true y normaliza poll_ms/api_base',()=>{
@@ -62,17 +63,19 @@ test('orderStatusLabel/Final y nextOrderKey idempotente',()=>{
   assert.equal(nextOrderKey({fingerprint:'a',key:'corto'},'a','nuevo-00000000'),'nuevo-00000000');
 });
 
-test('transferInfo: solo config oficial completa (cuenta + WhatsApp); nunca inventa datos',()=>{
+test('transferInfo: solo config oficial completa (banco, cuenta y titular); ya no exige WhatsApp',()=>{
   assert.equal(transferInfo(undefined),null);
   assert.equal(transferInfo({}),null);
-  assert.equal(transferInfo({checkout_orders:{transfer:{enabled:false,bank:'B',account_number:'1',holder:'H'}},whatsapp_number:'0991234567'}),null);
-  assert.equal(transferInfo({checkout_orders:{transfer:{bank:'B',holder:'H'}},whatsapp_number:'0991234567'}),null); // sin cuenta
-  assert.equal(transferInfo({checkout_orders:{transfer:{bank:'B',account_number:'1',holder:'H'}}}),null); // sin WhatsApp oficial
-  assert.deepEqual(transferInfo({checkout_orders:{transfer:{bank:'Banco Pichincha',account_number:'1234567890',holder:'Munch S.A.',account_type:'Ahorros'}},whatsapp_number:'0991234567'}),
+  assert.equal(transferInfo({checkout_orders:{transfer:{enabled:false,bank:'B',account_number:'1',holder:'H'}}}),null);
+  assert.equal(transferInfo({checkout_orders:{transfer:{bank:'B',holder:'H'}}}),null); // sin cuenta
+  assert.equal(transferInfo({checkout_orders:{transfer:{bank:'B',account_number:'1'}}}),null); // sin titular
+  assert.deepEqual(transferInfo({checkout_orders:{transfer:{bank:'Banco Pichincha',account_number:'1234567890',holder:'Munch S.A.',account_type:'Ahorros'}}}),
     {bank:'Banco Pichincha',account:'1234567890',holder:'Munch S.A.',account_type:'Ahorros'});
-  assert.equal(transferInfo({payments:{transfer:{bank:'B',account:'1',titular:'H'}},location:{telefono_principal:'0991234567'}}).holder,'H');
-  assert.equal(transferInfo({bank_transfer:{banco:'B',cuenta:'1',titular:'H'},whatsapp_number:'0991234567'}).bank,'B');
-  assert.equal(transferInfo({bank_transfer:{banco:'B',cuenta:'1',titular:'H'},whatsapp_number:'12'}),null); // teléfono inválido
+  assert.deepEqual(transferInfo({bank_transfer:{bank:'Banco Pichincha',account_number:'2216922010',holder:'Titular',note:'Cuenta oficial'}}),
+    {bank:'Banco Pichincha',account:'2216922010',holder:'Titular',account_type:'',note:'Cuenta oficial'});
+  assert.equal(transferInfo({payments:{transfer:{bank:'B',account:'1',titular:'H'}}}).holder,'H');
+  assert.equal(transferInfo({bank_transfer:{banco:'B',cuenta:'1',titular:'H'}}).bank,'B');
+  assert.equal(transferInfo({checkout_orders:{transfer:{bank:'B',account_number:'1',holder:'H'}}}).account_type,'');
 });
 
 test('billingFieldErrors: exige cédula/RUC, correo y dirección con mensajes claros',()=>{
@@ -258,7 +261,7 @@ test('checkout nativo: sede + datos fiscales + /api/orders + recibo /gracias, si
   const thanks=m.doc.getElementById('thanksPage').innerHTML;
   assert.match(thanks,/#000007/);
   assert.match(thanks,/Pago confirmado en caja/);
-  assert.match(thanks,/Cuando tu pedido esté listo te avisaremos por WhatsApp/);
+  assert.match(thanks,/Te avisaremos por WhatsApp al 099\*\*\*4567 cuando tu pedido esté listo/);
   assert.equal(m.events.at(-1)[0],'Purchase');
   // El recibo local no guarda cédula ni correo en sessionStorage.
   const stored=m.storage.get('munch_order:ord-1')||'';
@@ -304,19 +307,37 @@ test('reintento reutiliza idempotency_key mientras el pedido no cambie',async()=
   assert.equal(posts.length,2);assert.equal(posts[0],posts[1]);
 });
 
-test('transferencia: muestra solo la cuenta oficial y el enlace de WhatsApp sin datos fiscales',async()=>{
+test('transferencia: exige comprobante, muestra la cuenta oficial y lo sube sin datos fiscales',async()=>{
   const transfer={bank:'Banco Pichincha',account_number:'2200123456',holder:'Munch S.A.',account_type:'Ahorros'};
-  const transferStatus=async url=>url.startsWith('/api/orders/')
-    ?{body:{...statusBody,payment_method:'transfer'}}:{status:201,body:receipt};
+  const uploads=[];
+  const transferStatus=async (url,options={})=>{
+    if(String(url).endsWith('/receipt')){uploads.push(options);return {status:201,body:{receipt:{count:1,latest_at:1}}};}
+    if(String(url).startsWith('/api/orders/'))
+      return {body:{...statusBody,payment_method:'transfer',receipt_uploaded:true}};
+    return {status:201,body:receipt};
+  };
   const m=menu({fetchImpl:transferStatus,transfer,paymentOptions:{cash:true,transfer:true,bendo:false}});await m.ready();
   m.doc.getElementById('fieldSede').value='sede-01';
   fillBilling(m);
   m.doc.getElementById('fieldPayment').value='transfer';
+  // Sin comprobante elegido no se crea el pedido.
+  m.checkout();await m.ready();
+  assert.equal(m.calls.some(([url])=>url==='/api/orders'),false);
+  assert.match(m.byId.toast.textContent,/comprobante/i);
+  assert.ok(m.doc.elements.some(el=>String(el.textContent).includes('2200123456')),'la cuenta oficial se muestra');
+  // Con comprobante: se crea el pedido y se sube el archivo crudo con el token.
+  const file={type:'image/png',size:10,name:'captura.png'};
+  const input=m.doc.getElementById('fieldReceipt');
+  input.files=[file];input.handlers.change?.();
   m.checkout();await m.ready();await m.ready();await m.ready();
+  assert.equal(uploads.length,1);
+  assert.equal(uploads[0].headers['x-order-token'],'tok');
+  assert.equal(uploads[0].body,file);
   const thanks=m.doc.getElementById('thanksPage').innerHTML;
   assert.match(thanks,/Banco Pichincha/);assert.match(thanks,/2200123456/);assert.match(thanks,/Munch S\.A\./);
-  assert.match(thanks,/https:\/\/wa\.me\/593999999999/);
-  assert.match(thanks,/Transferencia verificada/);
+  assert.match(thanks,/Pago confirmado/);
+  assert.match(thanks,/Retira tu pedido en el local con este número/);
+  assert.doesNotMatch(thanks,/wa\.me|Envía tu comprobante por WhatsApp/);
   assert.doesNotMatch(thanks,/0912345678/);
   assert.doesNotMatch(thanks,/ana@test\.com/);
 });
@@ -347,6 +368,89 @@ test('/gracias sin pedido en el dispositivo: avisa y ofrece volver al menú',asy
   assert.match(thanks,/No encontramos este pedido en este dispositivo/);
   assert.match(thanks,/Volver al menú/);
   assert.equal(m.calls.length,0);
+});
+
+test('comprobante: helpers puros de retiro, teléfono enmascarado y estado',()=>{
+  assert.equal(transferReceiptRequired('transfer'),true);
+  assert.equal(transferReceiptRequired('cash'),false);
+  assert.equal(transferReceiptRequired('bendo'),false);
+  assert.equal(maskPhone('0991234567'),'099***4567');
+  assert.equal(maskPhone('+593 99 123 4567'),'593***4567');
+  assert.equal(maskPhone('123'),'123');
+  assert.match(thanksReadyText('099***4567'),/al 099\*\*\*4567 cuando tu pedido esté listo/);
+  assert.equal(thanksPickupText(),'Retira tu pedido en el local con este número.');
+  assert.equal(thanksTransferState({status:'pending',receipt_uploaded:true}),
+    'Comprobante recibido · esperando confirmación de caja');
+  assert.equal(thanksTransferState({status:'confirmed',receipt_uploaded:true}),
+    'Comprobante recibido · esperando confirmación de caja');
+  assert.equal(thanksTransferState({status:'paid',receipt_uploaded:true}),'Pago confirmado');
+  assert.equal(thanksTransferState({status:'ready',receipt_uploaded:true}),'Pago confirmado');
+  assert.equal(thanksTransferState({status:'pending',receipt_uploaded:false}),'Pago pendiente de verificación');
+});
+
+test('transferencia pendiente: número grande, resumen con IVA, comprobante recibido y sin domicilio',async()=>{
+  const transfer={bank:'Banco Pichincha',account_number:'2200123456',holder:'Munch S.A.',account_type:'Ahorros'};
+  const pendingStatus=async (url,options={})=>{
+    if(String(url).endsWith('/receipt'))
+      return {status:201,body:{receipt:{count:1,latest_at:1}}};
+    if(String(url).startsWith('/api/orders/'))
+      return {body:{status:'pending',number:7,total_cents:1840,currency:'USD',sede_id:'sede-01',
+        payment_method:'transfer',payment_status:'pending',receipt_uploaded:true,
+        subtotal_cents:1600,tax_cents:240,
+        items:[{name:'Pizza',qty:2,unit_cents:800,subtotal_cents:1600}]}};
+    return {status:201,body:receipt};
+  };
+  const m=menu({fetchImpl:pendingStatus,transfer,
+    paymentOptions:{cash:true,transfer:true,bendo:false,tax:{rate_bp:1500,prices_include_tax:false}}});
+  await m.ready();await m.ready();await m.ready();
+  assert.equal(m.doc.querySelectorAll('.dtog-btn[data-mode="delivery"]').length,0,'sin domicilio');
+  assert.equal(m.doc.getElementById('fieldAddressWrap').style.display,'none','sin dirección');
+  m.doc.getElementById('fieldSede').value='sede-01';
+  fillBilling(m);
+  m.doc.getElementById('fieldPayment').value='transfer';
+  m.doc.getElementById('fieldPayment').handlers.change?.();
+  await m.ready();
+  const input=m.doc.getElementById('fieldReceipt');
+  input.files=[{type:'application/pdf',size:10,name:'comprobante.pdf'}];input.handlers.change?.();
+  // El monto exacto del panel suma el IVA que cobra el servidor.
+  const amounts=m.doc.elements.map(el=>String(el.textContent)).filter(value=>value.includes('$'));
+  assert.ok(amounts.includes('$18.40'),'monto exacto con IVA: '+amounts.join(' | '));
+  m.checkout();await m.ready();await m.ready();await m.ready();
+  const thanks=m.doc.getElementById('thanksPage').innerHTML;
+  assert.match(thanks,/class="thanks-number"/);
+  assert.match(thanks,/#000007/);
+  assert.match(thanks,/Subtotal/);assert.match(thanks,/IVA/);assert.match(thanks,/Total/);
+  assert.match(thanks,/Comprobante recibido · esperando confirmación de caja/);
+  assert.match(thanks,/Retira tu pedido en el local con este número\./);
+  assert.match(thanks,/Te avisaremos por WhatsApp al 099\*\*\*4567 cuando tu pedido esté listo\./);
+  assert.doesNotMatch(thanks,/wa\.me|comprobante por WhatsApp/i);
+  assert.doesNotMatch(thanks,/Domicilio|Dirección de entrega/i);
+});
+
+test('subida fallida: el pedido existe y /gracias ofrece reintentar el comprobante',async()=>{
+  const transfer={bank:'Banco Pichincha',account_number:'2200123456',holder:'Munch S.A.'};
+  const failing=async (url,options={})=>{
+    if(String(url).endsWith('/receipt')) return {status:500,body:{error:'error'}};
+    if(String(url).startsWith('/api/orders/'))
+      return {body:{status:'pending',number:7,total_cents:800,currency:'USD',sede_id:'sede-01',
+        payment_method:'transfer',payment_status:'pending',receipt_uploaded:false,
+        items:[{name:'Pizza',qty:1,unit_cents:800,subtotal_cents:800}]}};
+    return {status:201,body:receipt};
+  };
+  const m=menu({fetchImpl:failing,transfer,paymentOptions:{cash:true,transfer:true,bendo:false}});
+  await m.ready();
+  m.doc.getElementById('fieldSede').value='sede-01';
+  fillBilling(m);
+  m.doc.getElementById('fieldPayment').value='transfer';
+  const input=m.doc.getElementById('fieldReceipt');
+  input.files=[{type:'image/png',size:10,name:'captura.png'}];input.handlers.change?.();
+  m.checkout();await m.ready();await m.ready();await m.ready();
+  assert.ok(m.calls.some(([url])=>url==='/api/orders'),'el pedido se crea aunque falle la subida');
+  const thanks=m.doc.getElementById('thanksPage').innerHTML;
+  assert.match(thanks,/id="thanksReceipt"/);
+  assert.match(thanks,/id="thanksUpload"/);
+  assert.match(thanks,/Sube tu comprobante/);
+  assert.match(thanks,/Sube tu comprobante para que la caja confirme el pago/);
 });
 
 test('legacy (sin checkout_orders) sigue abriendo WhatsApp, conserva el CTA y no llama a /api/orders',async()=>{

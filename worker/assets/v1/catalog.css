@@ -686,4 +686,23 @@
     .thanks-bank dd{font-weight:700;text-align:right;word-break:break-word}
     .thanks-actions{display:flex;flex-direction:column;gap:10px}
     .thanks-notice{font-size:12.5px;line-height:1.5;color:var(--text-soft);text-align:center}
+    .thanks-pickup{font-size:14px;font-weight:700;line-height:1.5;text-align:center;color:var(--text)}
+    .thanks-tax-row{display:flex;justify-content:space-between;gap:14px;font-size:13px;color:var(--text-soft)}
+    .thanks-receipt{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--surface-2)}
+    .thanks-receipt-label{font-size:13px;font-weight:700}
+    .thanks-receipt input[type="file"]{font-size:12.5px;color:var(--text-soft)}
+    .thanks-receipt-ok{font-size:13.5px;line-height:1.5;padding:10px 12px;border-radius:12px;color:#8af0af;background:color-mix(in srgb,var(--wa) 14%,transparent);border:1px solid color-mix(in srgb,var(--wa) 40%,transparent)}
     .thanks-privacy{font-size:11.5px;line-height:1.5;text-align:center;color:var(--text-dim)}
+    .transfer-panel{display:flex;flex-direction:column;gap:12px;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm)}
+    .transfer-panel[hidden]{display:none}
+    .transfer-panel h3{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-soft)}
+    .transfer-bank{display:flex;flex-direction:column;gap:8px}
+    .transfer-bank div{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13.5px}
+    .transfer-bank div[hidden]{display:none}
+    .transfer-bank dt{color:var(--text-soft);flex-shrink:0}
+    .transfer-bank dd{display:flex;align-items:center;gap:8px;margin:0;font-weight:700;text-align:right;word-break:break-word}
+    .btn-copy{flex-shrink:0;padding:5px 10px;border-radius:999px;border:1px solid var(--border-2);background:var(--surface-2);color:var(--text);font-size:11.5px;font-weight:700;cursor:pointer}
+    .transfer-upload{display:flex;flex-direction:column;gap:6px;padding:12px;border:1px dashed var(--border-2);border-radius:12px}
+    .transfer-upload span{font-size:13px;font-weight:700}
+    .transfer-upload input[type="file"]{font-size:12.5px;color:var(--text-soft)}
+    .transfer-upload-hint{font-size:11.5px;color:var(--text-dim)}

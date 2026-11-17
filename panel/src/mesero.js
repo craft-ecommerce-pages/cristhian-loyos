@@ -32,6 +32,51 @@ export function taxLabel(rateBp) {
   return (value / 100).toFixed(value % 100 === 0 ? 0 : 2) + "%";
 }
 
+/* ── Aviso de pedido listo por WhatsApp (caja) ─────────────────────────────
+   Ecuador: 09XXXXXXXX → 5939XXXXXXXX; 9XXXXXXXX → 5939…; +593…/593… se
+   respetan; cualquier otro formato no genera enlace. Sin "+" para wa.me y
+   web.whatsapp.com. */
+
+export function normalizeEcPhone(raw) {
+  const digits = String(raw ?? "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (/^5939\d{8}$/.test(digits)) return digits;
+  if (/^09\d{8}$/.test(digits)) return "593" + digits.slice(1);
+  if (/^9\d{8}$/.test(digits)) return "593" + digits;
+  return "";
+}
+
+// Mensaje sin datos fiscales: nombre, número y sede.
+export function noticeMessage({ name, number, sede } = {}) {
+  const who = String(name ?? "").trim();
+  const raw = String(number ?? "").trim();
+  const ref = raw ? (raw.startsWith("#") ? raw : "#" + raw) : "";
+  const place = String(sede ?? "").trim() || "el local";
+  return (
+    "Hola" + (who ? " " + who : "") + ", tu pedido " + ref +
+    " está listo. Retíralo en " + place + ". ¡Gracias por tu compra en Munch!"
+  );
+}
+
+// Escritorio: pestaña reutilizable de WhatsApp Web. Móvil/tablet: wa.me.
+export function noticeUrl({ phone, message, desktop } = {}) {
+  const digits = String(phone ?? "").replace(/\D/g, "");
+  if (!digits) return "";
+  const text = encodeURIComponent(String(message ?? ""));
+  return desktop
+    ? `https://web.whatsapp.com/send?phone=${digits}&text=${text}`
+    : `https://wa.me/${digits}?text=${text}`;
+}
+
+// pointer:coarse o un user agent móvil → no hay WhatsApp Web de escritorio.
+export function isCoarsePointer(nav, matchMedia) {
+  try {
+    if (typeof matchMedia === "function" && matchMedia("(pointer: coarse)")?.matches) return true;
+  } catch { /* navegador sin matchMedia */ }
+  const ua = String(nav?.userAgent || "");
+  return /Android|iPhone|iPad|iPod|Mobile|Tablet|Silk/i.test(ua);
+}
+
 export async function renderMeseroPage(request, env, site) {
   const slug = String(site?.slug ?? "");
   const config = await env.MENUS.get(`${slug}:config`, "json").catch(
@@ -57,6 +102,7 @@ Cargando caja…</div></main>
 <script id="meseroColumns">var __columns=${String(ticketColumns)};window.__meseroColumns=__columns;</script>
 <script id="meseroHeight">var __height=${String(ticketPageHeight)};window.__meseroHeight=__height;</script>
 <script id="meseroShiftTicket">var __shiftTicket=${String(shiftTicketLines)};window.__meseroShiftTicket=__shiftTicket;</script>
+<script id="meseroNotify">window.__meseroNotify={phone:${String(normalizeEcPhone)},message:${String(noticeMessage)},url:${String(noticeUrl)},coarse:${String(isCoarsePointer)}};</script>
 <script id="meseroMain">${String(meseroRuntime)}
 meseroRuntime();</script></body></html>`;
 }
@@ -623,6 +669,11 @@ line-height:1.1}
 color:var(--p);
 font-size:26px;
 font-weight:800}
+.receipt-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:12px 0}
+.receipt-badge{background:#e8f6ec;border-color:#9fd3af;color:#1c6b34}
+.receipt-box{gap:12px}
+.receipt-img{display:block;width:100%;height:auto;max-height:70vh;object-fit:contain;border-radius:12px;background:#fff}
+.advised{color:#1c6b34;font-weight:700}
 .transfer-say{margin:10px 0 14px;
 color:var(--ink);
 font-size:16px;
@@ -717,7 +768,11 @@ function meseroRuntime() {
     polling = false,
     primed = false,
     knownIds = new Set(),
+    // Avisos de "pedido listo" ya abiertos: solo en memoria de la página.
+    advised = {},
     audioCtx = null;
+  // Helpers puros inyectados por la página (probados en Node).
+  const NOTIFY = window.__meseroNotify || {};
   // Botón "atrás" (Android/tablet): Nuevo pedido y cada modal son entradas del historial.
   const H =
     window.history && typeof window.history.pushState === "function"
@@ -1091,28 +1146,51 @@ function meseroRuntime() {
     const found = sedes.find((item) => item && item.id === id);
     return found ? text(found.nombre) || id : "";
   }
-  // Solo dígitos: el enlace wa.me se abre a mano desde el pedido listo.
+  // Teléfono normalizado a E.164 sin "+" (solo móviles ecuatorianos).
   function orderPhone(order) {
-    const digits = text(order?.customer_phone ?? order?.client_phone).replace(
-      /\D/g,
-      "",
-    );
+    const raw = text(order?.customer_phone ?? order?.client_phone);
+    if (NOTIFY.phone) return NOTIFY.phone(raw);
+    const digits = raw.replace(/\D/g, "");
     return /^\d{8,15}$/.test(digits) ? digits : "";
   }
-  // Aviso manual: número y sede, sin cédula/RUC, correo ni dirección.
-  function waLink(order) {
+  // Aviso manual: número, pedido y sede, sin cédula/RUC, correo ni dirección.
+  function noticeData(order) {
     const phone = orderPhone(order);
-    if (!phone) return "";
-    const who = clientName(order);
-    const place = sedeLabel(order?.sede_id) || text(order?.sede_id);
-    const message =
-      "Hola" +
-      (who ? " " + who : "") +
-      ", tu pedido " +
-      shortNumber(order) +
-      (place ? " de " + place : "") +
-      " está listo. Te esperamos.";
-    return "https://wa.me/" + phone + "?text=" + encodeURIComponent(message);
+    if (!phone) return null;
+    const message = NOTIFY.message
+      ? NOTIFY.message({
+          name: clientName(order),
+          number: shortNumber(order),
+          sede: sedeLabel(order?.sede_id) || text(order?.sede_id),
+        })
+      : "";
+    const desktop = !(NOTIFY.coarse && NOTIFY.coarse(
+      window.navigator,
+      typeof window.matchMedia === "function" ? window.matchMedia.bind(window) : null,
+    ));
+    const url = NOTIFY.url ? NOTIFY.url({ phone, message, desktop }) : "";
+    return url ? { phone, message, desktop, url } : null;
+  }
+  // Enlace del aviso: WhatsApp Web reutilizable en escritorio, wa.me en móvil.
+  function waLink(order) {
+    return noticeData(order)?.url || "";
+  }
+  // Abre el aviso y memoriza la hora para pintar "Avisado ✓ HH:MM".
+  function openNotice(order) {
+    const notice = noticeData(order);
+    if (!notice) return false;
+    let win = null;
+    try {
+      win = notice.desktop
+        ? window.open(notice.url, "munch-whatsapp")
+        : window.open(notice.url, "_blank");
+    } catch {
+      win = null;
+    }
+    if (!win) return false;
+    const id = text(order?.id);
+    if (id) advised[id] = Date.now();
+    return true;
   }
   // Sin inventar sedes: la lista sale de /panel/api/mesero/me y empieza vacía.
   function sedeSelect(onChange) {
@@ -1443,6 +1521,14 @@ function meseroRuntime() {
     return orders.filter((order) => inCourseStatus(order) && isWebOrder(order))
       .length;
   }
+  // Novedad = pedido nuevo o pedido que acaba de recibir un comprobante. Se
+  // memoriza la clave, no solo el id, para que un comprobante suene una vez.
+  function alertKey(order) {
+    const id = text(order?.id);
+    if (!id) return "";
+    const count = Number(order?.receipt?.count) || 0;
+    return count > 0 ? id + ":r" + count : id;
+  }
   function paintTitle() {
     const count = webWaiting();
     document.title = count ? "(" + count + ") " + baseTitle : baseTitle;
@@ -1505,7 +1591,7 @@ function meseroRuntime() {
     document.addEventListener("pointerdown", unlockAudio, { once: true });
   // Primera carga (boot o login): nada suena, solo se memorizan los ids vistos.
   function primeAlerts() {
-    knownIds = new Set(orders.map((order) => text(order.id)).filter(Boolean));
+    knownIds = new Set(orders.map(alertKey).filter(Boolean));
     primed = true;
     paintAlerts();
   }
@@ -1532,12 +1618,12 @@ function meseroRuntime() {
       await loadOrders();
       if (!me) return;
       const fresh = orders.filter((order) => {
-        const id = text(order.id);
-        return id && !knownIds.has(id) && isWebOrder(order);
+        const key = alertKey(order);
+        return key && !knownIds.has(key) && isWebOrder(order);
       });
       orders.forEach((order) => {
-        const id = text(order.id);
-        if (id) knownIds.add(id);
+        const key = alertKey(order);
+        if (key) knownIds.add(key);
       });
       if (primed && fresh.length) {
         beep();
@@ -2227,6 +2313,71 @@ function meseroRuntime() {
     );
     counted.focus();
   }
+  // Comprobante de transferencia: insignia + visor (imagen o PDF en otra pestaña).
+  function hasReceipt(order) {
+    return isPosOrder(order) && text(order.payment_method) === "transfer" &&
+      ["pending", "confirmed"].includes(text(order.status)) &&
+      Number(order?.receipt?.count) > 0;
+  }
+  function receiptBlock(order) {
+    if (!isPosOrder(order) || text(order.payment_method) !== "transfer" ||
+      !["pending", "confirmed"].includes(text(order.status))) return null;
+    return h(
+      "div",
+      { class: "receipt-row" },
+      h("span", {
+        class: "badge receipt-badge",
+        text: hasReceipt(order) ? "Comprobante recibido" : "Sin comprobante aún",
+      }),
+      hasReceipt(order)
+        ? button("Ver comprobante", "btn small", () => viewReceipt(order))
+        : null,
+    );
+  }
+  // Ver el comprobante NUNCA confirma el pago: el cajero lo comprueba y luego
+  // usa "Confirmar transferencia".
+  async function viewReceipt(order) {
+    const path =
+      "/panel/api/pos/orders/" + encodeURIComponent(order.id) + "/receipt";
+    let type = "";
+    try {
+      const head = await fetch(path, {
+        method: "HEAD",
+        credentials: "same-origin",
+        cache: "no-store",
+      });
+      if (head.status === 404) return toast("Sin comprobante aún.", true);
+      if (!head.ok) return toast("No pudimos abrir el comprobante.", true);
+      type = head.headers && typeof head.headers.get === "function"
+        ? String(head.headers.get("content-type") || "") : "";
+    } catch {
+      return toast("No pudimos abrir el comprobante.", true);
+    }
+    if (type.includes("pdf")) {
+      try {
+        window.open(path, "_blank");
+      } catch {
+        toast("Abre el comprobante desde el navegador.", true);
+      }
+      return;
+    }
+    showSheet(
+      h(
+        "div",
+        { class: "sheet", role: "dialog", "aria-modal": "true", "aria-label": "Comprobante de transferencia" },
+        h(
+          "div",
+          { class: "sheet-box receipt-box" },
+          h("div", { class: "bar" }, h("h2", { text: "Comprobante" }), button("Cerrar", "btn link", dismissSheet)),
+          h("img", { class: "receipt-img", src: path, alt: "Comprobante de transferencia" }),
+          h("p", {
+            class: "hint",
+            text: "Comprueba el abono en la cuenta antes de confirmar. Ver el comprobante no confirma el pago.",
+          }),
+        ),
+      ),
+    );
+  }
   function orderCard(order) {
     const state = text(order.status) || "pending";
     const pos = isPosOrder(order);
@@ -2277,7 +2428,7 @@ function meseroRuntime() {
         ),
       );
       actions.push(
-        button("Marcar listo", "btn small", (event) =>
+        button("Listo y avisar", "btn small", (event) =>
           markReady(order, event.currentTarget),
         ),
       );
@@ -2289,19 +2440,12 @@ function meseroRuntime() {
           (event) => print(order, event.currentTarget),
         ),
       );
-      const wa = waLink(order);
-      if (wa)
+      if (orderPhone(order))
         actions.push(
-          h(
-            "a",
-            {
-              class: "btn primary small",
-              href: wa,
-              target: "_blank",
-              rel: "noopener",
-              text: "Avisar por WhatsApp",
-            },
-          ),
+          button("Avisar por WhatsApp", "btn primary small", () => {
+            if (openNotice(order)) render();
+            else toast("No se pudo abrir WhatsApp. Revisa el bloqueador de ventanas.", true);
+          }),
         );
     }
     return h(
@@ -2358,6 +2502,7 @@ function meseroRuntime() {
       order.note
         ? h("p", { class: "order-note", text: "Nota: " + order.note })
         : null,
+      receiptBlock(order),
       state === "pending"
         ? h("p", {
             class: "edited",
@@ -2376,7 +2521,7 @@ function meseroRuntime() {
             : state === "ready"
               ? h("p", {
                   class: "edited",
-                  text: "Listo. El aviso por WhatsApp es manual: la app no envía mensajes solo.",
+                  text: "Listo para retirar. Usa «Avisar por WhatsApp» para reenviar el aviso.",
                 })
               : null,
       order.edited_at ? h("p", { class: "edited", text: "Editado" }) : null,
@@ -2384,6 +2529,12 @@ function meseroRuntime() {
         ? h("p", {
             class: "edited",
             text: "Acuse de impresión ×" + Number(order.print_count),
+          })
+        : null,
+      advised[text(order.id)]
+        ? h("p", {
+            class: "edited advised",
+            text: "Avisado ✓ " + ecTime(advised[text(order.id)]),
           })
         : null,
       actions.length ? h("div", { class: "actions" }, actions) : null,
@@ -2884,9 +3035,10 @@ function meseroRuntime() {
         invoice ? field("Cédula o RUC", documentType) : null,
         invoice ? input("document_number", 13, "Número de cédula o RUC", "input", { inputmode: "numeric", required: true, placeholder: "10 o 13 dígitos" }) : null,
         invoice ? input("client_name", 120, "Nombre y apellido o razón social", "input", { required: true, placeholder: "Nombre completo" }) : null,
-        invoice ? input("client_phone", 40, "Teléfono", "input", { type: "tel", required: true, placeholder: "0999999999" }) : null,
+        invoice ? input("client_phone", 40, "WhatsApp para avisar (opcional)", "input", { type: "tel", required: true, placeholder: "0999999999" }) : null,
         invoice ? input("client_email", 254, "Correo electrónico", "input", { type: "email", required: true, placeholder: "cliente@correo.com" }) : null,
         invoice ? input("billing_address", 300, "Dirección", "input", { placeholder: "Quito (predeterminado)" }) : null,
+        !invoice && !builder.id ? input("client_phone", 40, "WhatsApp para avisar (opcional)", "input", { type: "tel", placeholder: "0999999999" }) : null,
         builder.id ? input("client_name", 60, "Cliente") : null,
         input("note", 200, "Nota general", "textarea"),
         !builder.id ? h("h3", { text: "Forma de pago" }) : null,
@@ -3057,6 +3209,10 @@ function meseroRuntime() {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(text(builder.client_email)))
         return toast("Ingresa un correo electrónico válido.", true);
     }
+    if (!builder.id && builder.billing_mode !== "invoice") {
+      const phone = text(builder.client_phone);
+      if (phone && !/^\+?\d{7,15}$/.test(phone)) return toast("Ingresa un teléfono válido.", true);
+    }
     return act(buttonEl, () => saveBuilder());
   }
   async function saveBuilder() {
@@ -3110,7 +3266,7 @@ function meseroRuntime() {
           idempotency_key: builder.key,
           delivery_mode: "pickup",
           client_name: builder.billing_mode === "invoice" ? text(builder.client_name) : undefined,
-          client_phone: builder.billing_mode === "invoice" ? text(builder.client_phone) : undefined,
+          client_phone: text(builder.client_phone) || undefined,
           billing: builder.billing_mode === "invoice" ? {
             document_type: builder.document_type,
             document_number: text(builder.document_number),
@@ -3215,7 +3371,7 @@ function meseroRuntime() {
     const state = {};
     const ref = shortNumber(order);
     const due = moneyCents(order.total_cents);
-    const submit = button("Transferencia verificada e imprimir", "btn primary wide", () => payOrder(order, submit, state));
+    const submit = button("Confirmar transferencia e imprimir", "btn primary wide", () => payOrder(order, submit, state));
     showSheet(h("div", { class: "sheet", role: "dialog", "aria-modal": "true", "aria-label": "Confirmar transferencia" },
       h("div", { class: "sheet-box" },
         h("div", { class: "bar" }, h("h2", { text: "Transferencia" }), button("Cerrar", "btn link", dismissSheet)),
@@ -3225,7 +3381,8 @@ function meseroRuntime() {
           h("p", { class: "transfer-number", text: ref }),
           h("p", { class: "transfer-amount", text: due })),
         h("p", { class: "transfer-say", text: "Busca en tu banco una transferencia de " + due + " con referencia " + ref + "." }),
-        h("p", { class: "hint", text: "Comprueba el abono en la cuenta antes de confirmar." }), submit)));
+        receiptBlock(order),
+        h("p", { class: "hint", text: "Comprueba el abono en la cuenta antes de confirmar. Ver el comprobante no confirma el pago." }), submit)));
   }
   // El servidor confirma el pago y crea la comanda una sola vez. La impresión
   // se intenta solo después de la respuesta pagada.
@@ -3416,7 +3573,8 @@ function meseroRuntime() {
     );
     auth.focus();
   }
-  // paid → ready: lo confirma el operador autorizado y queda con marca de tiempo.
+  // paid → ready: lo confirma el operador autorizado y, si hay teléfono, abre
+  // de inmediato el aviso de WhatsApp. Sin teléfono solo queda marcado listo.
   function markReady(order, buttonEl) {
     return act(buttonEl, async () => {
       const result = await callRoot(
@@ -3442,7 +3600,13 @@ function meseroRuntime() {
       const updated = result.data?.order;
       if (updated) upsert(updated);
       else await loadOrders();
-      toast("Pedido listo. Avisa al cliente con el enlace manual de WhatsApp.");
+      const current = updated || orders.find((item) => item.id === order.id) || order;
+      if (!orderPhone(current)) {
+        render();
+        return toast("Sin WhatsApp: llama al cliente por su número.");
+      }
+      if (openNotice(current)) toast("Pedido listo. Aviso de WhatsApp abierto.");
+      else toast("Pedido listo. No se pudo abrir WhatsApp: revisa el bloqueador de ventanas.", true);
       render();
     });
   }
