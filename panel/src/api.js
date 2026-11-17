@@ -22,7 +22,7 @@ import { handleTurnosApi } from "./turnos.js";
 import {
   bendoAvailable, handleBendoMock, handleBendoReturn, handleBendoWebhook, reconcileBendo, startBendo, startPublicBendo,
 } from "./bendo.js";
-import { salesReport } from "./reports.js";
+import { salesReport, salesReportCsv } from "./reports.js";
 
 const COOKIE = value => `panel_s=${value}; Path=/panel; HttpOnly; Secure; SameSite=Strict; Max-Age=2592000`;
 const EXPIRED_COOKIE = "panel_s=; Path=/panel; HttpOnly; Secure; SameSite=Strict; Max-Age=0";
@@ -87,6 +87,7 @@ export async function handleApi(request, env, ctx, site) {
   if (!session) return error("sin_sesion", 401);
   // Reportes de ventas: solo sesión del dueño; montos en centavos y conciliación exacta.
   if (request.method === "GET" && path === "reports/sales") return salesReport(request, env, site);
+  if (request.method === "GET" && path === "reports/sales.csv") return salesReportCsv(request, env, site);
   // Facturas: lectura y reintento autenticados (nunca ruta pública).
   const invoice = /^invoices\/([^/]+)$/.exec(path);
   if (invoice && request.method === "GET") return handleGetInvoice(request, env, site, session, invoice[1]);
