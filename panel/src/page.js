@@ -363,7 +363,34 @@ input[type=file]::file-selector-button{margin-right:10px;padding:6px 12px;border
 .bar{flex:1;min-height:2px;border-radius:2px 2px 0 0}
 .bar.v{background:var(--p)}
 .bar.o{background:#22303a}
+.bar.sale{background:#2f6f4f}
 .axis{display:flex;justify-content:space-between;color:var(--muted);font-size:11px;margin-top:6px}
+.key.sale::before{background:#2f6f4f}
+/* barras horizontales simples (día/hora): CSS puro, legibles en celular */
+.hbars{display:flex;flex-direction:column;gap:7px;margin-top:12px}
+.hbars.scroll{max-height:340px;overflow:auto;padding-right:4px}
+.hbar{display:grid;grid-template-columns:56px minmax(0,1fr) 118px;gap:10px;align-items:center;font-size:12.5px}
+.hbar-label{color:var(--ink2);white-space:nowrap;font-variant-numeric:tabular-nums}
+.hbar-track{height:10px;border-radius:999px;background:var(--soft);overflow:hidden}
+.hbar-fill{height:100%;background:var(--p);border-radius:999px;min-width:2px}
+.hbar-val{text-align:right;color:var(--ink2);font-variant-numeric:tabular-nums;white-space:nowrap}
+/* tabla de productos más vendidos: posición, nombre, categoría, cantidad y ventas */
+.sales-list{background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden}
+.sales-head,.sales-row{display:grid;grid-template-columns:44px minmax(0,1fr) 118px 78px 112px;gap:12px;align-items:center;padding:10px 16px}
+.sales-head{background:var(--soft);border-bottom:1px solid var(--line);color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.sales-row{border-bottom:1px solid var(--line)}
+.sales-row:last-child{border-bottom:0}
+.sales-pos{color:var(--muted);font-variant-numeric:tabular-nums}
+.sales-name{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sales-cat{color:var(--ink2);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sales-qty{text-align:right;color:var(--ink2);font-variant-numeric:tabular-nums}
+.sales-sales{text-align:right;font-weight:600;font-variant-numeric:tabular-nums}
+/* tablas cortas (método de pago): tres columnas legibles en celular */
+.mini-head,.mini-row{display:grid;grid-template-columns:minmax(0,1fr) 100px 130px;gap:12px;align-items:center;padding:10px 16px}
+.mini-head{background:var(--soft);border-bottom:1px solid var(--line);color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.mini-row{border-bottom:1px solid var(--line)}
+.mini-row:last-child{border-bottom:0}
+.mini-num{text-align:right;font-variant-numeric:tabular-nums}
 .club-chart{display:flex;align-items:end;gap:3px;height:150px;margin-top:18px;border-bottom:1px solid var(--line)}
 .club-bar{flex:1;min-width:3px;background:var(--p);border-radius:2px 2px 0 0}
 .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
@@ -424,6 +451,17 @@ input,select,textarea{font-size:16px;padding:10px 12px}
 .time-range{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto}
 .branch{grid-template-columns:1fr}
 .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+.sales-head{display:none}
+.sales-row{grid-template-columns:30px minmax(0,1fr) auto;grid-template-areas:"pos name sales" ". cat qty";gap:2px 8px;padding:11px 14px}
+.sales-pos{grid-area:pos}
+.sales-name{grid-area:name;white-space:normal}
+.sales-cat{grid-area:cat;font-size:12px;color:var(--muted)}
+.sales-qty{grid-area:qty;font-size:12px;color:var(--muted);text-align:right}
+.sales-sales{grid-area:sales}
+.hbar{grid-template-columns:46px minmax(0,1fr) 100px;gap:8px;font-size:12px}
+.mini-head,.mini-row{grid-template-columns:minmax(0,1fr) auto auto;gap:6px 10px;padding:11px 14px}
+.mini-head{display:none}
+.mini-num{font-size:13px}
 .toast{bottom:calc(84px + env(safe-area-inset-bottom))}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -3463,11 +3501,21 @@ function runtime() {
         h("a", { class: "btn small", href: url, target: "_blank", rel: "noopener" }, "Abrir Modo mesero")));
   }
 
-  /* ── Reportes de ventas (POS): cuatro categorías, filtros y conciliación ── */
+  /* ── Reportes de ventas (POS): KPIs, productos, categorías, medios, día y hora ── */
   const REPORT_LABEL = { sushi: "Sushi", fastfood: "Fast food", tradicional: "Tradicional", postres: "Postres" };
   const isoDay = date => {
     const y = date.getFullYear(), m = String(date.getMonth() + 1).padStart(2, "0"), d = String(date.getDate()).padStart(2, "0");
     return y + "-" + m + "-" + d;
+  };
+  // "Hoy"/"Ayer" en hora de Ecuador (UTC-5), no en la zona del dispositivo.
+  const ecDay = (ms = Date.now()) => {
+    const d = new Date(ms - 5 * 3600000);
+    const y = d.getUTCFullYear(), m = String(d.getUTCMonth() + 1).padStart(2, "0"), day = String(d.getUTCDate()).padStart(2, "0");
+    return y + "-" + m + "-" + day;
+  };
+  const daySpan = (from, to) => {
+    const a = Date.parse(String(from) + "T00:00:00Z"), b = Date.parse(String(to) + "T00:00:00Z");
+    return Number.isFinite(a) && Number.isFinite(b) && b >= a ? Math.round((b - a) / 86400000) + 1 : 1;
   };
   async function reportsScreen() {
     const token = ++viewToken;
@@ -3476,21 +3524,45 @@ function runtime() {
     if (token !== viewToken) return;
     if (sedesResponse.status === 401) return goLogin("Tu sesión venció. Vuelve a entrar.");
     const sedes = sedesResponse.status === 200 && Array.isArray(sedesResponse.data?.sedes) ? sedesResponse.data.sedes : [];
-    const today = new Date(), weekAgo = new Date(Date.now() - 6 * 86400000);
-    const fromInput = h("input", { type: "date", value: isoDay(weekAgo), "aria-label": "Desde" });
-    const toInput = h("input", { type: "date", value: isoDay(today), "aria-label": "Hasta" });
+    const today = ecDay(), weekAgo = ecDay(Date.now() - 6 * 86400000);
+    const fromInput = h("input", { type: "date", value: weekAgo, "aria-label": "Desde" });
+    const toInput = h("input", { type: "date", value: today, "aria-label": "Hasta" });
     const sedeSelect = h("select", { "aria-label": "Sede" },
       h("option", { value: "", text: "Todas las sedes" }),
       ...sedes.map(sede => h("option", { value: String(sede.id || ""), text: String(sede.nombre || sede.id || "") })));
     const result = h("div", { "aria-live": "polite" });
     const error = h("p", { class: "err", role: "alert" });
+    let lastData = null, showAllProducts = false, lastSpanDays = daySpan(weekAgo, today);
+
+    const barList = rows => {
+      const max = Math.max(1, ...rows.map(row => Number(row.charged_cents) || 0));
+      return h("div", { class: "hbars" + (rows.length > 12 ? " scroll" : "") },
+        rows.map(row => {
+          const cents = Number(row.charged_cents) || 0, orders = Number(row.orders) || 0;
+          return h("div", { class: "hbar", title: money(cents / 100) + " · " + orders + " pedidos" },
+            h("span", { class: "hbar-label", text: row.label }),
+            h("div", { class: "hbar-track", "aria-hidden": "true" },
+              h("div", { class: "hbar-fill", style: "width:" + Math.round((cents / max) * 100) + "%" })),
+            h("span", { class: "hbar-val", text: money(cents / 100) }));
+        }));
+    };
 
     const render = data => {
+      lastData = data || {};
       const groups = Array.isArray(data?.groups) ? data.groups : [];
-      const total = Number(data?.total_cents) || 0;
+      const products = Array.isArray(data?.products) ? data.products : [];
+      const byPayment = Array.isArray(data?.by_payment_method) ? data.by_payment_method : [];
+      const byDay = Array.isArray(data?.by_day) ? data.by_day : [];
+      const byHour = Array.isArray(data?.by_hour) ? data.by_hour : [];
       const bySede = Array.isArray(data?.by_sede) ? data.by_sede : [];
+      const summary = data?.summary || {};
+      const total = Number(summary.charged_cents) || Number(data?.charged_cents) || 0;
+      const orders = Number(summary.orders) || Number(data?.orders) || 0;
+      const taxCents = Number(summary.tax_cents) || Number(data?.tax_cents) || 0;
+      const avgTicket = Number(summary.avg_ticket_cents) || (orders > 0 ? Math.round(total / orders) : 0);
+      const baseTotal = groups.reduce((sum, group) => sum + (Number(group.total_cents) || 0), 0);
       const unreconciled = Number(data?.unreconciled_cents) || 0;
-      const share = cents => (total > 0 ? Math.round((Number(cents) || 0) / total * 1000) / 10 + "%" : "—");
+      const share = cents => (baseTotal > 0 ? Math.round((Number(cents) || 0) / baseTotal * 1000) / 10 + "%" : "—");
       const groupRows = groups.map(group => h("div", { class: "prod" },
         h("strong", { text: REPORT_LABEL[group.category] || String(group.category) }),
         h("span", { text: String(Number(group.orders) || 0) + " pedidos" }),
@@ -3503,26 +3575,103 @@ function runtime() {
         h("span", { text: String(Number(row.quantity) || 0) + " u." }),
         h("span", { class: "prod-price", text: money((Number(row.total_cents) || 0) / 100) }),
         h("span", { class: "muted small", text: share(row.total_cents) })));
+
+      const kpis = h("div", { class: "kpis" },
+        h("div", { class: "kpi" }, h("span", { class: "kpi-n", text: money(total / 100) }), h("span", { class: "kpi-l", text: "Ventas cobradas" })),
+        h("div", { class: "kpi" }, h("span", { class: "kpi-n", text: String(orders) }), h("span", { class: "kpi-l", text: "Pedidos" })),
+        h("div", { class: "kpi" }, h("span", { class: "kpi-n", text: money(avgTicket / 100) }), h("span", { class: "kpi-l", text: "Ticket promedio" })),
+        h("div", { class: "kpi" }, h("span", { class: "kpi-n", text: money(taxCents / 100) }), h("span", { class: "kpi-l", text: "IVA" })));
+
+      if (!orders) {
+        result.replaceChildren(h("section", { class: "card" }, kpis,
+          h("p", { class: "empty" }, h("b", { text: "Sin ventas en este período" }),
+            "Prueba otro rango de fechas o cambia la sede.")));
+        return;
+      }
+
+      const top = showAllProducts ? products : products.slice(0, 10);
+      const productRows = top.map((product, index) => h("div", { class: "sales-row" },
+        h("span", { class: "sales-pos", text: String(index + 1) }),
+        h("span", { class: "sales-name", text: String(product.name || "Sin nombre") }),
+        h("span", { class: "sales-cat", text: REPORT_LABEL[product.report_category] || String(product.report_category || "—") }),
+        h("span", { class: "sales-qty", text: String(Number(product.qty) || 0) + " u." }),
+        h("span", { class: "sales-sales", text: money((Number(product.base_cents) || 0) / 100) })));
+      const productsTable = products.length
+        ? h("div", { class: "sales-list" },
+          h("div", { class: "sales-head" },
+            h("span", { text: "N°" }), h("span", { text: "Producto" }), h("span", { text: "Categoría" }),
+            h("span", { style: "text-align:right", text: "Cant." }), h("span", { style: "text-align:right", text: "Ventas sin IVA" })),
+          ...productRows)
+        : h("p", { class: "empty", text: "Sin productos vendidos en este período." });
+      const moreButton = products.length > 10
+        ? btn(showAllProducts ? "Ver menos" : "Ver todos (" + products.length + ")", "btn small", () => {
+          showAllProducts = !showAllProducts;
+          render(lastData);
+        })
+        : null;
+
+      const paymentRows = byPayment.map(row => h("div", { class: "mini-row" },
+        h("strong", { text: REPORT_PAYMENT[row.method] || String(row.method || "Otro") }),
+        h("span", { class: "mini-num", text: String(Number(row.orders) || 0) + " pedidos" }),
+        h("span", { class: "mini-num", text: money((Number(row.charged_cents) || 0) / 100) })));
+
+      const dayRows = byDay.map(row => ({ label: fmtDay(row.day), orders: Number(row.orders) || 0, charged_cents: Number(row.charged_cents) || 0 }));
+      // Las 24 horas del día: las horas sin venta quedan en cero para leer el patrón real.
+      const hourRows = byHour.map(row => ({
+        label: String(Number(row.hour) || 0).padStart(2, "0") + ":00",
+        orders: Number(row.orders) || 0,
+        charged_cents: Number(row.charged_cents) || 0,
+      }));
+
       result.replaceChildren(
-        h("section", { class: "card" },
-          h("div", { class: "kpis" },
-            h("div", { class: "kpi" }, h("span", { class: "kpi-n", text: money(total / 100) }), h("span", { class: "kpi-l", text: "Cobrado" })),
-            h("div", { class: "kpi" }, h("span", { class: "kpi-n", text: String(Number(data?.orders) || 0) }), h("span", { class: "kpi-l", text: "Pedidos pagados" }))),
+        h("section", { class: "card" }, kpis,
           unreconciled !== 0 ? h("p", { class: "err", role: "alert", text: "Diferencia de conciliación: " + money(unreconciled / 100) + ". Revisa las líneas de los pedidos cobrados antes de cerrar caja." }) : null),
-        h("h2", { text: "Por categoría" }),
+        h("h2", { text: "Más vendidos" }),
+        productsTable,
+        moreButton ? h("div", { class: "actions" }, moreButton) : null,
+        h("h2", { text: "Ventas por categoría" }),
         h("div", { class: "table" },
-          h("div", { class: "thead" }, h("span", { text: "Categoría" }), h("span", { text: "Pedidos" }), h("span", { text: "Unidades" }), h("span", { text: "Total" }), h("span", { text: "Participación" })),
+          h("div", { class: "thead" }, h("span", { text: "Categoría" }), h("span", { text: "Pedidos" }), h("span", { text: "Unidades" }), h("span", { text: "Ventas sin IVA" }), h("span", { text: "Participación" })),
           ...groupRows),
-        h("h2", { text: "Por sede" }),
-        bySede.length ? h("div", { class: "table" },
-          h("div", { class: "thead" }, h("span", { text: "Sede" }), h("span", { text: "Pedidos" }), h("span", { text: "Unidades" }), h("span", { text: "Total" }), h("span", { text: "Participación" })),
-          ...sedeRows) : h("p", { class: "empty", text: "Sin ventas cobradas en el rango." }));
+        h("h2", { text: "Por método de pago" }),
+        byPayment.length ? h("div", { class: "table" },
+          h("div", { class: "mini-head" }, h("span", { text: "Método" }), h("span", { style: "text-align:right", text: "Pedidos" }), h("span", { style: "text-align:right", text: "Cobrado" })),
+          ...paymentRows) : h("p", { class: "empty", text: "Sin cobros registrados." }),
+        lastSpanDays > 1 && dayRows.length ? h("h2", { text: "Ventas por día" }) : null,
+        lastSpanDays > 1 && dayRows.length ? barList(dayRows) : null,
+        hourRows.length ? h("h2", { text: "Horas pico" }) : null,
+        hourRows.length ? barList(hourRows) : null,
+        bySede.length > 1 && !sedeSelect.value ? h("h2", { text: "Por sede" }) : null,
+        bySede.length > 1 && !sedeSelect.value ? h("div", { class: "table" },
+          h("div", { class: "thead" }, h("span", { text: "Sede" }), h("span", { text: "Pedidos" }), h("span", { text: "Unidades" }), h("span", { text: "Ventas sin IVA" }), h("span", { text: "Participación" })),
+          ...sedeRows) : null);
+    };
+
+    const downloadCsv = async () => {
+      const from = fromInput.value, to = toInput.value, sede = sedeSelect.value;
+      if (!from || !to) { error.textContent = "Elige la fecha inicial y final."; return; }
+      const query = "reports/sales.csv?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to) +
+        (sede ? "&sede_id=" + encodeURIComponent(sede) : "");
+      try {
+        const response = await fetch("/panel/api/" + query, { credentials: "same-origin" });
+        if (response.status === 401) return goLogin("Tu sesión venció. Vuelve a entrar.");
+        if (!response.ok) { toast("No pudimos descargar el reporte.", true); return; }
+        const href = URL.createObjectURL(await response.blob());
+        const link = h("a", { href, download: "ventas-" + from + "-" + to + ".csv" });
+        document.body.append(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(href), 1000);
+        toast("Descargamos tu reporte de ventas.");
+      } catch { toast("No pudimos descargar el reporte.", true); }
     };
 
     const consult = async () => {
       error.textContent = "";
       const from = fromInput.value, to = toInput.value, sede = sedeSelect.value;
       if (!from || !to) { error.textContent = "Elige la fecha inicial y final."; return; }
+      lastSpanDays = daySpan(from, to);
+      showAllProducts = false;
       const query = "reports/sales?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to) +
         (sede ? "&sede_id=" + encodeURIComponent(sede) : "");
       const response = await api(query);
@@ -3534,15 +3683,29 @@ function runtime() {
       render(response.data || {});
     };
 
+    const quickRange = (label, from, to) => btn(label, "btn small", () => {
+      fromInput.value = from;
+      toInput.value = to;
+      consult();
+    });
+    const monthStart = today.slice(0, 8) + "01";
+
     V.replaceChildren(h("section", { class: "screen" },
       h("div", { class: "page-head" }, h("div", {}, h("h1", { text: "Reportes" }),
-        h("p", { class: "muted small", text: "Solo pedidos cobrados · montos en centavos · hora de Ecuador" }))),
+        h("p", { class: "muted small", text: "Solo pedidos cobrados · hora de Ecuador · montos sin IVA y cobrados con IVA" }))),
       h("section", { class: "card" },
+        h("div", { class: "actions" },
+          quickRange("Hoy", today, today),
+          quickRange("Ayer", ecDay(Date.now() - 86400000), ecDay(Date.now() - 86400000)),
+          quickRange("Últimos 7 días", weekAgo, today),
+          quickRange("Este mes", monthStart, today)),
         h("div", { class: "grid2" },
           h("label", { class: "field" }, h("span", { text: "Desde" }), fromInput),
           h("label", { class: "field" }, h("span", { text: "Hasta" }), toInput),
           h("label", { class: "field" }, h("span", { text: "Sede" }), sedeSelect)),
-        h("div", { class: "form-actions" }, btn("Consultar", "btn primary small", consult)),
+        h("div", { class: "form-actions" },
+          btn("Consultar", "btn primary small", consult),
+          btn("Descargar CSV", "btn small", downloadCsv)),
         error),
       result));
     await consult();
@@ -3561,6 +3724,7 @@ function runtime() {
     const totals = data.totals || {};
     const views = Number(totals.views) || days.reduce((s, d) => s + (Number(d.views) || 0), 0);
     const orders = Number(totals.orders) || days.reduce((s, d) => s + (Number(d.orders) || 0), 0);
+    const salesCents = Number(totals.sales_cents) || days.reduce((s, d) => s + (Number(d.sales_cents) || 0), 0);
     const max = Math.max(1, ...days.map(d => Math.max(Number(d.views) || 0, Number(d.orders) || 0)));
     const bars = days.map(d => {
       const v = Number(d.views) || 0, o = Number(d.orders) || 0;
@@ -3573,25 +3737,42 @@ function runtime() {
       ? h("div", { class: "chart" },
         h("div", { class: "legend" },
           h("span", { class: "key", text: "Visitas" }),
-          h("span", { class: "key o", text: "Pedidos" })),
+          h("span", { class: "key o", text: "Pedidos pagados" })),
         h("div", { class: "bars", role: "img", "aria-label": "Visitas y pedidos de los últimos " + days.length + " días" }, bars),
         h("div", { class: "axis" },
           h("span", { text: fmtDay(days[0].day) }),
           h("span", { text: fmtDay(days[days.length - 1].day) })))
       : h("p", { class: "muted small", text: "Todavía no hay datos de visitas ni pedidos." });
 
+    // Ventas cobradas por día (POS). Se dibuja aparte porque su unidad es dinero.
+    const salesMax = Math.max(1, ...days.map(d => Number(d.sales_cents) || 0));
+    const salesBars = days.map(d => h("div", { class: "bar-col", "aria-hidden": "true",
+      title: fmtDay(d.day) + ": " + money((Number(d.sales_cents) || 0) / 100) },
+      h("div", { class: "bar sale", style: "height:" + Math.round(((Number(d.sales_cents) || 0) / salesMax) * 100) + "%" })));
+    const salesChart = salesCents > 0
+      ? h("div", { class: "chart" },
+        h("div", { class: "legend" }, h("span", { class: "key sale", text: "Ventas cobradas" })),
+        h("div", { class: "bars", role: "img", "aria-label": "Ventas cobradas de los últimos " + days.length + " días" }, salesBars),
+        h("div", { class: "axis" },
+          h("span", { text: fmtDay(days[0]?.day) }),
+          h("span", { text: fmtDay(days[days.length - 1]?.day) })))
+      : null;
+
     const loyalty = data.loyalty && typeof data.loyalty === "object" ? data.loyalty : null;
 
     V.replaceChildren(h("section", { class: "screen" },
       h("div", { class: "page-head" }, h("div", {}, h("h1", { text: "Resultados" }),
-        h("p", { class: "muted small", text: "Últimos 30 días · hora de Ecuador" }))),
+        h("p", { class: "muted small", text: "Últimos 30 días · visitas del menú · pedidos y ventas del POS · hora de Ecuador" }))),
       h("section", { class: "card" },
         h("div", { class: "kpis" },
+          h("div", { class: "kpi" }, h("span", { class: "kpi-n", text: money(salesCents / 100) }), h("span", { class: "kpi-l", text: "Ventas cobradas" })),
+          h("div", { class: "kpi" }, h("span", { class: "kpi-n", text: String(orders) }), h("span", { class: "kpi-l", text: "Pedidos pagados" })),
           h("div", { class: "kpi" }, h("span", { class: "kpi-n", text: String(views) }), h("span", { class: "kpi-l", text: "Visitas" })),
-          h("div", { class: "kpi" }, h("span", { class: "kpi-n", text: String(orders) }), h("span", { class: "kpi-l", text: "Pedidos" })),
           h("div", { class: "kpi" }, h("span", { class: "kpi-n", text: views ? (orders / views * 100).toFixed(1) + "%" : "—" }), h("span", { class: "kpi-l", text: "Conversión" })),
           h("div", { class: "kpi" }, h("span", { class: "kpi-n", text: String(me.loyalty_enabled ? "Activo" : "Apagado") }), h("span", { class: "kpi-l", text: "Club" }))),
-        chart),
+        chart,
+        salesChart,
+        h("div", { class: "actions" }, btn("Ver reporte de ventas", "btn small", () => go("reports")))),
       loyalty ? h("section", { class: "card" },
         h("h2", { text: "Club de fidelidad" }),
         h("div", { class: "kpis" },

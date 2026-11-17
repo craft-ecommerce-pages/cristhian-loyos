@@ -62,14 +62,15 @@ test("statsFor: serie completa de días (con ceros) desde hoy-hace days-1 hasta 
 
   const s = await statsFor(env, "demo", 4);
   assert.deepEqual(s.days.map(d => d.day), [3, 2, 1, 0].map(i => dayOf(Date.now() - i * DAY_MS)));
-  assert.deepEqual(s.days.map(d => [d.views, d.orders]), [[0, 0], [5, 0], [0, 0], [1, 1]]);
-  assert.deepEqual(s.totals, { views: 6, orders: 1 });
+  // Los "pedidos" ya no salen de events_daily (contador del menú anterior): solo del POS.
+  assert.deepEqual(s.days.map(d => [d.views, d.orders]), [[0, 0], [5, 0], [0, 0], [1, 0]]);
+  assert.deepEqual(s.totals, { views: 6, orders: 0, sales_cents: 0 });
   assert.deepEqual(s.loyalty, { customers: 0, plays: 0 });
 
   // Los días fuera de la ventana y las filas de otro slug no cuentan.
   env.DB.raw.prepare("INSERT INTO events_daily (slug, day, views, orders) VALUES (?, ?, ?, ?)").run("demo", dayOf(Date.now() - 40 * DAY_MS), 100, 100);
   env.DB.raw.prepare("INSERT INTO events_daily (slug, day, views, orders) VALUES (?, ?, ?, ?)").run("otro", dayOf(Date.now()), 9, 9);
-  assert.deepEqual((await statsFor(env, "demo", 4)).totals, { views: 6, orders: 1 });
+  assert.deepEqual((await statsFor(env, "demo", 4)).totals, { views: 6, orders: 0, sales_cents: 0 });
 });
 
 test("statsFor: days se limita a 1..90 y un valor inválido cae a 30", async () => {
@@ -80,10 +81,10 @@ test("statsFor: days se limita a 1..90 y un valor inválido cae a 30", async () 
   // Sin eventos también devuelve la serie completa en ceros.
   const vacio = await statsFor(env, "nadie", 30);
   assert.equal(vacio.days.length, 30);
-  assert.deepEqual(vacio.totals, { views: 0, orders: 0 });
+  assert.deepEqual(vacio.totals, { views: 0, orders: 0, sales_cents: 0 });
   // D1 caído ⇒ ceros, no excepción.
   const roto = { ...env, DB: { prepare() { throw new Error("D1 caído"); } } };
-  assert.deepEqual((await statsFor(roto, "demo", 2)).totals, { views: 0, orders: 0 });
+  assert.deepEqual((await statsFor(roto, "demo", 2)).totals, { views: 0, orders: 0, sales_cents: 0 });
 });
 
 test("statsFor: loyalty {customers, plays} y null si falla, no es ok, no hay binding o falta el token", async () => {
