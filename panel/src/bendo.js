@@ -19,6 +19,10 @@ const REF_RE = /^[A-Za-z0-9]{15}$/;
 const IDEM_RE = /^[A-Za-z0-9_.:-]{8,100}$/;
 const SIGNATURE_RE = /^[0-9a-f]{32}$/;
 const MOCK_RESULTS = new Set(["aprobado", "rechazado", "timeout"]);
+// Moneda del link verificada contra la API real: Bendo devuelve el código ISO 4217
+// numérico (`"840"`) en producción, no `"USD"`. Se aceptan las tres formas y
+// cualquier otra moneda sigue siendo un mismatch (032 = ARS, 986 = BRL, …).
+const USD_CURRENCIES = new Set(["USD", "840", 840]);
 const STATUS_PATH = { aprobado: "aprobado", rechazado: "rechazado", pendiente: "pendiente" };
 const BENDO_TIMEOUT_MS = 10_000;
 const POS_CACHE_TTL_SECONDS = 24 * 60 * 60;
@@ -75,7 +79,8 @@ export function bendoOutcome(link, payment) {
   if (!expectedId || String(link.id ?? "") !== expectedId) return "mismatch";
   const amount = Number(link.amount);
   if (!Number.isFinite(amount) || Math.round(amount * 100) !== Number(payment.amount_cents)) return "mismatch";
-  if (link.currency != null && link.currency !== "USD") return "mismatch";
+  const currency = typeof link.currency === "string" ? link.currency.trim() : link.currency;
+  if (currency != null && !USD_CURRENCIES.has(currency)) return "mismatch";
   const payments = Array.isArray(link.payments) ? link.payments.filter(item => item && typeof item === "object") : [];
   // Una devolución exige revisión manual: nunca se marca pagado ni rechazado solo.
   // Se comprueba antes que APPROVED para que un reembolso parcial no se dé por cobrado.
