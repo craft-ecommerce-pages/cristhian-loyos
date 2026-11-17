@@ -414,6 +414,22 @@
     .billing-fields{display:flex;flex-direction:column;gap:14px;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm)}
     .billing-fields[hidden]{display:none}
     .billing-note{font-size:12px;line-height:1.45;color:var(--text-soft)}
+    .billing-cta{display:flex;flex-direction:column;gap:6px}
+    .billing-toggle{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600;color:var(--text);cursor:pointer}
+    .billing-toggle input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
+    .billing-toggle-track{position:relative;flex-shrink:0;width:42px;height:24px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border-2);transition:background .18s,border-color .18s}
+    .billing-toggle-track::after{content:'';position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:var(--text);transition:transform .18s}
+    .billing-toggle input:checked + .billing-toggle-track{background:var(--primary);border-color:var(--primary)}
+    .billing-toggle input:checked + .billing-toggle-track::after{transform:translateX(18px);background:#fff}
+    .billing-toggle input:focus-visible + .billing-toggle-track{outline:2px solid var(--primary);outline-offset:2px}
+    .billing-toggle input:disabled + .billing-toggle-track{opacity:.7}
+    .billing-toggle-text{line-height:1.35}
+    .billing-consumer,.billing-required{font-size:12px;line-height:1.45;color:var(--text-soft)}
+    .billing-consumer[hidden],.billing-required[hidden]{display:none}
+    .billing-required{color:#ffd27a}
+    .payment-unavailable{font-size:13px;line-height:1.5;color:#ffb4b4;padding:10px 12px;border-radius:12px;border:1px solid color-mix(in srgb,var(--out-of-stock) 28%,transparent);background:color-mix(in srgb,var(--out-of-stock) 10%,transparent)}
+    .payment-unavailable[hidden]{display:none}
+    #fieldPayment[hidden]{display:none}
     .notify-note{font-size:12.5px;line-height:1.45;color:var(--text-soft);text-align:center}
     .notify-note[hidden]{display:none}
 
@@ -644,7 +660,7 @@
     .thanks-head{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;padding:6px 0}
     .thanks-kicker{font-size:11.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
     .thanks-title{font-size:clamp(24px,6vw,32px);font-weight:800;line-height:1.1}
-    .thanks-number{font-size:20px;font-weight:800;letter-spacing:.05em}
+    .thanks-number{font-size:clamp(30px,9vw,44px);font-weight:900;letter-spacing:-.01em;line-height:1.05}
     .thanks-sede{font-size:13px;color:var(--text-soft)}
     .thanks-badge{display:inline-flex;align-items:center;padding:6px 14px;border-radius:999px;font-size:12.5px;font-weight:700;border:1px solid var(--border-2);color:var(--text-soft)}
     .thanks-badge.ok{background:color-mix(in srgb,var(--wa) 18%,transparent);border-color:color-mix(in srgb,var(--wa) 45%,transparent);color:#8af0af}

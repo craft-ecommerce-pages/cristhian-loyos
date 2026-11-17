@@ -194,12 +194,12 @@ test('payment-options.bendo habilita "Tarjeta de crédito o débito" en el check
   assert.equal(option.textContent,'Tarjeta de crédito o débito');
 });
 
-test('sin bendo en payment-options la opción queda visible pero deshabilitada',async()=>{
+test('sin bendo en payment-options la tarjeta no se ofrece',async()=>{
   const m=menu({fetchImpl:async()=>({body:receipt}),bendo:false});await m.ready();await m.ready();
-  const option=m.option('bendo');
-  assert.ok(option);
-  assert.equal(option.disabled,true);
-  assert.equal(option.textContent,'Tarjeta de crédito o débito (no disponible)');
+  assert.equal(m.option('bendo'),null); // solo se muestran los métodos habilitados
+  assert.ok(m.option('cash'));
+  // La transferencia también exige cuenta oficial completa: sin datos bancarios no aparece.
+  assert.equal(m.option('transfer'),null);
 });
 
 test('checkout con bendo crea el pedido, inicia el pago y redirige al payment_url',async()=>{
