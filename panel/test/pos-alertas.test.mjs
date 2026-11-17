@@ -195,12 +195,12 @@ test("la primera carga no suena y un pedido web nuevo pita y vibra una vez", asy
   assert.match(root.textContent, /#33/, "en Pedidos la lista sí se repinta sola");
 });
 
-test("la insignia cuenta solo pedidos web pendientes o confirmados", async () => {
+test("la insignia cuenta los pedidos web en curso, incluidos los pagados con tarjeta", async () => {
   const orders = [
     order({ id: "w-pend", status: "pending", source: "web" }),
     order({ id: "w-conf", status: "confirmed", source: "web" }),
-    order({ id: "w-pago", status: "paid", source: "web" }),
-    order({ id: "w-listo", status: "ready", source: "web" }),
+    order({ id: "w-pago", status: "paid", source: "web", ready_at: null }),
+    order({ id: "w-listo", status: "ready", source: "web", ready_at: Date.now() }),
     order({ id: "c-pend", status: "pending", source: "caja" }),
     order({ id: "w-rech", status: "rejected", source: "web" }),
   ];
@@ -209,11 +209,11 @@ test("la insignia cuenta solo pedidos web pendientes o confirmados", async () =>
 
   const badge = find(root, node => node.classList && node.classList.contains("tab-badge"));
   assert.ok(badge, "la pestaña Pedidos trae insignia");
-  assert.equal(badge.textContent, "2", "solo pendiente y confirmado web");
+  assert.equal(badge.textContent, "3", "pendiente, confirmado y pagado sin listo");
   assert.equal(badge.hidden, false);
-  assert.equal(doc.title, "(2) Caja · Pizza");
+  assert.equal(doc.title, "(3) Caja · Pizza");
   const tab = find(root, node => node.tagName === "button" && node.textContent.startsWith("Pedidos"));
-  assert.equal(tab.getAttribute("aria-label"), "Pedidos, 2 web sin atender");
+  assert.equal(tab.getAttribute("aria-label"), "Pedidos, 3 web en curso");
 
   // Sin web esperando, la insignia desaparece y el título vuelve al original.
   const soloCaja = [order({ id: "c-1", status: "pending", source: "caja" })];
@@ -257,6 +257,8 @@ test("el sondeo no se solapa con la consulta en curso", async () => {
   const fetchImpl = async (url) => {
     if (String(url).includes("/panel/api/turnos/")) return Response.json({ shift: null });
     orderCalls++;
+    // La carga inicial de la sede responde al instante; los sondeos se retienen.
+    if (orderCalls === 1) return Response.json({ orders: [order()] });
     await gate;
     return Response.json({ orders: [order()] });
   };
@@ -267,7 +269,7 @@ test("el sondeo no se solapa con la consulta en curso", async () => {
   release();
   await Promise.all([first, second]);
   await flush();
-  assert.equal(orderCalls, 2, "una sola recarga (legacy + sede) aunque se dispare dos veces");
+  assert.equal(orderCalls, 2, "carga inicial + una sola recarga aunque se dispare dos veces");
 });
 
 test("la transferencia muestra número corto y monto exactos para conciliar", async () => {

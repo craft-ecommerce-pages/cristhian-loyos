@@ -274,7 +274,7 @@ test("tarjetas muestran cliente, hora y total; el constructor bloquea agotados",
   const html = await renderMeseroPage(new Request("https://pizza.craft-systems.com/panel/mesero"), env, site);
   const order = (extra) => ({ id: "x", status: "pending", items: [], total: 18.5, created_at: 0, ...extra });
   const window = runtimeFrom(html, async url => {
-    if (String(url).endsWith("/me")) return Response.json({ staff: { id: "owner", name: "Dueño" }, store: { currency: "USD" } });
+    if (String(url).endsWith("/me")) return Response.json({ staff: { id: "owner", name: "Dueño" }, store: { currency: "USD" }, sedes: [{ id: "centro", nombre: "Centro" }] });
     if (String(url).endsWith("/catalog")) {
       return Response.json({ categories: [], variant_groups: [], products: [
         { id: "a", name: "Pizza", price: "10", active: true, catalog_visible: true, stock: null },

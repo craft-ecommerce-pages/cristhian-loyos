@@ -52,7 +52,7 @@ export async function renderMeseroPage(request, env, site) {
 <main id="mesero" class="wrap"><div class="boot" role="status"><span class="spin" aria-hidden="true"></span>
 Cargando caja…</div></main>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
-<script id="meseroData">var __name=function(f){return f};window.__MESERO__=${inline({ store, boot })};</script>
+<script id="meseroData">var __name=function(f){return f};window.__MESERO__=${inline({ store, slug, boot })};</script>
 <script id="meseroTicket">var __ticket=${String(ticketLines)};window.__meseroTicket=__ticket;</script>
 <script id="meseroColumns">var __columns=${String(ticketColumns)};window.__meseroColumns=__columns;</script>
 <script id="meseroHeight">var __height=${String(ticketPageHeight)};window.__meseroHeight=__height;</script>
@@ -165,6 +165,15 @@ box-shadow:0 1px 3px rgba(0,0,0,.06)}
 .empty{padding:25px 10px;
 text-align:center;
 color:var(--muted)}
+.sede-alert{margin:16px 0;
+padding:22px 18px;
+border:2px solid #b3261e;
+border-radius:14px;
+background:#fff4f2;
+color:#8a1f12;
+font-size:18px;
+font-weight:750;
+text-align:center}
 .btn{display:inline-flex;
 align-items:center;
 justify-content:center;
@@ -687,7 +696,7 @@ function meseroRuntime() {
     orders = [],
     sedes = [],
     sede = "",
-    filter = "pending",
+    filter = "active",
     tab = "orders",
     builder = null,
     busy = false,
@@ -1055,17 +1064,25 @@ function meseroRuntime() {
       ? "#" + String(order.number)
       : "#" + text(order?.id).slice(-4);
   }
+  // La sede se recuerda por tienda: `pos_sede:<slug>`, sin romper si el
+  // navegador restringe localStorage (modo privado o kiosco).
+  const storeSlug = text(S.slug);
+  const sedeStorageKey = "pos_sede:" + (storeSlug || "sin-slug");
   function storedSede() {
     try {
-      return text(localStorage.getItem("mesero.sede"));
+      // `mesero.sede` fue la clave anterior: se lee como respaldo una sola vez.
+      return (
+        text(localStorage.getItem(sedeStorageKey)) ||
+        text(localStorage.getItem("mesero.sede"))
+      );
     } catch {
       return "";
     }
   }
   function rememberSede(id) {
     try {
-      if (id) localStorage.setItem("mesero.sede", id);
-      else localStorage.removeItem("mesero.sede");
+      if (id) localStorage.setItem(sedeStorageKey, id);
+      else localStorage.removeItem(sedeStorageKey);
     } catch {
       /* navegador restringido */
     }
@@ -1303,6 +1320,10 @@ function meseroRuntime() {
       catalog = boot.catalog || { products: [] };
       orders = Array.isArray(boot.orders) ? boot.orders : [];
       applySedes();
+      // Con sede elegida se consulta el estado vigente: un pago con tarjeta
+      // nace `paid` y no aparece en la carga inicial de pendientes.
+      if (sede) await loadOrders();
+      else orders = [];
       await loadShift();
       primeAlerts();
       render();
@@ -1327,7 +1348,10 @@ function meseroRuntime() {
       .filter((item) => item && text(item.id))
       .map((item) => ({ id: text(item.id), nombre: text(item.nombre) }));
     const saved = storedSede();
-    sede = sedes.some((item) => item.id === saved) ? saved : "";
+    // Una sola sede permitida: se elige sola. Con varias se restaura la última.
+    if (sedes.length === 1) sede = sedes[0].id;
+    else sede = sedes.some((item) => item.id === saved) ? saved : "";
+    if (sede) rememberSede(sede);
   }
   function sessionExpired() {
     me = null;
@@ -1340,6 +1364,11 @@ function meseroRuntime() {
     if (result.status === 200) catalog = result.data || { products: [] };
   }
   async function loadOrders() {
+    // Sin sede no se consultan pedidos con sede: la pantalla pide elegirla.
+    if (!sede) {
+      orders = [];
+      return;
+    }
     const legacyStatus = ["pending", "confirmed", "all"].includes(filter)
       ? filter
       : "";
@@ -1347,15 +1376,13 @@ function meseroRuntime() {
       legacyStatus
         ? call("orders?status=" + encodeURIComponent(legacyStatus) + "&limit=50")
         : null,
-      sede
-        ? call(
-            "orders?sede_id=" +
-              encodeURIComponent(sede) +
-              "&status=" +
-              encodeURIComponent(filter) +
-              "&limit=50",
-          )
-        : null,
+      call(
+        "orders?sede_id=" +
+          encodeURIComponent(sede) +
+          "&status=" +
+          encodeURIComponent(filter) +
+          "&limit=50",
+      ),
     ];
     const results = await Promise.all(jobs.filter(Boolean));
     if (results.some((result) => result.status === 401)) return sessionExpired();
@@ -1368,11 +1395,13 @@ function meseroRuntime() {
         );
       else if (result.status) failed = true;
     }
-    if (failed && !merged.length) {
+    if (failed && !merged.length && !results.some((result) => result.status === 200)) {
+      // Un corte de red no vacía la lista que el cajero ya tenía en pantalla.
       toast(
         message(results.find((result) => result.status), "No pudimos actualizar los pedidos."),
         true,
       );
+      return;
     }
     const seen = new Set();
     orders = merged
@@ -1382,7 +1411,13 @@ function meseroRuntime() {
         seen.add(id);
         return true;
       })
-      .sort((a, b) => amount(b?.created_at) - amount(a?.created_at));
+      // FIFO en curso: lo más antiguo primero. Los demás filtros muestran lo
+      // más reciente arriba, como hasta ahora.
+      .sort((a, b) =>
+        filter === "active"
+          ? amount(a?.created_at) - amount(b?.created_at)
+          : amount(b?.created_at) - amount(a?.created_at),
+      );
   }
   // ── Avisos de pedidos web ──────────────────────────────────────────────────
   // El cliente pide desde el menú y el pedido llega a la caja: sin recargar, el
@@ -1395,9 +1430,17 @@ function meseroRuntime() {
   };
   const waitingStatus = (order) =>
     ["pending", "confirmed"].includes(text(order?.status));
-  // Pedidos web que todavía esperan al cajero (pendientes o por cobrar).
+  // En curso: pendiente/confirmado por cobrar, o pagado que aún no se marca
+  // listo. Un pago con tarjeta nace `paid` y también espera al cajero.
+  const inCourseStatus = (order) => {
+    const status = text(order?.status);
+    return (
+      waitingStatus(order) || (status === "paid" && order?.ready_at == null)
+    );
+  };
+  // Pedidos web que todavía esperan al cajero (por cobrar o por entregar).
   function webWaiting() {
-    return orders.filter((order) => waitingStatus(order) && isWebOrder(order))
+    return orders.filter((order) => inCourseStatus(order) && isWebOrder(order))
       .length;
   }
   function paintTitle() {
@@ -1539,7 +1582,7 @@ function meseroRuntime() {
           class: "btn " + (tab === "orders" ? "selected" : ""),
           onclick: () => goTab("orders"),
           "aria-label": waiting
-            ? "Pedidos, " + waiting + " web sin atender"
+            ? "Pedidos, " + waiting + " web en curso"
             : "Pedidos",
         },
         "Pedidos",
@@ -1558,9 +1601,9 @@ function meseroRuntime() {
     return name;
   }
   const STATE_LABEL = {
-    pending: "Pendiente · sin comanda",
-    confirmed: "Confirmado · falta cobro",
-    paid: "Pago confirmado",
+    pending: "Por cobrar",
+    confirmed: "Por cobrar",
+    paid: "Pagado · en cocina",
     ready: "Listo para avisar",
     rejected: "Rechazado",
   };
@@ -2188,9 +2231,11 @@ function meseroRuntime() {
     const state = text(order.status) || "pending";
     const pos = isPosOrder(order);
     const items = Array.isArray(order.items) ? order.items : [];
+    // Origen claro para el cajero: el pedido nació en el menú (Web) o lo digitó
+    // la caja (Caja). Los históricos de mesero también son Caja.
+    const rawSource = fold(text(order.source));
     const source =
-      { mesa: "Web", mesero: "Mesero", caja: "Caja", web: "Web" }[order.source] ||
-      "Web";
+      rawSource === "caja" || rawSource === "mesero" ? "Caja" : "Web";
     const actions = [];
     if (state === "pending") {
       actions.push(button("Editar", "btn small", () => edit(order)));
@@ -2346,8 +2391,8 @@ function meseroRuntime() {
   }
   function ordersScreen() {
     const filters = [
+      ["active", "En curso"],
       ["pending", "Pendientes"],
-      ["confirmed", "Por cobrar"],
       ["paid", "Pagados"],
       ["all", "Todos"],
     ];
@@ -2367,9 +2412,21 @@ function meseroRuntime() {
         class: "hint",
         text: sede
           ? "Caja y cocina de " + sedeLabel(sede) + "."
-          : "Elige la sede para ver y cobrar los pedidos con sede. Sin sede solo ves los pedidos del menú anterior.",
+          : "Elige tu sede para ver y cobrar los pedidos.",
       }),
     );
+    // Sin sede no hay lista: se pide elegirla con un aviso grande y visible.
+    if (!sede)
+      return h(
+        "section",
+        {},
+        sedeField,
+        h("p", {
+          class: "sede-alert",
+          role: "status",
+          text: "Elige tu sede para ver los pedidos",
+        }),
+      );
     return h(
       "section",
       {},
@@ -2952,12 +3009,18 @@ function meseroRuntime() {
     toast("+1 " + item.nombre);
   }
   // El servidor devuelve el pedido actualizado: se reemplaza en la lista sin volver a pedirla.
+  const matchesFilter = (order) =>
+    filter === "all"
+      ? true
+      : filter === "active"
+        ? inCourseStatus(order)
+        : text(order?.status) === filter;
   function upsert(order) {
     if (!order?.id) return loadOrders();
-    const keep = filter === "all" || order.status === filter;
+    const keep = matchesFilter(order);
     const at = orders.findIndex((item) => item.id === order.id);
     if (at >= 0) keep ? (orders[at] = order) : orders.splice(at, 1);
-    else if (keep) orders.unshift(order);
+    else if (keep) filter === "active" ? orders.push(order) : orders.unshift(order);
   }
   // Mientras viaja el request el botón queda en "…" y no acepta otro toque.
   async function act(buttonEl, run) {
@@ -3074,7 +3137,7 @@ function meseroRuntime() {
     repaintItems = null;
     query = "";
     tab = "orders";
-    filter = "pending";
+    filter = "active";
     await loadOrders();
     const createdOrder = created ? orders.find((order) => order.id === result.data?.id) : null;
     toast(created ? "Pedido creado. Confirma el cobro para enviar la comanda." : "Pedido " + shortNumber(saved || {}) + " guardado");
@@ -3202,6 +3265,7 @@ function meseroRuntime() {
           true,
         );
       const updated = result.data?.order;
+      filter = "active";
       if (updated) upsert(updated);
       else await loadOrders();
       closeSheet();
@@ -3295,6 +3359,7 @@ function meseroRuntime() {
         return;
       }
       const updated = result.data?.order;
+      filter = "active";
       closeSheet();
       if (H) H.replaceState({ m: "orders" }, "");
       if (updated) upsert(updated);
