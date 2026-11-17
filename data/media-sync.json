@@ -1,92 +1,151 @@
 {
  "images": {
-  "tradicional-majado-camaron": [
-   "/media/panel/cristhian-loyos/products/tradicional-majado-camaron.webp"
+  "sushi-avocado-10": [
+   "/media/panel/cristhian-loyos/products/sushi-avocado-10.webp"
   ],
-  "tradicional-majado-huevo": [
-   "/media/panel/cristhian-loyos/products/tradicional-majado-huevo.webp"
+  "sushi-avocado-5": [
+   "/media/panel/cristhian-loyos/products/sushi-avocado-5.webp"
   ],
-  "tradicional-majado-queso": [
-   "/media/panel/cristhian-loyos/products/tradicional-majado-queso.webp"
+  "sushi-california-10": [
+   "/media/panel/cristhian-loyos/products/sushi-california-10.webp"
   ],
-  "tradicional-majado-chicharron": [
-   "/media/panel/cristhian-loyos/products/tradicional-majado-chicharron.webp"
+  "sushi-california-5": [
+   "/media/panel/cristhian-loyos/products/sushi-california-5.webp"
   ],
-  "tradicional-majado-ceviche": [
-   "/media/panel/cristhian-loyos/products/tradicional-majado-ceviche.webp"
+  "sushi-champilover-10": [
+   "/media/panel/cristhian-loyos/products/sushi-champilover-10.webp"
   ],
-  "tradicional-bolon-camaron": [
-   "/media/panel/cristhian-loyos/products/tradicional-bolon-camaron.webp"
+  "sushi-champilover-5": [
+   "/media/panel/cristhian-loyos/products/sushi-champilover-5.webp"
   ],
-  "tradicional-bolon-chicharron": [
-   "/media/panel/cristhian-loyos/products/tradicional-bolon-chicharron.webp"
+  "sushi-coco-roll-10": [
+   "/media/panel/cristhian-loyos/products/sushi-coco-roll-10.webp"
   ],
-  "tradicional-bolon-queso": [
-   "/media/panel/cristhian-loyos/products/tradicional-bolon-queso.webp"
+  "sushi-coco-roll-5": [
+   "/media/panel/cristhian-loyos/products/sushi-coco-roll-5.webp"
   ],
-  "tradicional-bolon-mixto": [
-   "/media/panel/cristhian-loyos/products/tradicional-bolon-mixto.webp"
+  "sushi-combo-15": [
+   "/media/panel/cristhian-loyos/products/sushi-combo-15.webp"
   ],
-  "tradicional-tortillas-camaron": [
-   "/media/panel/cristhian-loyos/products/tradicional-tortillas-camaron.webp"
+  "sushi-crocante-10": [
+   "/media/panel/cristhian-loyos/products/sushi-crocante-10.webp"
   ],
-  "tradicional-tortillas-carne": [
-   "/media/panel/cristhian-loyos/products/tradicional-tortillas-carne.webp"
+  "sushi-crocante-5": [
+   "/media/panel/cristhian-loyos/products/sushi-crocante-5.webp"
   ],
-  "tradicional-tortillas-arroz-estofado": [
-   "/media/panel/cristhian-loyos/products/tradicional-tortillas-arroz-estofado.webp"
+  "sushi-dragon-5": [
+   "/media/panel/cristhian-loyos/products/sushi-dragon-5.webp"
   ],
-  "tradicional-papas-queso-pollo": [
-   "/media/panel/cristhian-loyos/products/tradicional-papas-queso-pollo.webp"
+  "sushi-ebyoshii-10": [
+   "/media/panel/cristhian-loyos/products/sushi-ebyoshii-10.webp"
   ],
-  "tradicional-patacones-solos-ensalada": [
-   "/media/panel/cristhian-loyos/products/tradicional-patacones-solos-ensalada.webp"
+  "sushi-ebyoshii-5": [
+   "/media/panel/cristhian-loyos/products/sushi-ebyoshii-5.webp"
   ],
-  "tradicional-papa-rellena-camaron": [
-   "/media/panel/cristhian-loyos/products/tradicional-papa-rellena-camaron.webp"
+  "sushi-filadelfia-10": [
+   "/media/panel/cristhian-loyos/products/sushi-filadelfia-10.webp"
   ],
-  "tradicional-papa-rellena-carne": [
-   "/media/panel/cristhian-loyos/products/tradicional-papa-rellena-carne.webp"
+  "sushi-filadelfia-5": [
+   "/media/panel/cristhian-loyos/products/sushi-filadelfia-5.webp"
   ],
-  "tradicional-arroz-moro-ceviche-camaron": [
-   "/media/panel/cristhian-loyos/products/tradicional-arroz-moro-ceviche-camaron.webp"
+  "sushi-kani-maki-10": [
+   "/media/panel/cristhian-loyos/products/sushi-kani-maki-10.webp"
   ],
-  "tradicional-arroz-moro-ceviche-pescado": [
-   "/media/panel/cristhian-loyos/products/tradicional-arroz-moro-ceviche-pescado.webp"
+  "sushi-kani-maki-5": [
+   "/media/panel/cristhian-loyos/products/sushi-kani-maki-5.webp"
   ],
-  "tradicional-arroz-moro-ceviche-mixto": [
-   "/media/panel/cristhian-loyos/products/tradicional-arroz-moro-ceviche-mixto.webp"
+  "sushi-kaniroll-10": [
+   "/media/panel/cristhian-loyos/products/sushi-kaniroll-10.webp"
   ],
-  "tradicional-arroz-moro-huevo": [
-   "/media/panel/cristhian-loyos/products/tradicional-arroz-moro-huevo.webp"
+  "sushi-kaniroll-5": [
+   "/media/panel/cristhian-loyos/products/sushi-kaniroll-5.webp"
+  ],
+  "sushi-maguro-roll-10": [
+   "/media/panel/cristhian-loyos/products/sushi-maguro-roll-10.webp"
+  ],
+  "sushi-maguro-roll-5": [
+   "/media/panel/cristhian-loyos/products/sushi-maguro-roll-5.webp"
+  ],
+  "sushi-maki-suri-10": [
+   "/media/panel/cristhian-loyos/products/sushi-maki-suri-10.webp"
+  ],
+  "sushi-maki-suri-5": [
+   "/media/panel/cristhian-loyos/products/sushi-maki-suri-5.webp"
+  ],
+  "sushi-oshiisake-10": [
+   "/media/panel/cristhian-loyos/products/sushi-oshiisake-10.webp"
+  ],
+  "sushi-oshiisake-5": [
+   "/media/panel/cristhian-loyos/products/sushi-oshiisake-5.webp"
+  ],
+  "sushi-roll-acevichado-10": [
+   "/media/panel/cristhian-loyos/products/sushi-roll-acevichado-10.webp"
+  ],
+  "sushi-roll-acevichado-5": [
+   "/media/panel/cristhian-loyos/products/sushi-roll-acevichado-5.webp"
+  ],
+  "sushi-roll-parrillero-10": [
+   "/media/panel/cristhian-loyos/products/sushi-roll-parrillero-10.webp"
+  ],
+  "sushi-roll-parrillero-5": [
+   "/media/panel/cristhian-loyos/products/sushi-roll-parrillero-5.webp"
+  ],
+  "sushi-sakeroll-10": [
+   "/media/panel/cristhian-loyos/products/sushi-sakeroll-10.webp"
+  ],
+  "sushi-sakeroll-5": [
+   "/media/panel/cristhian-loyos/products/sushi-sakeroll-5.webp"
+  ],
+  "sushi-surimaque-10": [
+   "/media/panel/cristhian-loyos/products/sushi-surimaque-10.webp"
+  ],
+  "sushi-surimaque-5": [
+   "/media/panel/cristhian-loyos/products/sushi-surimaque-5.webp"
+  ],
+  "sushi-sweetsuri-10": [
+   "/media/panel/cristhian-loyos/products/sushi-sweetsuri-10.webp"
+  ],
+  "sushi-sweetsuri-5": [
+   "/media/panel/cristhian-loyos/products/sushi-sweetsuri-5.webp"
   ]
  },
  "files": [
-  "sushi-combo-10.webp",
+  "combo-burger.webp",
+  "sushi-avocado-10.webp",
+  "sushi-avocado-5.webp",
+  "sushi-california-10.webp",
+  "sushi-california-5.webp",
+  "sushi-champilover-10.webp",
+  "sushi-champilover-5.webp",
+  "sushi-coco-roll-10.webp",
+  "sushi-coco-roll-5.webp",
   "sushi-combo-15.webp",
-  "sushi-combo-20.webp",
-  "sushi-combo-30.webp",
-  "sushi-combo-40.webp",
-  "sushi-combo-50.webp",
-  "tradicional-arroz-moro-ceviche-camaron.webp",
-  "tradicional-arroz-moro-ceviche-mixto.webp",
-  "tradicional-arroz-moro-ceviche-pescado.webp",
-  "tradicional-arroz-moro-huevo.webp",
-  "tradicional-bolon-camaron.webp",
-  "tradicional-bolon-chicharron.webp",
-  "tradicional-bolon-mixto.webp",
-  "tradicional-bolon-queso.webp",
-  "tradicional-majado-camaron.webp",
-  "tradicional-majado-ceviche.webp",
-  "tradicional-majado-chicharron.webp",
-  "tradicional-majado-huevo.webp",
-  "tradicional-majado-queso.webp",
-  "tradicional-papa-rellena-camaron.webp",
-  "tradicional-papa-rellena-carne.webp",
-  "tradicional-papas-queso-pollo.webp",
-  "tradicional-patacones-solos-ensalada.webp",
-  "tradicional-tortillas-arroz-estofado.webp",
-  "tradicional-tortillas-camaron.webp",
-  "tradicional-tortillas-carne.webp"
+  "sushi-crocante-10.webp",
+  "sushi-crocante-5.webp",
+  "sushi-dragon-5.webp",
+  "sushi-ebyoshii-10.webp",
+  "sushi-ebyoshii-5.webp",
+  "sushi-filadelfia-10.webp",
+  "sushi-filadelfia-5.webp",
+  "sushi-kani-maki-10.webp",
+  "sushi-kani-maki-5.webp",
+  "sushi-kaniroll-10.webp",
+  "sushi-kaniroll-5.webp",
+  "sushi-maguro-roll-10.webp",
+  "sushi-maguro-roll-5.webp",
+  "sushi-maki-suri-10.webp",
+  "sushi-maki-suri-5.webp",
+  "sushi-oshiisake-10.webp",
+  "sushi-oshiisake-5.webp",
+  "sushi-roll-acevichado-10.webp",
+  "sushi-roll-acevichado-5.webp",
+  "sushi-roll-parrillero-10.webp",
+  "sushi-roll-parrillero-5.webp",
+  "sushi-sakeroll-10.webp",
+  "sushi-sakeroll-5.webp",
+  "sushi-surimaque-10.webp",
+  "sushi-surimaque-5.webp",
+  "sushi-sweetsuri-10.webp",
+  "sushi-sweetsuri-5.webp"
  ]
 }
