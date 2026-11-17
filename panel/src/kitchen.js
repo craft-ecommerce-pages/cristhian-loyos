@@ -14,6 +14,8 @@ export async function renderKitchenPage(request, env, site) {
 <header class="top">
   <a class="top-back" href="/panel" rel="noreferrer">← Panel</a>
   <span class="top-name">${esc(store)}</span>
+  <label class="top-auto" title="Imprime sola cada comanda nueva de esta sede"><input type="checkbox" id="kdsAuto"> <span>Impresión automática</span></label>
+  <button type="button" class="top-sound" id="kdsSound">Activar sonido</button>
   <span class="top-tag">Cocina</span>
 </header>
 <main class="wrap">
@@ -27,6 +29,7 @@ export async function renderKitchenPage(request, env, site) {
   <p class="status" id="kdsStatus" role="status" aria-live="polite">Cargando órdenes pagadas…</p>
   <section id="kds" class="grid" aria-live="polite"></section>
   <p class="hint">La cocina solo recibe órdenes pagadas. Imprime desde una PC o estación con impresora térmica de 58 u 80 mm; no necesitas la tablet ASUS. La app registra el acuse de impresión, pero no puede confirmar que la impresora haya sacado el papel.</p>
+  <p class="hint">Usa una sola estación con impresión automática por sede. En Chrome abre con --kiosk-printing para imprimir sin diálogo.</p>
 </main>
 <div id="kdsToast" class="toast" role="status" aria-live="polite"></div>
 <div class="print-only"><pre id="kdsTicket"></pre></div>
@@ -35,8 +38,21 @@ export async function renderKitchenPage(request, env, site) {
 <script id="kdsTicketFn">var __kdsTicket=${String(ticketLines)};window.__kdsTicket=__kdsTicket;</script>
 <script id="kdsColumns">var __kdsColumns=${String(ticketColumns)};window.__kdsColumns=__kdsColumns;</script>
 <script id="kdsHeight">var __kdsHeight=${String(ticketPageHeight)};window.__kdsHeight=__kdsHeight;</script>
+<script id="kdsQueue">var __kdsQueue=${String(autoPrintCandidates)};window.__kdsQueue=__kdsQueue;</script>
 <script id="kdsMain">${String(kitchenRuntime)}
 kitchenRuntime();</script></body></html>`;
+}
+
+// Cola de impresión automática, pura y serializable al navegador: solo pedidos
+// pagados con print_count 0 que esta pestaña todavía no intentó, del más
+// antiguo al más nuevo. La pestaña marca el intento antes de imprimir, de modo
+// que un fallo no se reintenta solo (se reimprime con el botón manual).
+export function autoPrintCandidates(orders, attempted) {
+  const tried = attempted instanceof Set ? attempted : new Set(Array.isArray(attempted) ? attempted : []);
+  return (Array.isArray(orders) ? orders : [])
+    .filter(order => order && typeof order.id === "string" && order.id && !tried.has(order.id))
+    .filter(order => (Number(order.print_count) || 0) === 0)
+    .sort((a, b) => (Number(a.comanda_at || a.created_at) || 0) - (Number(b.comanda_at || b.created_at) || 0));
 }
 
 function inline(value) {
@@ -56,11 +72,16 @@ const KDS_CSS = `*{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,Inter,"Segoe UI",Roboto,sans-serif;
 font-size:16px;line-height:1.4;-webkit-text-size-adjust:100%}
 h1,h2,h3,p{margin-top:0}
-.top{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:10px;
+.top{position:sticky;top:0;z-index:10;display:flex;flex-wrap:wrap;align-items:center;gap:10px;
 padding:calc(10px + env(safe-area-inset-top)) 14px 10px;background:var(--side);color:var(--side-ink)}
 .top-back{color:var(--side-ink2);font-size:13px;text-decoration:none}
 .top-name{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:600}
 .top-tag{color:#ffad68;font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.top-auto{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:var(--side-ink);cursor:pointer}
+.top-auto input{width:16px;height:16px;margin:0;accent-color:#ffad68;cursor:pointer}
+.top-sound{min-height:30px;padding:4px 10px;border:1px solid #3a4652;border-radius:8px;background:transparent;
+color:var(--side-ink2);font-size:11.5px;font-weight:700;cursor:pointer}
+.top-sound:hover{background:#1c2732;color:var(--side-ink)}
 .wrap{max-width:1180px;margin:0 auto;padding:14px 14px calc(28px + env(safe-area-inset-bottom))}
 .bar{display:flex;flex-wrap:wrap;gap:10px;align-items:end;justify-content:space-between;margin:0 0 10px}
 .bar-actions{display:flex;gap:8px;align-items:center}
@@ -91,6 +112,7 @@ box-shadow:0 1px 3px rgba(0,0,0,.06)}
 .ticket-foot .btn{min-height:44px}
 .print-count{font-size:12.5px;font-weight:700;color:var(--muted)}
 .print-count.printed{color:var(--ok)}
+.print-warn{margin:8px 16px 0;color:var(--danger);font-size:12.5px;font-weight:700}
 .empty{padding:40px 16px;text-align:center;color:var(--muted);grid-column:1/-1}
 .hint{margin:18px 0 0;color:var(--muted);font-size:12.5px;max-width:760px}
 .toast{position:fixed;left:50%;bottom:18px;z-index:40;max-width:calc(100% - 32px);padding:11px 16px;border-radius:10px;
@@ -120,7 +142,14 @@ function kitchenRuntime() {
   const sedeSelect = document.getElementById("kdsSede");
   const paperSelect = document.getElementById("kdsPaper");
   const refreshBtn = document.getElementById("kdsRefresh");
+  const autoBox = document.getElementById("kdsAuto");
+  const soundBtn = document.getElementById("kdsSound");
+  const queueFn = window.__kdsQueue;
   let sedes = [], sede = "", orders = [], since = 0, timer = 0, loading = false, printing = "";
+  let autoprint = false, autoRunning = false, knownIds = null, wakeSentinel = null, audio = null;
+  // `attempted` evita reintentos automáticos; `autoFailed` alimenta el aviso
+  // visible de una comanda que no salió.
+  const attempted = new Set(), autoFailed = new Set();
 
   function h(tag, attrs, ...kids) {
     const n = document.createElement(tag);
@@ -192,6 +221,63 @@ function kitchenRuntime() {
   function rememberSede(id) { try { if (id) localStorage.setItem("cocina.sede", id); else localStorage.removeItem("cocina.sede"); } catch { /* navegador restringido */ } }
   function paperWidth() { try { return localStorage.getItem("cocina.paperWidth") === "58" ? 58 : 80; } catch { return 80; } }
   function rememberPaper(value) { try { localStorage.setItem("cocina.paperWidth", value); } catch { /* navegador restringido */ } }
+  // El interruptor es por sede: una estación de cocina no arrastra el ajuste de
+  // otra. Por defecto apagado y cualquier fallo de localStorage se ignora.
+  function autoprintKey(id) { return "kds_autoprint:" + text(id); }
+  function autoprintOn(id) {
+    if (!id) return false;
+    try { return localStorage.getItem(autoprintKey(id)) === "1"; } catch { return false; }
+  }
+  function rememberAutoprint(id, on) {
+    if (!id) return;
+    try {
+      if (on) localStorage.setItem(autoprintKey(id), "1");
+      else localStorage.removeItem(autoprintKey(id));
+    } catch { /* navegador restringido */ }
+  }
+  // WebAudio necesita un gesto del usuario: el clic del interruptor o el botón
+  // "Activar sonido" habilitan el pitido de las comandas nuevas.
+  function unlockAudio() {
+    try {
+      const Ctor = window.AudioContext || window.webkitAudioContext;
+      if (!Ctor) return null;
+      if (!audio) audio = new Ctor();
+      if (audio.state === "suspended" && typeof audio.resume === "function") {
+        const pending = audio.resume();
+        if (pending && typeof pending.catch === "function") pending.catch(() => {});
+      }
+      return audio;
+    } catch { return null; }
+  }
+  function beep() {
+    try {
+      const ctx = audio || unlockAudio();
+      if (ctx) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "square";
+        osc.frequency.value = 880;
+        gain.gain.value = 0.08;
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        const start = Number(ctx.currentTime) || 0;
+        osc.start(start);
+        osc.stop(start + 0.18);
+      }
+    } catch { /* sin audio disponible */ }
+    try { if (navigator && typeof navigator.vibrate === "function") navigator.vibrate(140); } catch { /* sin vibración */ }
+  }
+  async function keepAwake() {
+    if (!autoprint || wakeSentinel) return;
+    try {
+      if (navigator && navigator.wakeLock && typeof navigator.wakeLock.request === "function") {
+        wakeSentinel = await navigator.wakeLock.request("screen");
+        if (wakeSentinel && typeof wakeSentinel.addEventListener === "function") {
+          wakeSentinel.addEventListener("release", () => { wakeSentinel = null; });
+        }
+      }
+    } catch { wakeSentinel = null; }
+  }
 
   function paintSede() {
     sedeSelect.replaceChildren(
@@ -208,7 +294,7 @@ function kitchenRuntime() {
   }
   function render() {
     if (!sede) return messageView(sedes.length ? "Elige la sede para ver su cocina." : "No hay sedes activas. Configúralas en Mi negocio.");
-    if (!orders.length) return messageView("No hay órdenes pagadas todavía. La lista se actualiza cada 15 segundos.");
+    if (!orders.length) return messageView("No hay órdenes pagadas todavía. La lista se actualiza cada " + (autoprint ? 8 : 15) + " segundos.");
     root.replaceChildren(...orders.map(order => {
       const count = Math.max(0, Number(order.print_count) || 0);
       const items = Array.isArray(order.items) ? order.items : [];
@@ -224,6 +310,7 @@ function kitchenRuntime() {
           h("span", { class: "ticket-no", text: order.number ? "#" + order.number : "#" + text(order.id).slice(-4) }),
           h("span", { class: "ticket-time", text: timeOf(when) })),
         h("p", { class: "ticket-meta", text: [money(order.total_cents), dateOf(when), text(order.customer_name) || (order.table_no ? "Mesa " + order.table_no : "")].filter(Boolean).join(" · ") }),
+        autoFailed.has(order.id) ? h("p", { class: "print-warn", text: "Falló la impresión automática. Usa el botón para reintentar." }) : null,
         h("ul", { class: "ticket-items" }, items.map(item => h("li", {},
           h("span", { class: "qty", text: (Number(item.qty) || 1) + "×" }),
           h("div", {},
@@ -237,7 +324,7 @@ function kitchenRuntime() {
   }
   const printOrderTitle = order => order.number ? "#" + order.number : "#" + text(order.id).slice(-4);
   async function printOrder(order, buttonEl) {
-    if (printing) return;
+    if (printing) return false;
     printing = order.id;
     if (buttonEl) buttonEl.disabled = true;
     // Primero se abre la impresión. Si el navegador falla, no se registra un
@@ -246,21 +333,24 @@ function kitchenRuntime() {
     if (!opened) {
       printing = "";
       if (buttonEl && buttonEl.isConnected) buttonEl.disabled = false;
-      return toast("No pudimos abrir la impresión. No se registró acuse.", true);
+      toast("No pudimos abrir la impresión. No se registró acuse.", true);
+      return false;
     }
     const result = await call("kitchen/orders/" + encodeURIComponent(order.id) + "/print", { idempotency_key: uuid() });
     printing = "";
     if (buttonEl && buttonEl.isConnected) buttonEl.disabled = false;
-    if (result.status === 401) return messageView("Tu sesión venció. Vuelve a entrar al panel.", true);
+    if (result.status === 401) { messageView("Tu sesión venció. Vuelve a entrar al panel.", true); return false; }
     if (result.status !== 200) {
       toast("La impresión se abrió, pero no pudimos registrar el acuse. Revisa el papel.", true);
-      return;
+      return false;
     }
     const count = Number(result.data?.print_count);
     order.print_count = Number.isFinite(count) ? count : (Number(order.print_count) || 0) + 1;
+    autoFailed.delete(order.id);
     render();
     // Nunca se afirma impresión física: solo queda el acuse del servidor.
     toast("Acuse registrado (" + order.print_count + ") para " + printOrderTitle(order) + ". Revisa el papel en la impresora.");
+    return true;
   }
   // Devuelve true solo si el navegador abrió su diálogo de impresión.
   function printTicket(order, copy) {
@@ -303,16 +393,64 @@ function kitchenRuntime() {
     statusEl.textContent = orders.length
       ? orders.length + (orders.length === 1 ? " orden pagada" : " órdenes pagadas") + " · actualizado " + timeOf(Date.now())
       : "No hay órdenes pagadas en las últimas 24 horas · actualizado " + timeOf(Date.now());
+    noticeNewOrders();
+    render();
+    await autoPrint();
+  }
+  // La primera carga fija la línea base: nunca suena por lo que ya estaba en
+  // cocina. Las siguientes suenan una sola vez por pedido nuevo.
+  function noticeNewOrders() {
+    const ids = orders.map(order => order.id);
+    if (knownIds === null) { knownIds = new Set(ids); return; }
+    let fresh = 0;
+    for (const id of ids) if (!knownIds.has(id)) { knownIds.add(id); fresh++; }
+    if (fresh) beep();
+  }
+  async function autoPrint() {
+    if (!autoprint || autoRunning || printing || !sede) return;
+    const queue = typeof queueFn === "function"
+      ? queueFn(orders, attempted)
+      : orders.filter(order => (Number(order.print_count) || 0) === 0 && !attempted.has(order.id));
+    if (!queue.length) return;
+    autoRunning = true;
+    // ponytail: dos pestañas con impresión automática en la misma sede imprimen
+    // doble, porque ambas ven print_count==0 antes de su propio acuse. El
+    // servidor no coordina pestañas; por eso una sola estación por sede.
+    try {
+      for (const order of queue) {
+        if (!autoprint) break;
+        attempted.add(order.id);
+        const done = await printOrder(order, null);
+        if (done) autoFailed.delete(order.id);
+        else autoFailed.add(order.id);
+      }
+    } finally { autoRunning = false; }
     render();
   }
   function startTimer() {
     clearInterval(timer);
-    timer = setInterval(() => { if (document.visibilityState !== "hidden") load(false); }, 15000);
+    const ms = autoprint ? 8000 : 15000;
+    // Con impresión automática la cocina sigue consultando con la pestaña
+    // oculta; apagada se conserva el ritmo anterior de 15 s solo si está visible.
+    timer = setInterval(() => { if (autoprint || document.visibilityState !== "hidden") load(false); }, ms);
   }
   async function start() {
     paperSelect.value = String(paperWidth());
     paperSelect.addEventListener("change", () => { rememberPaper(paperSelect.value); toast("Papel " + paperSelect.value + " mm para la próxima impresión."); });
     refreshBtn.addEventListener("click", () => load(true));
+    if (autoBox) autoBox.addEventListener("change", () => {
+      autoprint = !!autoBox.checked;
+      rememberAutoprint(sede, autoprint);
+      unlockAudio();
+      startTimer();
+      if (autoprint) keepAwake();
+      toast(autoprint ? "Impresión automática activada para esta sede." : "Impresión automática desactivada.");
+      if (autoprint && sede) load(false);
+    });
+    if (soundBtn) soundBtn.addEventListener("click", () => {
+      const ctx = unlockAudio();
+      toast(ctx ? "Sonido de aviso activado en esta estación." : "Este navegador no permite sonido de aviso.");
+    });
     const result = await call("mesero/me");
     if (result.status === 401) return messageView("Abre esta pantalla con la sesión del panel o del modo mesero.", true);
     if (result.status !== 200) return messageView(message(result, "No pudimos cargar la sesión de cocina."), true);
@@ -321,21 +459,29 @@ function kitchenRuntime() {
       .map(item => ({ id: text(item.id), nombre: text(item.nombre) }));
     const saved = querySede() || storedSede();
     sede = sedes.some(item => item.id === saved) ? saved : sedes.length === 1 ? sedes[0].id : "";
+    autoprint = autoprintOn(sede);
+    if (autoBox) autoBox.checked = autoprint;
     paintSede();
     sedeSelect.addEventListener("change", () => {
       sede = sedeSelect.value;
       rememberSede(sede);
+      autoprint = autoprintOn(sede);
+      if (autoBox) autoBox.checked = autoprint;
+      knownIds = null;
       orders = []; since = Date.now() - 24 * 60 * 60 * 1000;
+      startTimer();
       load(true);
     });
     if (!sedes.length) return messageView("No hay sedes activas. Configúralas en Mi negocio.");
     if (!sede) return messageView("Elige la sede para ver su cocina.");
+    if (autoprint) keepAwake();
     await load(true);
     startTimer();
   }
   document.addEventListener("visibilitychange", () => {
-    // Al volver a la tablet se refresca de inmediato; el polling normal sigue cada 15 s.
-    if (document.visibilityState === "visible" && sede) load(false);
+    // Al volver a la tablet se refresca de inmediato y se renueva el wake lock;
+    // con impresión automática el polling de 8 s ya siguió en segundo plano.
+    if (document.visibilityState === "visible" && sede) { keepAwake(); load(false); }
   });
   start();
 }
