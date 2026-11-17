@@ -587,12 +587,27 @@ export async function authorizedForSede(env, slug, session, sedeId) {
 const fiscal = campo => ({ error: "datos_fiscales_invalidos", campo });
 const fiscalMissing = campo => ({ error: "datos_fiscales_requeridos", campo });
 
+// Límite del SRI para consumidor final (USD 50.00). Debe coincidir con
+// `ECON_FINAL_CONSUMER_MAX_CENTS` de panel/src/invoices.js: se duplica aquí a
+// propósito para no acoplar el adaptador fiscal al alta del pedido (esa rama no
+// se edita). Si cambia allí, cambiar aquí.
+const WEB_FINAL_CONSUMER_MAX_CENTS = 5000;
+
+// ¿La web puede cobrar en efectivo? Apagado por defecto: el autopedido se paga
+// por transferencia o tarjeta. Se enciende solo con `web_cash: true` en la
+// configuración KV del menú; la caja (fuente caja/mesero) no depende de esto.
+export async function webCashEnabled(env, slug) {
+  try {
+    const config = await env.MENUS.get(`${slug}:config`, "json");
+    return config?.web_cash === true;
+  } catch { return false; }
+}
+
 // Datos fiscales del comprador web. Se aceptan en `customer.billing` y, por
 // compatibilidad, en `billing` de nivel superior. Se normalizan antes de
-// persistir; nunca se devuelven al navegador.
-function parseBilling(body, customer) {
-  const source = isObject(customer.billing) ? customer.billing : isObject(body.billing) ? body.billing : null;
-  if (!source) return fiscalMissing("billing");
+// persistir; nunca se devuelven al navegador. La ausencia de datos NO es error:
+// el pedido queda como consumidor final (lo decide `parsePosOrder`).
+function parseBilling(source) {
   const type = typeof source.document_type === "string" ? source.document_type.trim().toLowerCase() : "";
   if (!type) return fiscalMissing("billing.document_type");
   if (!DOCUMENT_TYPES.has(type)) return fiscal("billing.document_type");
@@ -640,12 +655,22 @@ function parsePosOrder(body, options = {}) {
   const name = (typeof customer.name === "string" ? customer.name : body.client_name) ?? "";
   const phone = (typeof customer.phone === "string" ? customer.phone : body.client_phone) ?? "";
   if ([...String(name)].length > 120 || [...String(phone)].length > 40) return { error: "pedido_invalido", status: 400 };
+  // `billing` es opcional: sin datos (ausente o null) el pedido es de consumidor
+  // final y las columnas billing_* quedan en NULL. Con datos se valida igual que
+  // antes. El nombre y el teléfono siguen siendo obligatorios en la web.
+  const rawBilling = Object.hasOwn(customer, "billing") ? customer.billing
+    : Object.hasOwn(body, "billing") ? body.billing : null;
+  const billingProvided = rawBilling != null;
+  const wantsInvoice = web || billingProvided;
   let billing = null;
-  const wantsInvoice = web || Object.hasOwn(customer, "billing") || Object.hasOwn(body, "billing");
   if (wantsInvoice) {
     if (!String(name).trim()) return { error: "cliente_requerido", status: 400, campo: "customer.name" };
     if (!PHONE_RE.test(String(phone).trim())) return { error: "telefono_invalido", status: 400, campo: "customer.phone" };
-    billing = parseBilling(body, customer);
+  }
+  if (billingProvided) {
+    // Un `billing` que no es objeto no es "consumidor final": se rechaza.
+    if (!isObject(rawBilling)) return { ...fiscal("billing"), status: 400 };
+    billing = parseBilling(rawBilling);
     if (billing.error) return { ...billing, status: 400 };
   }
   const address = body.address ?? customer.address ?? null;
@@ -723,8 +748,20 @@ export async function createPosOrder(env, site, body, options = {}) {
       return error("sin_permiso", 403);
     }
   }
+  if (source === "web") {
+    // La web no cobra en efectivo salvo que la configuración lo active. Se
+    // comprueba antes de calcular precios: no depende del catálogo.
+    if (order.payment_method === "cash" && !await webCashEnabled(env, site.slug)) {
+      return error("metodo_pago_invalido", 400);
+    }
+  }
   const priced = await pricePosItems(env, site.slug, order.items);
   if (priced.error) return error(priced.error, priced.status, priced.product_id ? { product_id: priced.product_id } : {});
+  // Consumidor final sin factura: el SRI limita ese comprobante a USD 50.00. El
+  // monto válido es el que calcula el servidor, nunca el que envía el navegador.
+  if (source === "web" && !order.billing && priced.total_cents > WEB_FINAL_CONSUMER_MAX_CENTS) {
+    return error("datos_fiscales_requeridos", 400, { campo: "billing" });
+  }
   if (source === "web" && order.payment_method === "bendo" && !bendoAvailable(env)) {
     return error("bendo_no_disponible", 503);
   }

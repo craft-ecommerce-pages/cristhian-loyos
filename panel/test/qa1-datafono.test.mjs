@@ -168,6 +168,9 @@ function qaEnv() {
   const env = makeEnv({
     "munch:config": {
       currency: "USD", store_name: "Munch",
+      // Efectivo del autopedido encendido: estos flujos cobran en caja pedidos web.
+      // Por defecto está apagado (ver web-checkout.test.mjs).
+      web_cash: true,
       location: { sedes: [
         { id: "centro", nombre: "Centro", direccion: "Calle 1" },
         { id: "norte", nombre: "Norte", direccion: "Calle 2" },

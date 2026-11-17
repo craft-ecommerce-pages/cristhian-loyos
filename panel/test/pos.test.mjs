@@ -26,6 +26,9 @@ function posEnv(products = [margarita, grande, bebida]) {
   const env = makeEnv({
     "pizza:config": {
       currency: "USD", store_name: "Pizza",
+      // Efectivo del autopedido encendido: estos flujos cobran en caja pedidos web.
+      // Por defecto está apagado (ver web-checkout.test.mjs).
+      web_cash: true,
       location: { sedes: [{ nombre: "Centro", direccion: "Calle 1" }, { nombre: "Norte", direccion: "Calle 2" }] },
     },
   });

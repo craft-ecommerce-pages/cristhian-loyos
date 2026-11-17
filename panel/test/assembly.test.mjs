@@ -23,6 +23,9 @@ function envWithCatalog() {
     "cliente:config": {
       currency: "USD", store_name: "Cliente",
       location: { sedes: [{ nombre: "Centro", direccion: "Calle 1" }] },
+      // El flujo de caja cobra pedidos web en efectivo; la web lo permite solo con
+      // `web_cash` (apagado por defecto). El autopedido sin efectivo tiene su propia prueba.
+      web_cash: true,
     },
   });
   env.CLIENT_SLUG = "cliente";
