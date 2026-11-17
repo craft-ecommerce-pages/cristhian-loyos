@@ -21,7 +21,9 @@ const product = { id: "margarita", name: "Margarita", type: "producto", price: "
 
 function bendoEnv(mode = "mock", extra = {}) {
   const env = makeEnv({
-    "munch:config": { currency: "USD", location: { sedes: [{ id: "centro", nombre: "Centro", direccion: "Calle 1" }] } },
+    // `web_cash` enciende el efectivo del autopedido: estas pruebas cubren la web con
+    // los tres métodos; el valor por defecto (apagado) se prueba en web-checkout.test.mjs.
+    "munch:config": { currency: "USD", web_cash: true, location: { sedes: [{ id: "centro", nombre: "Centro", direccion: "Calle 1" }] } },
   });
   env.CLIENT_SLUG = "munch";
   env.BENDO_MODE = mode;

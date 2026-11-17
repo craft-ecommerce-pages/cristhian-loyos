@@ -15,7 +15,9 @@ const product = { id: "margarita", name: "Margarita", type: "producto", price: "
 
 function env() {
   const e = makeEnv({
-    "munch:config": { currency: "USD", store_name: "Munch", location: { sedes: [{ id: "centro", nombre: "Centro", direccion: "Calle 1" }] } },
+    // El efectivo del autopedido está apagado por defecto: este flujo lo enciende para
+    // probar la caja (web → efectivo → KDS). Ver web-checkout.test.mjs para el contrato.
+    "munch:config": { currency: "USD", store_name: "Munch", web_cash: true, location: { sedes: [{ id: "centro", nombre: "Centro", direccion: "Calle 1" }] } },
   });
   e.CLIENT_SLUG = "munch";
   e.BENDO_MODE = "mock";

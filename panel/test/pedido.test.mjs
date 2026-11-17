@@ -21,6 +21,8 @@ function pedidoEnv() {
   const env = makeEnv({
     "pizza:config": {
       currency: "USD", store_name: "Pizza",
+      // Efectivo del autopedido encendido: estas pruebas cobran en caja pedidos web.
+      web_cash: true,
       location: { sedes: [{ nombre: "Centro", direccion: "Calle 1" }, { nombre: "Norte", direccion: "Calle 2" }] },
     },
   });
@@ -61,10 +63,12 @@ const openShift = (env, sede = "centro") => env.DB.raw.prepare(
   "VALUES (?, ?, ?, 'test', ?, 0, ?)",
 ).run(`turno-${sede}`, "pizza", sede, Date.now(), `turno-${sede}`);
 
-test("pedido web exige datos fiscales completos, válidos y normalizados", async () => {
+test("pedido web: valida los datos fiscales cuando se envían y los normaliza", async () => {
   const env = pedidoEnv(), ctx = makeCtx();
   const cases = [
-    [{ customer: { name: "Ana", phone: "0991234567" } }, "billing"],
+    // Sin `billing` ya no es error: es consumidor final (ver web-checkout.test.mjs).
+    // Un `billing` presente pero que no es objeto sí se rechaza.
+    [{ customer: { name: "Ana", phone: "0991234567", billing: "1712345678" } }, "billing"],
     [{ customer: { name: "Ana", phone: "0991234567", billing: billing({ document_type: undefined }) } }, "billing.document_type"],
     [{ customer: { name: "Ana", phone: "0991234567", billing: billing({ document_type: "pasaporte" }) } }, "billing.document_type"],
     [{ customer: { name: "Ana", phone: "0991234567", billing: billing({ document_number: "123" }) } }, "billing.document_number"],
@@ -73,6 +77,8 @@ test("pedido web exige datos fiscales completos, válidos y normalizados", async
     [{ customer: { name: "Ana", phone: "0991234567", billing: billing({ address: "" }) } }, "billing.address"],
     [{ customer: { name: "Ana", phone: "099" } }, "customer.phone"],
     [{ customer: { name: "  ", phone: "0991234567", billing: billing() } }, "customer.name"],
+    // Nombre y teléfono siguen siendo obligatorios aunque no se facture.
+    [{ customer: { name: "  ", phone: "0991234567" } }, "customer.name"],
   ];
   let key = 0;
   for (const [overrides, campo] of cases) {

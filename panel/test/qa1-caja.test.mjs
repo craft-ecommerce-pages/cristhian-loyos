@@ -212,6 +212,8 @@ function cajaEnv() {
   const env = makeEnv({
     "pizza:config": {
       currency: "USD", store_name: "Pizza",
+      // Efectivo del autopedido encendido: estas pruebas cobran en caja pedidos web.
+      web_cash: true,
       location: { sedes: [{ nombre: "Centro", direccion: "Calle 1" }] },
     },
   });

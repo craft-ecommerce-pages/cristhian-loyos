@@ -15,7 +15,7 @@ import {
   confirmPosOrder, createManualOrder, createPosOrder, createPublicPosOrder, editMeseroOrder, editPosOrder,
   getPosOrderStatus, listKitchenOrders, listMeseroOrders, listOrders, listPosOrders, markOrderReady, meseroOrders,
   payCash, payDatafono, payTransfer, posOrderRow, posPaymentByRef, printKitchenOrder, printMeseroOrder, publicSedes, rejectPosOrder,
-  sedesAllowed, sedesFor, setMeseroOrderStatus, setOrderStatus, transferInfo, upsertSedes,
+  sedesAllowed, sedesFor, setMeseroOrderStatus, setOrderStatus, transferInfo, upsertSedes, webCashEnabled,
 } from "./orders.js";
 import { handleGetInvoice, handleInvoiceRide, handleRetryInvoice } from "./invoices.js";
 import { handleTurnosApi } from "./turnos.js";
@@ -39,9 +39,11 @@ export async function handlePublicApi(request, env, ctx, site) {
     // Transferencia solo si hay datos bancarios oficiales en config; nunca se
     // inventan cuentas. Los detalles son los únicos datos bancarios públicos.
     // `bendo` solo se anuncia si el adaptador lo permite (mock, o live con credenciales).
+    // `cash` está apagado por defecto: el autopedido se paga por transferencia o
+    // tarjeta y solo se habilita con `web_cash: true` en la config KV del menú.
     const transfer = await transferInfo(env, site.slug);
     return json({
-      cash: true, transfer: Boolean(transfer), transfer_details: transfer,
+      cash: await webCashEnabled(env, site.slug), transfer: Boolean(transfer), transfer_details: transfer,
       bendo: bendoAvailable(env),
     });
   }
