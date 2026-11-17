@@ -362,7 +362,7 @@ test("el HTML inicial del mesero no serializa el reporte del turno", async () =>
   const cashier = `caja_s=${await signCajaSession(env, "pizza", "staff-1")}`;
   const html = await renderMeseroPage(new Request(`https://${HOST}/panel/mesero`, { headers: { cookie: cashier } }), env, site);
   const data = JSON.parse(/window\.__MESERO__=(\{.*?\});<\/script>/s.exec(html)[1]);
-  assert.deepEqual(Object.keys(data).sort(), ["boot", "store"], "solo el arranque, sin contadores del turno");
+  assert.deepEqual(Object.keys(data).sort(), ["boot", "slug", "store"], "solo el arranque y la tienda, sin contadores del turno");
   assert.deepEqual(Object.keys(data.boot).sort(), ["catalog", "me", "orders"]);
   assert.equal(html.includes(shiftId), false, "el HTML no trae el id del turno abierto");
   const serializedBoot = JSON.stringify(data.boot);

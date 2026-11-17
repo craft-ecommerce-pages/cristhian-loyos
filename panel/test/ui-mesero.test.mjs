@@ -120,7 +120,7 @@ async function startMesero({ orders = [], fetchImpl = null, tax = null } = {}) {
 test("el HTML del mesero incluye media, fallback, aria-label y el aviso de cobro", async () => {
   const html = await renderMeseroPage(new Request("https://pizza.craft-systems.com/panel/mesero"), makeEnv(), site);
   for (const marker of ["catalog-product", "catalog-media", "media-fallback", "catalog-name",
-    "Confirmado · falta cobro", "Reimprimir", "Acuse de impresión"]) {
+    "Por cobrar", "Pagado · en cocina", "Reimprimir", "Acuse de impresión"]) {
     assert.ok(html.includes(marker), marker);
   }
   assert.match(html, /alt:\s*""/, "la foto es decorativa");
@@ -129,7 +129,7 @@ test("el HTML del mesero incluye media, fallback, aria-label y el aviso de cobro
 
 test("Pedidos muestra la comanda confirmada sin botón de impresión antes de cobrar", async () => {
   const { root } = await startMesero({ orders: [confirmedOrder] });
-  assert.match(root.textContent, /Confirmado · falta cobro/);
+  assert.match(root.textContent, /Por cobrar/);
   assert.match(root.textContent, /Cobrar efectivo/);
   assert.equal(root.textContent.includes("Imprimir"), false, "no se imprime una orden sin pagar");
 });

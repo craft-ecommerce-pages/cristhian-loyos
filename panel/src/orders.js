@@ -1048,13 +1048,17 @@ export async function listPosOrders(env, site, session, request) {
   const status = query.get("status") || "all";
   const limit = integer(query.get("limit"), 30, 50), offset = integer(query.get("offset"), 0, 1_000_000);
   if (limit == null || offset == null) return error("paginacion_invalida", 400);
-  if (!["all", "open", ...POS_STATUS].includes(status)) return error("estado_invalido", 400);
+  if (!["all", "active", "open", ...POS_STATUS].includes(status)) return error("estado_invalido", 400);
   if (sedeId && !SEDE_ID_RE.test(sedeId)) return error("sede_invalida", 400);
   if (sedeId && !await authorizedForSede(env, site.slug, session, sedeId)) return error("sin_permiso", 403);
   const allowed = await sedesAllowed(env, site.slug, session);
   const clauses = ["slug = ?"], values = [site.slug];
   if (sedeId) { clauses.push("sede_id = ?"); values.push(sedeId); }
-  if (status === "open") clauses.push("status IN ('pending', 'confirmed')");
+  // `active`: todo lo que la caja todavía tiene que atender o entregar. Un pago
+  // con tarjeta nace `paid` sin pasar por `pending`; si no está marcado listo,
+  // sigue en curso. FIFO: lo más antiguo primero para atender por orden de llegada.
+  if (status === "active") clauses.push("(status IN ('pending', 'confirmed') OR (status = 'paid' AND ready_at IS NULL))");
+  else if (status === "open") clauses.push("status IN ('pending', 'confirmed')");
   else if (status === "ready") clauses.push("status = 'paid' AND ready_at IS NOT NULL");
   else if (status !== "all") { clauses.push("status = ?"); values.push(status); }
   if (allowed !== null && !sedeId) {
@@ -1064,7 +1068,8 @@ export async function listPosOrders(env, site, session, request) {
     values.push(...ids);
   }
   const rows = await env.DB.prepare(
-    `SELECT ${POS_COLUMNS} FROM pos_orders WHERE ${clauses.join(" AND ")} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+    `SELECT ${POS_COLUMNS} FROM pos_orders WHERE ${clauses.join(" AND ")} ` +
+    `ORDER BY created_at ${status === "active" ? "ASC" : "DESC"} LIMIT ? OFFSET ?`,
   ).bind(...values, limit, offset).all();
   const orders = (rows.results || []).map(row => posOrderData(row));
   // "Pago: datáfono · aut. XXXX": el canal y la autorización del cobro viajan
