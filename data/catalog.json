@@ -2,43 +2,31 @@
   "categories": [
     {
       "slug": "sushi-entradas",
-      "name": "🍣 Sushi · Entradas"
+      "name": "🥟 Sushi · Entradas"
     },
     {
-      "slug": "sushi-rollos-frios",
-      "name": "🍣 Sushi · Rollos fríos"
-    },
-    {
-      "slug": "sushi-rollos-especiales",
-      "name": "🍣 Sushi · Rollos especiales"
-    },
-    {
-      "slug": "sushi-makis",
-      "name": "🍣 Sushi · Makis"
-    },
-    {
-      "slug": "sushi-tempurizados",
-      "name": "🍣 Sushi · Rollos tempurizados"
+      "slug": "sushi-rollos",
+      "name": "🍣 Sushi · Rollos"
     },
     {
       "slug": "sushi-sashimi",
-      "name": "🍣 Sushi · Sashimi"
+      "name": "🐟 Sushi · Sashimi"
     },
     {
       "slug": "sushi-arroces",
-      "name": "🍣 Sushi · Arroces"
+      "name": "🍙 Sushi · Arroces"
     },
     {
       "slug": "sushi-sopas",
-      "name": "🍣 Sushi · Sopas y ramen"
+      "name": "🍜 Sushi · Sopas y ramen"
     },
     {
       "slug": "sushi-combos",
-      "name": "🍣 Sushi · Combos estudiantes"
+      "name": "🍱 Sushi · Combos estudiantes"
     },
     {
       "slug": "sushi-extras",
-      "name": "🍣 Sushi · Extras"
+      "name": "🧂 Sushi · Extras"
     },
     {
       "slug": "fastfood-hamburguesas",
@@ -46,35 +34,35 @@
     },
     {
       "slug": "fastfood-papas-carnes",
-      "name": "🍔 Fast food · Papas y carnes"
+      "name": "🍟 Fast food · Papas y carnes"
     },
     {
       "slug": "fastfood-alitas",
-      "name": "🍔 Fast food · Alitas"
+      "name": "🍗 Fast food · Alitas"
     },
     {
       "slug": "fastfood-combos",
-      "name": "🍔 Fast food · Combos"
+      "name": "🥡 Fast food · Combos"
     },
     {
       "slug": "fastfood-postres",
-      "name": "🍔 Fast food · Postres"
+      "name": "🍰 Fast food · Postres"
     },
     {
       "slug": "tradicional-desayunos",
-      "name": "🍲 Tradicional · Desayunos"
+      "name": "🍳 Tradicional · Desayunos"
     },
     {
       "slug": "tradicional-almuerzos",
-      "name": "🍲 Tradicional · Almuerzos"
+      "name": "🍛 Tradicional · Almuerzos"
     },
     {
       "slug": "tradicional-papas-patacones",
-      "name": "🍲 Tradicional · Papas y patacones"
+      "name": "🥔 Tradicional · Papas y patacones"
     },
     {
       "slug": "tradicional-arroces",
-      "name": "🍲 Tradicional · Arroces"
+      "name": "🍚 Tradicional · Arroces"
     }
   ],
   "packagings": [],
@@ -302,7 +290,7 @@
         "/media/panel/cristhian-loyos/products/sushi-oshiisake-5.webp"
       ],
       "categories": [
-        "sushi-rollos-frios"
+        "sushi-rollos"
       ],
       "variants": [],
       "groups": [],
@@ -325,7 +313,7 @@
         "/media/panel/cristhian-loyos/products/sushi-oshiisake-10.webp"
       ],
       "categories": [
-        "sushi-rollos-frios"
+        "sushi-rollos"
       ],
       "variants": [],
       "groups": [],
@@ -348,7 +336,7 @@
         "/media/panel/cristhian-loyos/products/sushi-maguro-roll-5.webp"
       ],
       "categories": [
-        "sushi-rollos-frios"
+        "sushi-rollos"
       ],
       "variants": [],
       "groups": [],
@@ -371,7 +359,7 @@
         "/media/panel/cristhian-loyos/products/sushi-maguro-roll-10.webp"
       ],
       "categories": [
-        "sushi-rollos-frios"
+        "sushi-rollos"
       ],
       "variants": [],
       "groups": [],
@@ -394,7 +382,7 @@
         "/media/panel/cristhian-loyos/products/sushi-california-5.webp"
       ],
       "categories": [
-        "sushi-rollos-frios"
+        "sushi-rollos"
       ],
       "variants": [],
       "groups": [],
@@ -417,7 +405,7 @@
         "/media/panel/cristhian-loyos/products/sushi-california-10.webp"
       ],
       "categories": [
-        "sushi-rollos-frios"
+        "sushi-rollos"
       ],
       "variants": [],
       "groups": [],
@@ -440,7 +428,7 @@
         "/media/panel/cristhian-loyos/products/sushi-avocado-5.webp"
       ],
       "categories": [
-        "sushi-rollos-frios"
+        "sushi-rollos"
       ],
       "variants": [],
       "groups": [],
@@ -463,7 +451,7 @@
         "/media/panel/cristhian-loyos/products/sushi-avocado-10.webp"
       ],
       "categories": [
-        "sushi-rollos-frios"
+        "sushi-rollos"
       ],
       "variants": [],
       "groups": [],
@@ -486,7 +474,7 @@
         "/media/panel/cristhian-loyos/products/sushi-filadelfia-5.webp"
       ],
       "categories": [
-        "sushi-rollos-frios"
+        "sushi-rollos"
       ],
       "variants": [],
       "groups": [],
@@ -509,7 +497,7 @@
         "/media/panel/cristhian-loyos/products/sushi-filadelfia-10.webp"
       ],
       "categories": [
-        "sushi-rollos-frios"
+        "sushi-rollos"
       ],
       "variants": [],
       "groups": [],
@@ -532,7 +520,7 @@
         "/media/panel/cristhian-loyos/products/sushi-kaniroll-5.webp"
       ],
       "categories": [
-        "sushi-rollos-frios"
+        "sushi-rollos"
       ],
       "variants": [],
       "groups": [],
@@ -555,7 +543,7 @@
         "/media/panel/cristhian-loyos/products/sushi-kaniroll-10.webp"
       ],
       "categories": [
-        "sushi-rollos-frios"
+        "sushi-rollos"
       ],
       "variants": [],
       "groups": [],
@@ -578,7 +566,7 @@
         "/media/panel/cristhian-loyos/products/sushi-sweetsuri-5.webp"
       ],
       "categories": [
-        "sushi-rollos-frios"
+        "sushi-rollos"
       ],
       "variants": [],
       "groups": [],
@@ -601,7 +589,7 @@
         "/media/panel/cristhian-loyos/products/sushi-sweetsuri-10.webp"
       ],
       "categories": [
-        "sushi-rollos-frios"
+        "sushi-rollos"
       ],
       "variants": [],
       "groups": [],
@@ -624,7 +612,7 @@
         "/media/panel/cristhian-loyos/products/sushi-roll-acevichado-5.webp"
       ],
       "categories": [
-        "sushi-rollos-especiales"
+        "sushi-rollos"
       ],
       "variants": [],
       "groups": [],
@@ -647,7 +635,7 @@
         "/media/panel/cristhian-loyos/products/sushi-roll-acevichado-10.webp"
       ],
       "categories": [
-        "sushi-rollos-especiales"
+        "sushi-rollos"
       ],
       "variants": [],
       "groups": [],
@@ -670,7 +658,7 @@
         "/media/panel/cristhian-loyos/products/sushi-champilover-5.webp"
       ],
       "categories": [
-        "sushi-rollos-especiales"
+        "sushi-rollos"
       ],
       "variants": [],
       "groups": [],
@@ -693,7 +681,7 @@
         "/media/panel/cristhian-loyos/products/sushi-champilover-10.webp"
       ],
       "categories": [
-        "sushi-rollos-especiales"
+        "sushi-rollos"
       ],
       "variants": [],
       "groups": [],
@@ -716,7 +704,7 @@
         "/media/panel/cristhian-loyos/products/sushi-roll-parrillero-5.webp"
       ],
       "categories": [
-        "sushi-rollos-especiales"
+        "sushi-rollos"
       ],
       "variants": [],
       "groups": [],
@@ -739,7 +727,7 @@
         "/media/panel/cristhian-loyos/products/sushi-roll-parrillero-10.webp"
       ],
       "categories": [
-        "sushi-rollos-especiales"
+        "sushi-rollos"
       ],
       "variants": [],
       "groups": [],
@@ -762,7 +750,7 @@
         "/media/panel/cristhian-loyos/products/sushi-maki-suri-5.webp"
       ],
       "categories": [
-        "sushi-makis"
+        "sushi-rollos"
       ],
       "variants": [],
       "groups": [],
@@ -785,7 +773,7 @@
         "/media/panel/cristhian-loyos/products/sushi-maki-suri-10.webp"
       ],
       "categories": [
-        "sushi-makis"
+        "sushi-rollos"
       ],
       "variants": [],
       "groups": [],
@@ -808,7 +796,7 @@
         "/media/panel/cristhian-loyos/products/sushi-kani-maki-5.webp"
       ],
       "categories": [
-        "sushi-makis"
+        "sushi-rollos"
       ],
       "variants": [],
       "groups": [],
@@ -831,7 +819,7 @@
         "/media/panel/cristhian-loyos/products/sushi-kani-maki-10.webp"
       ],
       "categories": [
-        "sushi-makis"
+        "sushi-rollos"
       ],
       "variants": [],
       "groups": [],
@@ -854,7 +842,7 @@
         "/media/panel/cristhian-loyos/products/sushi-coco-roll-5.webp"
       ],
       "categories": [
-        "sushi-tempurizados"
+        "sushi-rollos"
       ],
       "variants": [],
       "groups": [],
@@ -877,7 +865,7 @@
         "/media/panel/cristhian-loyos/products/sushi-coco-roll-10.webp"
       ],
       "categories": [
-        "sushi-tempurizados"
+        "sushi-rollos"
       ],
       "variants": [],
       "groups": [],
@@ -900,7 +888,7 @@
         "/media/panel/cristhian-loyos/products/sushi-surimaque-5.webp"
       ],
       "categories": [
-        "sushi-tempurizados"
+        "sushi-rollos"
       ],
       "variants": [],
       "groups": [],
@@ -923,7 +911,7 @@
         "/media/panel/cristhian-loyos/products/sushi-surimaque-10.webp"
       ],
       "categories": [
-        "sushi-tempurizados"
+        "sushi-rollos"
       ],
       "variants": [],
       "groups": [],
@@ -946,7 +934,7 @@
         "/media/panel/cristhian-loyos/products/sushi-ebyoshii-5.webp"
       ],
       "categories": [
-        "sushi-tempurizados"
+        "sushi-rollos"
       ],
       "variants": [],
       "groups": [],
@@ -969,7 +957,7 @@
         "/media/panel/cristhian-loyos/products/sushi-ebyoshii-10.webp"
       ],
       "categories": [
-        "sushi-tempurizados"
+        "sushi-rollos"
       ],
       "variants": [],
       "groups": [],
@@ -992,7 +980,7 @@
         "/media/panel/cristhian-loyos/products/sushi-sakeroll-5.webp"
       ],
       "categories": [
-        "sushi-tempurizados"
+        "sushi-rollos"
       ],
       "variants": [],
       "groups": [],
@@ -1015,7 +1003,7 @@
         "/media/panel/cristhian-loyos/products/sushi-sakeroll-10.webp"
       ],
       "categories": [
-        "sushi-tempurizados"
+        "sushi-rollos"
       ],
       "variants": [],
       "groups": [],
@@ -1038,7 +1026,7 @@
         "/media/panel/cristhian-loyos/products/sushi-crocante-5.webp"
       ],
       "categories": [
-        "sushi-tempurizados"
+        "sushi-rollos"
       ],
       "variants": [],
       "groups": [],
@@ -1061,7 +1049,7 @@
         "/media/panel/cristhian-loyos/products/sushi-crocante-10.webp"
       ],
       "categories": [
-        "sushi-tempurizados"
+        "sushi-rollos"
       ],
       "variants": [],
       "groups": [],
@@ -1084,7 +1072,7 @@
         "/media/panel/cristhian-loyos/products/sushi-dragon-5.webp"
       ],
       "categories": [
-        "sushi-tempurizados"
+        "sushi-rollos"
       ],
       "variants": [],
       "groups": [],

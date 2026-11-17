@@ -24,13 +24,16 @@ node scripts/catalog-import.mjs    # valida contrato del panel y emite data/kv/*
 
 ## Criterios aplicados
 
-- **112 productos** en 19 subcategorías visibles, agrupadas en cuatro categorías de reporte:
+- **112 productos** en 16 subcategorías visibles, agrupadas en cuatro categorías de reporte:
   `sushi` 58, `fastfood` 12, `postres` 12, `tradicional` 30.
 - **Precios**: se guardan como texto `"0.00"` (forma del CRM/panel) y salen de la carta del cliente.
   No se inventó ningún precio. Los importes de origen se trabajan en centavos enteros.
 - **Tamaños 5/10 bocados**: son productos separados, no variantes con precio. Así el servidor
   recalcula el importe desde `product_id` sin confiar en el navegador. Las variantes solo expresan
   sabores o picante y **no** llevan precio.
+- **Rollos unificados (2026-11-17)**: las cuatro subcategorías de rolls (fríos, especiales, makis y
+  tempurizados) quedan en `sushi-rollos`. La barra del menú usa un emoji distinto por categoría y
+  `config.category_groups` agrupa Sushi / Fast Food / Comida Tradicional para el primer selector.
 - **Duplicados**: las dos cartas de Arizona Patisserie (imágenes 02 y 05) se unificaron en 12 postres
   únicos; los combos estudiantiles de 10–50 bocados quedaron como seis productos.
 - **Sedes**: `sede-01` … `sede-06`, nombre genérico `Food truck N`, dirección `Por confirmar`,

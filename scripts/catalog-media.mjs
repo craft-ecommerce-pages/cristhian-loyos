@@ -1,10 +1,12 @@
 // Copia y optimiza la media real del cliente a media/products y media/brand.
-// Uso: node scripts/catalog-media.mjs
+// Uso: node scripts/catalog-media.mjs [--refresh]
 //
 // Reglas:
 // - Solo fotos reales de producto: las del docx de desayunos/almuerzos y el banco de imágenes.
 //   Nunca se recortan fotos de las cartas compuestas (imágenes 02–14) como foto de producto.
 // - Cada archivo se guarda como WebP ≤1200 px de lado mayor (marca ≤1600 px), sin metadatos.
+// - Un archivo ya aprobado en media/products/ NO se reescribe (p. ej. una foto corregida por el
+//   agente de imágenes). Con --refresh se fuerza la regeneración desde las fuentes.
 // - Reescribe data/catalog.json para publicar únicamente archivos que existan en media/products;
 //   si el cliente/Codex agrega `media/products/<product_id>.webp`, se enlaza automáticamente.
 // - Genera .ops/imagenes-faltantes.md con la lista exacta para el agente de imágenes.
@@ -23,6 +25,7 @@ const DOCX = process.env.MENU_DOCX || join(SRC, "15_20261110-062712_document_wa_
 const BRAND_SRC = process.env.MENU_BRAND_SRC || join(SRC, "17_20261110-093506_image_wa_1794321306422.jpg");
 const MAX = Number(process.env.MENU_MEDIA_MAX || 1200);
 const QUALITY = Number(process.env.MENU_MEDIA_QUALITY || 82);
+const REFRESH = process.argv.includes("--refresh");
 
 const MEDIA_ORIGIN = (process.env.MEDIA_ORIGIN || "").replace(/\/+$/, "");
 const CLIENT_SLUG = process.env.CLIENT_SLUG || "cristhian-loyos";
@@ -80,6 +83,14 @@ function dimensions(path) {
   const [w, h] = out.trim().split(/\s+/).map(Number);
   return { width: w, height: h };
 }
+// Escribe media/products/<file> desde una fuente, salvo que ya exista (foto aprobada).
+// Devuelve true si conservó el archivo existente.
+async function writeProduct(file, src) {
+  const out = join(root, "media/products", file);
+  const preserved = !REFRESH && await exists(out);
+  if (!preserved) run("magick", [src, "-auto-orient", "-resize", `${MAX}x${MAX}>`, "-strip", "-quality", String(QUALITY), out]);
+  return { out, preserved };
+}
 
 await mkdir(join(root, "media/products"), { recursive: true });
 await mkdir(join(root, "media/brand"), { recursive: true });
@@ -95,20 +106,23 @@ async function extractDocx() {
 }
 
 /* ── Procesa cada foto ───────────────────────────────────────────────────── */
-await extractDocx();
+// El docx es la fuente de las fotos de desayunos/almuerzos. Si no está montado, se conservan
+// las fotos ya aprobadas en media/products (writeProduct no reescribe archivos existentes).
+try { await extractDocx(); }
+catch { console.warn("media: docx del cliente no disponible; se conservan las fotos existentes"); }
 const manifest = { generated_at: new Date().toISOString(), origin: MEDIA_ORIGIN, key_prefix: `panel/${CLIENT_SLUG}`, files: {} };
 const missingSources = [];
 for (const [file, spec] of Object.entries(SOURCES)) {
   const src = spec.docx ? join(docxDir, spec.docx) : join(BANK, spec.bank);
   if (!(await exists(src))) { missingSources.push({ file, src }); continue; }
-  const out = join(root, "media/products", file);
-  run("magick", [src, "-auto-orient", "-resize", `${MAX}x${MAX}>`, "-strip", "-quality", String(QUALITY), out]);
+  const { out, preserved } = await writeProduct(file, src);
   const { width, height } = dimensions(out);
   const info = await stat(out);
   manifest.files[`products/${file}`] = {
     source: spec.docx ? `docx:${spec.docx}` : `bank:${spec.bank}`,
     products: fileToProducts.get(file) || [],
     width, height, bytes: info.size, sha256: await sha256(out),
+    ...(preserved ? { preserved: true } : {}),
     ...(spec.note ? { note: spec.note } : {}),
   };
 }
@@ -124,14 +138,14 @@ try {
     const src = join(root, relPath);
     if (!(await exists(src))) continue;
     const file = `${productId}.webp`;
-    const out = join(root, "media/products", file);
-    run("magick", [src, "-auto-orient", "-resize", `${MAX}x${MAX}>`, "-strip", "-quality", String(QUALITY), out]);
+    const { out, preserved } = await writeProduct(file, src);
     const { width, height } = dimensions(out);
     const info = await stat(out);
     if (!fileToProducts.has(file)) fileToProducts.set(file, [productId]);
     manifest.files[`products/${file}`] = {
       source: `generated:${relPath}`, products: fileToProducts.get(file),
       width, height, bytes: info.size, sha256: await sha256(out),
+      ...(preserved ? { preserved: true } : {}),
       note: "Imagen generada por el agente de imágenes; verificar fidelidad con el plato real.",
     };
   }
