@@ -142,6 +142,36 @@
   // fiscales. Mismo umbral que el servidor (WEB_FINAL_CONSUMER_MAX_CENTS en orders.js).
   const FINAL_CONSUMER_MAX_CENTS=5000;
   function invoiceRequired(totalCents){ return Number(totalCents)>FINAL_CONSUMER_MAX_CENTS; }
+  // IVA estimado para el carrito. La fuente de verdad es el servidor: `tax` viene de
+  // /api/payment-options con la tasa efectiva que suma al cobrar y si el precio
+  // publicado ya la incluye. Se usa su mismo redondeo por línea
+  // (Math.round(base_cents * rate_bp / 10000)); sin tasa no se inventa nada.
+  function normalizeTax(tax){
+    const raw=tax&&typeof tax==='object'?tax:{};
+    const rate=Number(raw.rate_bp);
+    return {
+      rate_bp:Number.isInteger(rate)&&rate>0?rate:0,
+      prices_include_tax:raw.prices_include_tax===true,
+    };
+  }
+  function taxBreakdown(bases,tax){
+    const cfg=normalizeTax(tax);
+    const rate=cfg.prices_include_tax?0:cfg.rate_bp;
+    let subtotal=0,taxCents=0;
+    for(const value of Array.isArray(bases)?bases:[]){
+      const base=Number.isInteger(value)?value:Number(value&&value.base_cents);
+      if(!Number.isInteger(base)||base<0) continue;
+      subtotal+=base;
+      if(rate>0) taxCents+=Math.round(base*rate/10000);
+    }
+    return {subtotal_cents:subtotal,tax_cents:taxCents,total_cents:subtotal+taxCents,rate_bp:rate};
+  }
+  // "1500" puntos base → "15%"; con fracciones conserva dos decimales.
+  function taxRateLabel(rateBp){
+    const value=Number(rateBp);
+    if(!Number.isFinite(value)||value<=0) return '';
+    return (value/100).toFixed(value%100===0?0:2)+'%';
+  }
   // Métodos de pago que la API pública habilita, en el orden del menú: tarjeta (Bendo),
   // transferencia y efectivo (solo si la config lo permite). Cualquier valor distinto de
   // `true` no habilita el método; nunca se inventa efectivo.
@@ -238,7 +268,7 @@
   if(typeof module!=='undefined' && module.exports) module.exports={clubBanner,panelCount,panelOrder,
     checkoutOrders,ordersEndpoint,sedeList,sedeFromQuery,defaultSede,orderVariantLabel,variantOptionExists,
     orderCartItems,orderStatusLabel,orderStatusFinal,nextOrderKey,transferInfo,billingFieldErrors,
-    billingErrorsFor,invoiceRequired,paymentMethods,
+    billingErrorsFor,invoiceRequired,paymentMethods,taxBreakdown,normalizeTax,taxRateLabel,
     parseOrderReturn,orderPaymentLabel,thanksRetryAllowed,thanksPurchaseEligible,thanksPollFinal,
     cardPaymentMethod,paymentStartPath};
 
@@ -278,6 +308,7 @@
       '{0} item(s) · {1} producto(s)':'{0} item(s) · {1} product(s)','Empaque':'Packaging','Envío':'Delivery fee',
       'Tu pedido está vacío':'Your order is empty','Quitar':'Remove','¿Algo más?':'Anything else?',
       'Tu Pedido':'Your Order','Estamos cerrados ahora':'We’re closed right now','Datos de entrega':'Your details',
+      'Subtotal':'Subtotal','IVA':'VAT','Total estimado':'Estimated total',
       'WhatsApp no configurado':'WhatsApp is not set up','Completa tu nombre y teléfono':'Please enter your name and phone','Completa: {0}':'Please fill in: {0}',
       '¿En qué food truck?':'Which food truck?','Selecciona tu food truck':'Select your food truck','Selecciona un food truck válido':'Select a valid food truck',
       'Food truck':'Food truck','Total':'Total','Estado del pedido':'Order status','Consultando estado…':'Checking status…','Hacer otro pedido':'Place another order',
@@ -381,6 +412,8 @@
     let categorySlugs = [];
     let activeBrand = '';       // filtro de marca (config.brand_filter): se combina con el chip activo
     let storeClosed = false;    // fuera de horario (config.hours) → bloquea el checkout, no la navegación
+    // Tasa efectiva publicada por /api/payment-options; solo para estimar el IVA.
+    let paymentTax = {rate_bp:0,prices_include_tax:false};
 
     let modalProduct = null, modalQty = 1, modalVariants = {}, modalDist = {}, modalRepeat = {}, modalCombo = {}, modalNote = '', sliderIdx = 0, sliderImages = [];
 
@@ -1206,8 +1239,36 @@
     $sw.addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-touchStartX;if(Math.abs(dx)>40) slideTo(dx<0?sliderIdx+1:sliderIdx-1);});
 
     /* ── CART UI ── */
+    // Subtotal, IVA estimado y Total del carrito. El IVA se calcula con la tasa
+    // publicada por el servidor y el mismo redondeo por línea que el cobro; los
+    // recargos (empaque/envío) se suman a la base y no llevan IVA de producto.
+    function paintCartTax(qty,subtotalCents,estimate){
+      const footer=$cartTotal.closest('.cart-footer');
+      const context=footer||$cartTotal.parentNode;
+      const show=qty>0&&estimate.rate_bp>0;
+      let block=document.getElementById('cartTaxSplit');
+      const label=context&&context.querySelector('.cart-total-label');
+      if(label) label.textContent=t(show?'Total estimado':'Total');
+      if(!show){ if(block) block.remove(); return; }
+      if(!block&&context){
+        block=document.createElement('div');
+        block.id='cartTaxSplit';block.className='cart-tax';
+        const totalRow=$cartTotal.closest('.cart-total');
+        if(typeof context.insertBefore==='function') context.insertBefore(block,totalRow||$cartTotal);
+        else if(totalRow&&typeof totalRow.before==='function') totalRow.before(block);
+        else context.append(block);
+      }
+      if(!block) return;
+      block.innerHTML=`<div class="cart-tax-row"><span>${t('Subtotal')}</span><span>${formatPrice(subtotalCents/100)}</span></div>`+
+        `<div class="cart-tax-row"><span>${t('IVA')} ${taxRateLabel(estimate.rate_bp)}</span><span>${formatPrice(estimate.tax_cents/100)}</span></div>`;
+    }
     function updateCartUI(){
-      const qty=cartTotalQty(),fee=feesTotal(currentMode()),total=cartTotalPrice()+fee;
+      const qty=cartTotalQty(),fee=feesTotal(currentMode()),feeCents=Math.round(fee*100);
+      // Base de cada línea de producto en centavos (la misma que recalcula el servidor).
+      const lines=cartItems.map(item=>Math.round(Number(item.precio)*100)*Math.max(1,Number(item.qty)||1));
+      const estimate=taxBreakdown(lines,paymentTax);
+      const subtotalCents=estimate.subtotal_cents+feeCents;
+      const total=(subtotalCents+estimate.tax_cents)/100;
       $navBadge.textContent=qty;$navBadge.classList.toggle('show',qty>0);
       $peekCount.textContent=qty;$peekTotal.textContent=formatPrice(total);
       const sheetOpen=$cartDrawer.classList.contains('open');
@@ -1216,6 +1277,7 @@
       $cartItemCount.textContent=t('{0} item(s) · {1} producto(s)',qty,cartItems.length);
       $btnCheckout.disabled=qty===0||storeClosed;
       syncBillingSwitch();
+      paintCartTax(qty,subtotalCents,estimate);
 
       // Líneas de recargos (empaque/envío) en el footer (creadas al vuelo; el HTML del cliente no las trae).
       let feeLine=document.getElementById('cartFeeLine');
@@ -1633,8 +1695,12 @@
           if(options?.transfer_details&&typeof options.transfer_details==='object'){
             config.bank_transfer={...(config.bank_transfer||{}),...options.transfer_details};
           }
+          // Tasa efectiva del IVA para la estimación del carrito (nunca un precio).
+          paymentTax=normalizeTax(options&&options.tax);
           applyPaymentOptions(payment,options);
           updatePaymentHint();
+          // La tasa del IVA llega después del primer pintado: refresca la estimación.
+          updateCartUI();
         }).catch(()=>{applyPaymentOptions(payment,null);updatePaymentHint();});
     }
     // UI del checkout nativo: pickup sin toggle, CTA Munch sin WhatsApp, factura opt-in
@@ -2541,7 +2607,7 @@
         body.innerHTML=`<h4>1. Uso del ${doc}</h4>
           <p>Este ${doc} es una herramienta informativa de ${store} para facilitar la recepción de pedidos a través de WhatsApp. La realización del pedido implica la aceptación de estos términos.</p>
           <h4>2. Pedidos y pagos</h4>
-          <p>Los pedidos se confirman únicamente a través de WhatsApp. Los precios están expresados en dólares americanos (USD) e incluyen IVA. ${store} se reserva el derecho de modificar precios sin previo aviso.</p>
+          <p>Los pedidos se confirman únicamente a través de WhatsApp. Los precios están expresados en dólares americanos (USD); el IVA se suma al confirmar el pedido. ${store} se reserva el derecho de modificar precios sin previo aviso.</p>
           <h4>3. Entrega</h4>
           <p>El tiempo de entrega es estimado y puede variar según la demanda y la distancia. El costo de envío se acordará directamente con el cliente al confirmar el pedido.</p>
           <h4>4. Cancelaciones</h4>

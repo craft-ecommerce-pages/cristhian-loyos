@@ -7,7 +7,7 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 const {webcrypto}=require('node:crypto');
 const source=fs.readFileSync(__dirname+'/catalog.js','utf8');
-const {paymentMethods,invoiceRequired,billingErrorsFor,billingFieldErrors}=require('./catalog.js');
+const {paymentMethods,invoiceRequired,billingErrorsFor,billingFieldErrors,taxBreakdown,taxRateLabel}=require('./catalog.js');
 
 /* ── helpers puros ───────────────────────────────────────────────────────── */
 test('paymentMethods: solo los true, en orden tarjeta → transferencia → efectivo',()=>{
@@ -34,6 +34,20 @@ test('billingErrorsFor: apagado valida nombre/teléfono; encendido exige datos f
   assert.deepEqual(billingErrorsFor(ok,true),{});
   assert.deepEqual(billingErrorsFor(ok,false),{});
   assert.ok(billingFieldErrors(ok));
+});
+
+test('taxBreakdown: IVA 15 % por línea con el redondeo del servidor',()=>{
+  // 3,00 → 0,45; 0,99 × 3 → 0,45 (44,55 redondeado); 2,49 × 7 → 2,61.
+  assert.deepEqual(taxBreakdown([300],{rate_bp:1500,prices_include_tax:false}),
+    {subtotal_cents:300,tax_cents:45,total_cents:345,rate_bp:1500});
+  assert.deepEqual(taxBreakdown([297,1743],{rate_bp:1500}),{subtotal_cents:2040,tax_cents:306,
+    total_cents:2346,rate_bp:1500});
+  // Sin tasa o con precios que ya la incluyen no se suma nada.
+  assert.equal(taxBreakdown([300],{rate_bp:0,prices_include_tax:false}).tax_cents,0);
+  assert.equal(taxBreakdown([300],{rate_bp:1500,prices_include_tax:true}).tax_cents,0);
+  assert.equal(taxBreakdown([300],null).total_cents,300);
+  assert.equal(taxRateLabel(1500),'15%');
+  assert.equal(taxRateLabel(0),'');
 });
 
 /* ── DOM mínimo por VM ───────────────────────────────────────────────────── */
@@ -302,4 +316,29 @@ test('?mesa= de un QR antiguo se ignora: sin modo mesa y el pedido va como retir
   assert.ok(post);
   assert.equal(JSON.parse(post[1].body).delivery_mode,'pickup');
   assert.match(m.doc.getElementById('thanksPage').innerHTML,/Tu pedido #000007/);
+});
+
+test('carrito: Subtotal, IVA 15% y Total estimado con la tasa del servidor',async()=>{
+  const m=menu({fetchImpl:handler,paymentOptions:{cash:true,transfer:false,bendo:false,
+    tax:{rate_bp:1500,prices_include_tax:false}}});
+  await m.ready();await m.ready();await m.ready();
+  const split=m.doc.getElementById('cartTaxSplit');
+  assert.ok(split,'se pinta el desglose del IVA');
+  assert.match(split.innerHTML,/Subtotal/);
+  assert.match(split.innerHTML,/\$8\.00/);
+  assert.match(split.innerHTML,/IVA 15%/);
+  assert.match(split.innerHTML,/\$1\.20/);
+  // Total = 8,00 + IVA 1,20; la etiqueta avisa que es una estimación.
+  assert.equal(m.byId.cartTotal.textContent,'$9.20');
+  assert.equal(m.byId.peekTotal.textContent,'$9.20');
+  // El texto legal ya no afirma que los precios incluyan IVA.
+  assert.equal(source.includes('e incluyen IVA'),false);
+});
+
+test('carrito sin tasa configurada: no se inventa IVA y no aparece el desglose',async()=>{
+  const m=menu({fetchImpl:handler,paymentOptions:{cash:true,transfer:false,bendo:false,
+    tax:{rate_bp:0,prices_include_tax:false}}});
+  await m.ready();await m.ready();await m.ready();
+  assert.equal(m.doc.getElementById('cartTaxSplit'),null);
+  assert.equal(m.byId.cartTotal.textContent,'$8.00');
 });

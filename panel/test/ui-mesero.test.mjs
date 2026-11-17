@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { ticketColumns, ticketLines, ticketPageHeight } from "../../shared/ticket.js";
-import { renderMeseroPage } from "../src/mesero.js";
+import { renderMeseroPage, taxEstimate, taxLabel } from "../src/mesero.js";
 import { makeEnv } from "./helpers.mjs";
 
 const site = { slug: "pizza", host: "pizza.craft-systems.com" };
@@ -76,7 +76,7 @@ const confirmedOrder = {
   items: [{ name: "Pizza margarita", qty: 1, unit_cents: 950 }],
 };
 
-async function startMesero({ orders = [], fetchImpl = null } = {}) {
+async function startMesero({ orders = [], fetchImpl = null, tax = null } = {}) {
   const env = makeEnv();
   const html = await renderMeseroPage(new Request("https://pizza.craft-systems.com/panel/mesero"), env, site);
   const match = /<script id="meseroMain">([\s\S]*?)<\/script>/.exec(html);
@@ -95,7 +95,7 @@ async function startMesero({ orders = [], fetchImpl = null } = {}) {
     __MESERO__: {
       store: "Pizza",
       boot: {
-        me: { staff: { id: "dueno", name: "Dueño" }, owner: true, store: { name: "Pizza", currency: "$" }, sedes: [{ id: "centro", nombre: "Centro" }] },
+        me: { staff: { id: "dueno", name: "Dueño" }, owner: true, store: { name: "Pizza", currency: "$", ...(tax ? { tax } : {}) }, sedes: [{ id: "centro", nombre: "Centro" }] },
         catalog,
         orders,
       },
@@ -250,4 +250,37 @@ test("caja: factura exige datos y envía Quito por defecto antes del datáfono",
   assert.equal(sent.billing.address, "Quito");
   assert.equal(sent.payment_method, "bendo");
   assert.ok(find(doc.body, node => node.getAttribute("aria-label") === "Cobrado con datáfono"));
+});
+
+test("IVA de la caja: la barra y la hoja muestran Subtotal, IVA 15% y Total estimado", async () => {
+  const { root, doc } = await startMesero({ tax: { rate_bp: 1500, prices_include_tax: false } });
+  find(root, node => node.tagName === "button" && node.textContent === "Nueva venta").trigger("click");
+  await flush();
+  find(root, node => node.tagName === "button" && node.textContent.includes("Pizza margarita")).trigger("click");
+  await flush();
+
+  const bar = find(root, node => node.classList.contains("cart-bar"));
+  assert.ok(bar, "la barra fija existe");
+  assert.match(bar.textContent, /Subtotal \$9\.50/);
+  assert.match(bar.textContent, /IVA 15% \$1\.43/, "9,50 × 15 % con redondeo por línea");
+  assert.match(bar.textContent, /Total \$10\.93/);
+
+  find(bar, node => node.tagName === "button" && node.textContent === "Cobrar").trigger("click");
+  await flush();
+  assert.match(doc.body.textContent, /Subtotal/);
+  assert.match(doc.body.textContent, /IVA 15%/);
+  assert.match(doc.body.textContent, /Total estimado/);
+  assert.match(doc.body.textContent, /\$10\.93/);
+  assert.match(doc.body.textContent, /el servidor confirma el total al cobrar/);
+});
+
+test("taxEstimate: mismo redondeo por línea que el servidor y sin tasa no suma", () => {
+  assert.deepEqual(taxEstimate([{ base_cents: 300 }], { rate_bp: 1500, prices_include_tax: false }),
+    { subtotal_cents: 300, tax_cents: 45, total_cents: 345, rate_bp: 1500 });
+  assert.deepEqual(taxEstimate([300, 1743], { rate_bp: 1500 }),
+    { subtotal_cents: 2043, tax_cents: 306, total_cents: 2349, rate_bp: 1500 });
+  assert.equal(taxEstimate([300], null).tax_cents, 0);
+  assert.equal(taxEstimate([300], { rate_bp: 1500, prices_include_tax: true }).tax_cents, 0);
+  assert.equal(taxLabel(1500), "15%");
+  assert.equal(taxLabel(0), "");
 });

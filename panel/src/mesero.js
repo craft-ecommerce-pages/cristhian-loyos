@@ -7,6 +7,31 @@ import {
 } from "../../shared/ticket.js";
 import { meseroBoot } from "./api.js";
 
+// Estimación del IVA de la caja para la barra de cobro y la hoja del pedido.
+// Entrada: líneas con `base_cents` (o centavos enteros) y `tax` con la tasa
+// efectiva que publica `meseroMe` (`store.tax`). Mismo redondeo por línea que el
+// servidor (`Math.round(base * rate_bp / 10000)`); sin tasa no se suma nada.
+export function taxEstimate(lines, tax) {
+  const raw = tax && typeof tax === "object" ? tax : {};
+  const rate = Number(raw.rate_bp);
+  const rateBp = !raw.prices_include_tax && Number.isInteger(rate) && rate > 0 ? rate : 0;
+  let subtotal = 0, taxCents = 0;
+  for (const line of Array.isArray(lines) ? lines : []) {
+    const base = Number.isInteger(line) ? line : Number(line && line.base_cents);
+    if (!Number.isInteger(base) || base < 0) continue;
+    subtotal += base;
+    if (rateBp > 0) taxCents += Math.round((base * rateBp) / 10000);
+  }
+  return { subtotal_cents: subtotal, tax_cents: taxCents, total_cents: subtotal + taxCents, rate_bp: rateBp };
+}
+
+// "1500" puntos base → "15 %"; con fracciones conserva dos decimales.
+export function taxLabel(rateBp) {
+  const value = Number(rateBp);
+  if (!Number.isFinite(value) || value <= 0) return "";
+  return (value / 100).toFixed(value % 100 === 0 ? 0 : 2) + "%";
+}
+
 export async function renderMeseroPage(request, env, site) {
   const slug = String(site?.slug ?? "");
   const config = await env.MENUS.get(`${slug}:config`, "json").catch(
@@ -400,6 +425,10 @@ line-height:1.15}
 .cart-count{font-size:12.5px;
 font-weight:600;
 color:var(--side-ink2)}
+.cart-sub,.cart-tax{font-size:11.5px;
+font-weight:600;
+color:var(--side-ink2);
+font-variant-numeric:tabular-nums}
 .cart-total{font-size:19px;
 font-weight:800;
 font-variant-numeric:tabular-nums}
@@ -452,6 +481,10 @@ text-align:center}
 justify-content:space-between;
 margin:14px 0;
 font-size:18px}
+.total.tax-row{margin:4px 0;
+font-size:14px;
+color:var(--ink2, #5b6673)}
+.total.grand{margin-top:8px}
 .sheet{position:fixed;
 inset:0;
 z-index:30;
@@ -2439,6 +2472,24 @@ function meseroRuntime() {
       0,
     );
   }
+  // Estimación del IVA con `me.store.tax` (tasa efectiva del servidor). El cobro
+  // sigue usando `order.total_cents`: esto solo se muestra antes de cobrar.
+  function cartTax() {
+    const tax = me?.store?.tax;
+    const raw = tax && typeof tax === "object" ? tax : {};
+    const rate = Number(raw.rate_bp);
+    const rateBp = !raw.prices_include_tax && Number.isInteger(rate) && rate > 0 ? rate : 0;
+    let subtotal = 0, taxCents = 0;
+    for (const item of builder.items) {
+      const qty = Math.max(1, Number(item.qty) || 1);
+      const base = Math.round(amount(item.precio) * 100) * qty;
+      subtotal += base;
+      if (rateBp > 0) taxCents += Math.round((base * rateBp) / 10000);
+    }
+    return { subtotal_cents: subtotal, tax_cents: taxCents, total_cents: subtotal + taxCents, rate_bp: rateBp };
+  }
+  const taxPercent = (rateBp) =>
+    rateBp > 0 ? (rateBp / 100).toFixed(rateBp % 100 === 0 ? 0 : 2) + "%" : "";
   function cartCount() {
     return builder.items.reduce((sum, item) => sum + (Number(item.qty) || 1), 0);
   }
@@ -2612,13 +2663,28 @@ function meseroRuntime() {
     );
     const paintBar = () => {
       const count = cartCount();
-      barInfo.replaceChildren(
+      const estimate = cartTax();
+      const kids = [
         h("span", {
           class: "cart-count",
           text: count === 1 ? "1 ítem" : count + " ítems",
         }),
-        h("b", { class: "cart-total", text: money(cartTotal()) }),
-      );
+        h("span", {
+          class: "cart-sub",
+          text: "Subtotal " + moneyCents(estimate.subtotal_cents),
+        }),
+        estimate.rate_bp > 0
+          ? h("span", {
+              class: "cart-tax",
+              text: "IVA " + taxPercent(estimate.rate_bp) + " " + moneyCents(estimate.tax_cents),
+            })
+          : null,
+        h("b", {
+          class: "cart-total",
+          text: (estimate.rate_bp > 0 ? "Total " : "") + moneyCents(estimate.total_cents),
+        }),
+      ];
+      barInfo.replaceChildren(...kids.filter(Boolean));
       pay.disabled = !count && !builder.id;
     };
     repaintItems = () => {
@@ -2736,13 +2802,24 @@ function meseroRuntime() {
           button("Cerrar", "btn link", dismissSheet),
         ),
         ...lines,
-        h(
-          "div",
-          { class: "total" },
-          h("b", { text: "Subtotal de productos" }),
-          h("b", { text: money(cartTotal()) }),
-        ),
-        !builder.id ? h("p", { class: "hint", text: "El total a cobrar se confirma con el precio y el IVA calculados por el servidor." }) : null,
+        ...(() => {
+          const estimate = cartTax();
+          const row = (label, cents, cls) =>
+            h(
+              "div",
+              { class: "total" + (cls ? " " + cls : "") },
+              h("b", { text: label }),
+              h("b", { text: moneyCents(cents) }),
+            );
+          return [
+            row("Subtotal", estimate.subtotal_cents, "tax-row"),
+            ...(estimate.rate_bp > 0
+              ? [row("IVA " + taxPercent(estimate.rate_bp), estimate.tax_cents, "tax-row")]
+              : []),
+            row(estimate.rate_bp > 0 ? "Total estimado" : "Subtotal de productos", estimate.total_cents, "grand"),
+          ];
+        })(),
+        !builder.id ? h("p", { class: "hint", text: "Estimación con el IVA publicado; el servidor confirma el total al cobrar." }) : null,
         !builder.id ? h("h3", { text: "Cliente" }) : null,
         !builder.id ? h("div", { class: "choice-row", role: "group", "aria-label": "Tipo de comprobante" },
           choice("Consumidor final", "billing_mode", "final"),

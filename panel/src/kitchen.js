@@ -309,7 +309,7 @@ function kitchenRuntime() {
         h("div", { class: "ticket-head" },
           h("span", { class: "ticket-no", text: order.number ? "#" + order.number : "#" + text(order.id).slice(-4) }),
           h("span", { class: "ticket-time", text: timeOf(when) })),
-        h("p", { class: "ticket-meta", text: [money(order.total_cents), dateOf(when), text(order.customer_name) || (order.table_no ? "Mesa " + order.table_no : "")].filter(Boolean).join(" · ") }),
+        h("p", { class: "ticket-meta", text: [money(order.total_cents), dateOf(when), text(order.customer_name)].filter(Boolean).join(" · ") }),
         autoFailed.has(order.id) ? h("p", { class: "print-warn", text: "Falló la impresión automática. Usa el botón para reintentar." }) : null,
         h("ul", { class: "ticket-items" }, items.map(item => h("li", {},
           h("span", { class: "qty", text: (Number(item.qty) || 1) + "×" }),
