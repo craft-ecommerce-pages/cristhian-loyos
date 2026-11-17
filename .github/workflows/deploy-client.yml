@@ -1,6 +1,7 @@
 name: Desplegar cliente en Cloudflare
 
-# Solo despliegue: tests y sincronización de assets se ejecutan en craft-dev/local.
+# Despliegue: los tests corren en CI antes de desplegar; la sincronización de
+# assets sigue siendo manual en craft-dev/local.
 # Requiere los secrets de la cuenta Cloudflare del cliente (nunca los de Craft).
 # Despliega panel (con migraciones D1) y luego menú (con Workers Assets /v1).
 
@@ -41,6 +42,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+
+      - name: Tests
+        run: node --test v1/*.test.cjs worker/lib.test.mjs panel/test/*.test.mjs
 
       - name: Confirmar Wrangler 4
         run: npx --yes wrangler@4.160.0 --version
