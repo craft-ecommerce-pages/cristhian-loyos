@@ -147,7 +147,7 @@ test("la página de cocina escapa el nombre, pide sede y documenta el acuse", as
   const html = await prepareHtml();
   assert.equal(html.includes("<b>Pizzería</b>"), false);
   assert.match(html, /&lt;b&gt;Pizzería&lt;\/b&gt;/);
-  for (const marker of ["kdsSede", "kdsRefresh", "15000", "Reimprimir", "window.print", "@media print", "Acuse", "La cocina solo recibe órdenes pagadas"]) {
+  for (const marker of ["kdsSede", "kdsRefresh", "120000", "Reimprimir", "window.print", "@media print", "Acuse", "La cocina solo recibe órdenes pagadas"]) {
     assert.ok(html.includes(marker), marker);
   }
   assert.equal(html.includes("innerHTML"), false);
@@ -230,7 +230,7 @@ test("el polling usa el cursor next y conserva las órdenes ya vistas", async ()
   const ctx = startKitchen();
   await flush();
   assert.equal(ctx.intervals.length, 1);
-  assert.equal(ctx.intervals[0].ms, 15000);
+  assert.equal(ctx.intervals[0].ms, 120000);
   ctx.intervals[0].fn();
   await flush();
   const polls = ctx.calls.filter(call => call.path.startsWith("/panel/api/kitchen/orders?"));

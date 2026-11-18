@@ -1,5 +1,6 @@
 // Cocina (KDS): solo pedidos pagados de la sede elegida. La ruta la integra
 // panel/src/index.js como /panel/cocina; este módulo no toca el backend.
+import { liveOrders } from "../../shared/live.js";
 import { ticketColumns, ticketLines, ticketPageHeight } from "../../shared/ticket.js";
 
 export async function renderKitchenPage(request, env, site) {
@@ -14,6 +15,7 @@ export async function renderKitchenPage(request, env, site) {
 <header class="top">
   <a class="top-back" href="/panel" rel="noreferrer">← Panel</a>
   <span class="top-name">${esc(store)}</span>
+  <span class="top-live" id="kdsLiveState" hidden></span>
   <label class="top-auto" title="Imprime sola cada comanda nueva de esta sede"><input type="checkbox" id="kdsAuto"> <span>Impresión automática</span></label>
   <button type="button" class="top-sound" id="kdsSound">Activar sonido</button>
   <span class="top-tag">Cocina</span>
@@ -39,6 +41,7 @@ export async function renderKitchenPage(request, env, site) {
 <script id="kdsColumns">var __kdsColumns=${String(ticketColumns)};window.__kdsColumns=__kdsColumns;</script>
 <script id="kdsHeight">var __kdsHeight=${String(ticketPageHeight)};window.__kdsHeight=__kdsHeight;</script>
 <script id="kdsQueue">var __kdsQueue=${String(autoPrintCandidates)};window.__kdsQueue=__kdsQueue;</script>
+<script id="kdsLive">var __liveOrders=${String(liveOrders)};window.__liveOrders=__liveOrders;</script>
 <script id="kdsMain">var __name=function(f){return f};${String(kitchenRuntime)}
 kitchenRuntime();</script></body></html>`;
 }
@@ -77,6 +80,8 @@ padding:calc(10px + env(safe-area-inset-top)) 14px 10px;background:var(--side);c
 .top-back{color:var(--side-ink2);font-size:13px;text-decoration:none}
 .top-name{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:600}
 .top-tag{color:#ffad68;font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.top-live{font-size:11.5px;font-weight:700;color:#ffad68}
+.top-live.on{color:#7fd4a8}
 .top-auto{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:var(--side-ink);cursor:pointer}
 .top-auto input{width:16px;height:16px;margin:0;accent-color:#ffad68;cursor:pointer}
 .top-sound{min-height:30px;padding:4px 10px;border:1px solid #3a4652;border-radius:8px;background:transparent;
@@ -145,9 +150,11 @@ function kitchenRuntime() {
   const refreshBtn = document.getElementById("kdsRefresh");
   const autoBox = document.getElementById("kdsAuto");
   const soundBtn = document.getElementById("kdsSound");
+  const liveState = document.getElementById("kdsLiveState");
   const queueFn = window.__kdsQueue;
   let sedes = [], sede = "", orders = [], since = 0, timer = 0, loading = false, printing = "";
   let autoprint = false, autoRunning = false, knownIds = null, wakeSentinel = null, audio = null;
+  let live = null;
   // `attempted` evita reintentos automáticos; `autoFailed` alimenta el aviso
   // visible de una comanda que no salió.
   const attempted = new Set(), autoFailed = new Set();
@@ -295,7 +302,7 @@ function kitchenRuntime() {
   }
   function render() {
     if (!sede) return messageView(sedes.length ? "Elige la sede para ver su cocina." : "No hay sedes activas. Configúralas en Mi negocio.");
-    if (!orders.length) return messageView("No hay órdenes pagadas todavía. La lista se actualiza cada " + (autoprint ? 8 : 15) + " segundos.");
+    if (!orders.length) return messageView("No hay órdenes pagadas todavía. La lista se actualiza al instante.");
     root.replaceChildren(...orders.map(order => {
       const count = Math.max(0, Number(order.print_count) || 0);
       const items = Array.isArray(order.items) ? order.items : [];
@@ -388,7 +395,7 @@ function kitchenRuntime() {
     if (result.status === 401) return messageView("Tu sesión venció. Vuelve a entrar al panel.", true);
     if (result.status === 403) return messageView("No tienes permiso para la sede elegida.");
     if (result.status !== 200) {
-      statusEl.textContent = message(result, "No pudimos cargar las órdenes. Reintentaremos en 15 segundos.");
+      statusEl.textContent = message(result, "No pudimos cargar las órdenes. Reintentaremos en un momento.");
       return;
     }
     const incoming = Array.isArray(result.data?.orders) ? result.data.orders : [];
@@ -434,12 +441,29 @@ function kitchenRuntime() {
     } finally { autoRunning = false; }
     render();
   }
+  // Indica si los avisos llegan por WebSocket; sin soporte no se muestra nada.
+  function paintLive(state) {
+    if (!liveState) return;
+    liveState.hidden = state !== "live" && state !== "offline";
+    liveState.textContent = state === "live" ? "● En vivo" : state === "offline" ? "Reconectando…" : "";
+    liveState.classList.toggle("on", state === "live");
+  }
+  function stopLive() {
+    if (live && typeof live.close === "function") { try { live.close(); } catch { /* ya cerrado */ } }
+    live = null;
+    paintLive("");
+  }
+  // Una conexión por sede: al cambiar de sede se cierra la anterior.
+  function startLive() {
+    stopLive();
+    if (!sede || typeof window.__liveOrders !== "function") return;
+    live = window.__liveOrders({ sede, onChange: () => load(false), onStatus: paintLive });
+  }
   function startTimer() {
     clearInterval(timer);
-    const ms = autoprint ? 8000 : 15000;
-    // Con impresión automática la cocina sigue consultando con la pestaña
-    // oculta; apagada se conserva el ritmo anterior de 15 s solo si está visible.
-    timer = setInterval(() => { if (autoprint || document.visibilityState !== "hidden") load(false); }, ms);
+    // Respaldo lento: cada aviso real llega por WebSocket. Con impresión
+    // automática sigue con la pestaña oculta para no perder comandas.
+    timer = setInterval(() => { if (autoprint || document.visibilityState !== "hidden") load(false); }, 120000);
   }
   async function start() {
     paperSelect.value = String(paperWidth());
@@ -476,18 +500,20 @@ function kitchenRuntime() {
       if (autoBox) autoBox.checked = autoprint;
       knownIds = null;
       orders = []; since = Date.now() - 24 * 60 * 60 * 1000;
+      startLive();
       startTimer();
       load(true);
     });
     if (!sedes.length) return messageView("No hay sedes activas. Configúralas en Mi negocio.");
     if (!sede) return messageView("Elige la sede para ver su cocina.");
     if (autoprint) keepAwake();
+    startLive();
     await load(true);
     startTimer();
   }
   document.addEventListener("visibilitychange", () => {
     // Al volver a la tablet se refresca de inmediato y se renueva el wake lock;
-    // con impresión automática el polling de 8 s ya siguió en segundo plano.
+    // el respaldo de 120 s sigue solo con impresión automática en segundo plano.
     if (document.visibilityState === "visible" && sede) { keepAwake(); load(false); }
   });
   start();
