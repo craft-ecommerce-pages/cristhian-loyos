@@ -5,6 +5,7 @@ import {
   ticketLines,
   ticketPageHeight,
 } from "../../shared/ticket.js";
+import { liveOrders } from "../../shared/live.js";
 import { meseroBoot } from "./api.js";
 
 // Estimación del IVA de la caja para la barra de cobro y la hoja del pedido.
@@ -93,7 +94,7 @@ export async function renderMeseroPage(request, env, site) {
 <meta name="theme-color" content="#111820"><meta name="color-scheme" content="light"><meta name="robots" content="noindex">
 <title>${esc("Caja · " + store)}</title><style>${MESERO_CSS}</style></head><body>
 <header class="top"><a class="top-back" href="/panel" rel="noreferrer">← Panel</a>
-<span class="top-name">${esc(store)}</span><span class="top-tag">Caja</span></header>
+<span class="top-name">${esc(store)}</span><span class="top-live" id="meseroLiveState" hidden></span><span class="top-tag">Caja</span></header>
 <main id="mesero" class="wrap"><div class="boot" role="status"><span class="spin" aria-hidden="true"></span>
 Cargando caja…</div></main>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -103,6 +104,7 @@ Cargando caja…</div></main>
 <script id="meseroHeight">var __height=${String(ticketPageHeight)};window.__meseroHeight=__height;</script>
 <script id="meseroShiftTicket">var __shiftTicket=${String(shiftTicketLines)};window.__meseroShiftTicket=__shiftTicket;</script>
 <script id="meseroNotify">window.__meseroNotify={phone:${String(normalizeEcPhone)},message:${String(noticeMessage)},url:${String(noticeUrl)},coarse:${String(isCoarsePointer)}};</script>
+<script id="meseroLive">var __liveOrders=${String(liveOrders)};window.__liveOrders=__liveOrders;</script>
 <script id="meseroMain">${String(meseroRuntime)}
 meseroRuntime();</script></body></html>`;
 }
@@ -182,6 +184,10 @@ font-size:11.5px;
 font-weight:700;
 letter-spacing:.06em;
 text-transform:uppercase}
+.top-live{font-size:11.5px;
+font-weight:700;
+color:#ffad68}
+.top-live.on{color:#7fd4a8}
 .wrap{width:100%;
 max-width:none;
 margin:0 auto;
@@ -767,6 +773,7 @@ function meseroRuntime() {
     badgeNode = null,
     pollTimer = 0,
     polling = false,
+    live = null,
     primed = false,
     knownIds = new Set(),
     // Avisos de "pedido listo" ya abiertos: solo en memoria de la página.
@@ -1210,6 +1217,7 @@ function meseroRuntime() {
     select.addEventListener("change", () => {
       sede = select.value;
       rememberSede(sede);
+      startLive();
       if (onChange) onChange();
     });
     return select;
@@ -1406,6 +1414,7 @@ function meseroRuntime() {
       await loadShift();
       primeAlerts();
       render();
+      startLive();
       return startPolling();
     }
     const result = await call("me");
@@ -1420,6 +1429,7 @@ function meseroRuntime() {
     if (!me) return;
     primeAlerts();
     render();
+    startLive();
     startPolling();
   }
   function applySedes() {
@@ -1434,6 +1444,7 @@ function meseroRuntime() {
   }
   function sessionExpired() {
     me = null;
+    stopLive();
     stopPolling();
     pinScreen(MESSAGES.sin_sesion);
   }
@@ -1501,7 +1512,7 @@ function meseroRuntime() {
   // ── Avisos de pedidos web ──────────────────────────────────────────────────
   // El cliente pide desde el menú y el pedido llega a la caja: sin recargar, el
   // cajero ve una insignia, escucha un pitido y el título muestra "(N) ".
-  const POLL_MS = 10000;
+  const POLL_MS = 120000;
   const WEB_SOURCES = new Set(["web", "mesa", "menu", "cliente"]);
   const isWebOrder = (order) => {
     const source = fold(text(order?.source));
@@ -1600,6 +1611,34 @@ function meseroRuntime() {
     if (pollTimer && typeof window.clearInterval === "function")
       window.clearInterval(pollTimer);
     pollTimer = 0;
+  }
+  // Avisos en vivo de la sede activa; el sondeo de 120 s es solo el respaldo.
+  const liveState =
+    typeof document.getElementById === "function"
+      ? document.getElementById("meseroLiveState")
+      : null;
+  function paintLive(state) {
+    if (!liveState) return;
+    liveState.hidden = state !== "live" && state !== "offline";
+    liveState.textContent =
+      state === "live" ? "● En vivo" : state === "offline" ? "Reconectando…" : "";
+    if (liveState.classList) liveState.classList.toggle("on", state === "live");
+  }
+  function stopLive() {
+    if (live && typeof live.close === "function") {
+      try {
+        live.close();
+      } catch {
+        /* ya cerrado */
+      }
+    }
+    live = null;
+    paintLive("");
+  }
+  function startLive() {
+    stopLive();
+    if (!me || !sede || typeof window.__liveOrders !== "function") return;
+    live = window.__liveOrders({ sede, onChange: pollOrders, onStatus: paintLive });
   }
   function startPolling() {
     if (pollTimer || typeof window.setInterval !== "function") return;
@@ -3778,6 +3817,7 @@ body{margin:0;padding:3mm;font-family:monospace;font-size:11px;white-space:pre;l
     shiftStatus = "ok";
     closedReport = null;
     stopPolling();
+    stopLive();
     primed = false;
     knownIds = new Set();
     badgeNode = null;
@@ -3831,8 +3871,8 @@ body{margin:0;padding:3mm;font-family:monospace;font-size:11px;white-space:pre;l
     paintAlerts();
   }
   document.addEventListener("visibilitychange", () => {
-    // Al volver a la app se consulta enseguida; el sondeo de 10 s ya evita
-    // consultas superpuestas y respeta pestaña visible.
+    // Al volver a la app se consulta enseguida; el respaldo de 120 s no corre
+    // con la pestaña oculta y los avisos llegan por WebSocket.
     if (document.visibilityState === "visible") pollOrders();
   });
   start();

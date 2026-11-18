@@ -193,7 +193,7 @@ test("la cabecera trae el interruptor por sede, el sonido y la ayuda de kiosco",
   const html = await prepareHtml();
   for (const marker of [
     "Impresión automática", "kdsAuto", "Activar sonido", "kdsSound",
-    "kds_autoprint:", "8000", "kdsQueue",
+    "kds_autoprint:", "120000", "kdsQueue",
     "Usa una sola estación con impresión automática por sede. En Chrome abre con --kiosk-printing para imprimir sin diálogo.",
   ]) assert.ok(html.includes(marker), marker);
   assert.ok(html.includes("// ponytail:"), "la nota de doble impresión queda en el código");
@@ -229,7 +229,7 @@ test("con impresión automática imprime sola la comanda sin acuse, acusa despu�
   assert.equal(ctx.order("orden-1").print_count, 1);
   assert.equal(ctx.order("orden-2").print_count, 1, "la ya impresa no se toca");
   assert.equal(ctx.intervals.length, 1);
-  assert.equal(ctx.intervals[0].ms, 8000, "con impresión automática consulta cada 8 s");
+  assert.equal(ctx.intervals[0].ms, 120000, "el respaldo consulta cada 2 min");
   assert.deepEqual(ctx.wakeLocks, ["screen"], "pide wake lock de pantalla");
 
   // Aunque el servidor siga mostrando print_count 0, esta pestaña ya lo intentó.
@@ -290,13 +290,13 @@ test("el interruptor guarda la preferencia por sede y desbloquea el AudioContext
   assert.equal(ctx.storage.get("kds_autoprint:centro"), "1");
   assert.ok(ctx.audio.contexts >= 1, "crea el AudioContext en el gesto del usuario");
   assert.equal(ctx.audio.resumes, 1);
-  assert.equal(ctx.intervals.at(-1).ms, 8000, "al encender cambia el ritmo a 8 s");
+  assert.equal(ctx.intervals.at(-1).ms, 120000, "el ritmo de respaldo no cambia al encender");
 
   ctx.auto().checked = false;
   ctx.auto().trigger("change");
   await flush();
   assert.equal(ctx.storage.has("kds_autoprint:centro"), false, "apagar borra la clave");
-  assert.equal(ctx.intervals.at(-1).ms, 15000);
+  assert.equal(ctx.intervals.at(-1).ms, 120000);
 
   ctx.sound().trigger("click");
   await flush();
@@ -322,11 +322,11 @@ test("suena una sola vez por comanda nueva y nunca en la primera carga", async (
   assert.equal(ctx.audio.starts, 1, "no repite el pitido para la misma orden");
 });
 
-test("apagada conserva el polling de 15 s y se pausa con la pestaña oculta", async () => {
+test("apagada usa el respaldo de 2 min y se pausa con la pestaña oculta", async () => {
   const html = await prepareHtml();
   const ctx = startKds(html, { visibility: "hidden" });
   await flush();
-  assert.equal(ctx.intervals[0].ms, 15000);
+  assert.equal(ctx.intervals[0].ms, 120000);
   const polls = () => ctx.calls.filter(call => call.path.startsWith("/panel/api/kitchen/orders?")).length;
   const before = polls();
   ctx.intervals[0].fn();
