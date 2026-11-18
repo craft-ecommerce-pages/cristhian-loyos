@@ -238,3 +238,9 @@ test("el polling usa el cursor next y conserva las órdenes ya vistas", async ()
   assert.equal(polls[1].search.get("since"), String(order.comanda_at), "continúa desde el último comanda_at");
   assert.match(ctx.root.textContent, /Pizza margarita/);
 });
+
+test("la cocina define el shim __name antes del runtime (esbuild keepNames en producción)", async () => {
+  const html = await prepareHtml();
+  const shim = html.indexOf("var __name="), main = html.indexOf("function kitchenRuntime");
+  assert.ok(shim > 0 && shim < main, "sin el shim la cocina no arranca en producción");
+});

@@ -39,7 +39,7 @@ export async function renderKitchenPage(request, env, site) {
 <script id="kdsColumns">var __kdsColumns=${String(ticketColumns)};window.__kdsColumns=__kdsColumns;</script>
 <script id="kdsHeight">var __kdsHeight=${String(ticketPageHeight)};window.__kdsHeight=__kdsHeight;</script>
 <script id="kdsQueue">var __kdsQueue=${String(autoPrintCandidates)};window.__kdsQueue=__kdsQueue;</script>
-<script id="kdsMain">${String(kitchenRuntime)}
+<script id="kdsMain">var __name=function(f){return f};${String(kitchenRuntime)}
 kitchenRuntime();</script></body></html>`;
 }
 
