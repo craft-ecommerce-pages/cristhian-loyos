@@ -1595,7 +1595,7 @@
     /* ── Servicio y hora de retiro (food truck en universidades) ──
        "¿Cómo lo quieres?" es obligatorio (empaque); "¿Cuándo?" por defecto es lo antes
        posible. Programar exige pago previo: con efectivo la comanda solo sale al pagar. */
-    let serviceMode='takeaway',pickupAt=null;
+    let serviceMode='takeaway',pickupAt=null,paymentChosen=false;
     const PICKUP_STEP_MIN=10,PICKUP_LEAD_MIN=15,PICKUP_WINDOW_H=6; // ponytail: ventana fija; usar el horario de la sede si hace falta
     function pickupSlots(now=Date.now()){
       const step=PICKUP_STEP_MIN*60000;
@@ -1993,7 +1993,8 @@
       const select=document.getElementById('fieldPayment');
       if(select){
         select.hidden=false;
-        if(!methods.includes(String(select.value||''))) select.value=methods[0];
+        // El template trae "cash" seleccionado: sin elección del cliente manda el orden oficial.
+        if(!paymentChosen||!methods.includes(String(select.value||''))) select.value=methods[0];
       }
       const confirm=document.getElementById('btnConfirm');
       if(confirm&&!storeClosed) confirm.disabled=false;
@@ -2049,7 +2050,7 @@
       paymentsBlocked=true;
       if(confirm) confirm.disabled=true;
       loadPaymentOptions(checkout,payment);
-      payment?.addEventListener('change',()=>{updatePaymentHint();updatePickupHint();});
+      payment?.addEventListener('change',()=>{paymentChosen=true;updatePaymentHint();updatePickupHint();});
       updatePaymentHint();
       wireBillingValidation();
       // Bloque de transferencia (datos + comprobante), oculto salvo con ese método.
