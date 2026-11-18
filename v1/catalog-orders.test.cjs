@@ -337,7 +337,7 @@ test('transferencia: exige comprobante, muestra la cuenta oficial y lo sube sin 
   assert.match(thanks,/Banco Pichincha/);assert.match(thanks,/2200123456/);assert.match(thanks,/Munch S\.A\./);
   assert.match(thanks,/Pago confirmado/);
   assert.match(thanks,/Retira tu pedido en el local con este número/);
-  assert.doesNotMatch(thanks,/wa\.me|Envía tu comprobante por WhatsApp/);
+  assert.doesNotMatch(thanks,/Envía tu comprobante por WhatsApp/,'sin enlace legacy de comprobante');
   assert.doesNotMatch(thanks,/0912345678/);
   assert.doesNotMatch(thanks,/ana@test\.com/);
 });
@@ -423,7 +423,7 @@ test('transferencia pendiente: número grande, resumen con IVA, comprobante reci
   assert.match(thanks,/Comprobante recibido · esperando confirmación de caja/);
   assert.match(thanks,/Retira tu pedido en el local con este número\./);
   assert.match(thanks,/Te avisaremos por WhatsApp al 099\*\*\*4567 cuando tu pedido esté listo\./);
-  assert.doesNotMatch(thanks,/wa\.me|comprobante por WhatsApp/i);
+  assert.doesNotMatch(thanks,/comprobante por WhatsApp/i,'sin enlace legacy de comprobante');
   assert.doesNotMatch(thanks,/Domicilio|Dirección de entrega/i);
 });
 

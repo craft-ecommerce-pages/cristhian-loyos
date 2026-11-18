@@ -162,6 +162,77 @@
     if(order&&order.receipt_uploaded) return 'Comprobante recibido · esperando confirmación de caja';
     return 'Pago pendiente de verificación';
   }
+  // ── WhatsApp del pedido (lo envía el cliente; el servidor nunca envía) ──
+  // Número público del local: location.telefono_principal y, si falta o no es válido,
+  // whatsapp_number. Solo 7 a 15 dígitos habilitan el envío; si no, no se muestra el botón.
+  function whatsappNumber(config){
+    const location=config&&config.location;
+    const candidates=[location&&location.telefono_principal,config&&config.whatsapp_number];
+    for(const raw of candidates){
+      const digits=String(raw==null?'':raw).replace(/\D/g,'');
+      if(digits.length>=7&&digits.length<=15) return digits;
+    }
+    return '';
+  }
+  // Estado del pago tal como lo ve el cliente en el momento del clic. Nunca datos fiscales.
+  function whatsappPaymentState(order){
+    const method=String(order&&order.payment_method||'');
+    const status=String(order&&order.status||'');
+    const payment=derivedPaymentStatus(order);
+    const paid=status==='paid'||status==='ready'||payment==='paid';
+    if(method==='transfer'){
+      // La verificación en caja ya exige comprobante: con el pago confirmado se informa subido.
+      return (order&&order.receipt_uploaded===true)||paid
+        ?'Transferencia — comprobante subido':'Transferencia — comprobante pendiente';
+    }
+    if(method==='cash') return 'Efectivo — pago en caja';
+    if(status==='rejected'||payment==='rejected') return 'Tarjeta — pago rechazado';
+    return paid?'Tarjeta — pago aprobado':'Tarjeta — pago pendiente';
+  }
+  // Con tarjeta rechazada no se ofrece el envío: la página mantiene el reintento de pago.
+  function whatsappOrderAllowed(order,config){
+    if(!whatsappNumber(config)) return false;
+    const method=String(order&&order.payment_method||'');
+    const status=String(order&&order.status||'');
+    const payment=derivedPaymentStatus(order);
+    if(cardPaymentMethod(method)&&(status==='rejected'||payment==='rejected')) return false;
+    return true;
+  }
+  // Mensaje del cliente al local: una línea por ítem y el total con IVA. Sin cédula,
+  // RUC, correo ni dirección; el enlace lleva el mismo token opaco que ve el comprador.
+  function whatsappOrderMessage(order,options){
+    const opts=options&&typeof options==='object'?options:{};
+    const record=order&&typeof order==='object'?order:{};
+    const store=String(opts.store_name||'Munch').trim()||'Munch';
+    const money=typeof opts.formatMoney==='function'
+      ?opts.formatMoney
+      :cents=>'$'+(Math.max(0,Number(cents)||0)/100).toFixed(2);
+    const number=Number(record.number);
+    const label=Number.isSafeInteger(number)&&number>0?'#'+String(number).padStart(6,'0'):'';
+    const sede=String(opts.sede_name||'').trim();
+    const total=Number(record.total_cents);
+    const lines=[`Hola ${store} 👋 Te envío mi pedido${label?' '+label:''}${sede?' · '+sede:''}`];
+    for(const item of Array.isArray(record.items)?record.items:[]){
+      const qty=Number(item&&item.qty),name=String(item&&item.name||'').trim();
+      if(!Number.isInteger(qty)||qty<1||!name) continue;
+      lines.push(`${qty} x ${name}`);
+    }
+    if(Number.isFinite(total)&&total>=0) lines.push('Total: '+money(total));
+    lines.push('Pago: '+whatsappPaymentState(record));
+    const customer=String(record.customer_name||'').trim();
+    if(customer) lines.push('Nombre: '+customer);
+    const link=String(opts.link||'').trim();
+    if(link) lines.push('Ver pedido: '+link);
+    return lines.join('\n');
+  }
+  // Enlace wa.me con el texto codificado; '' cuando no hay número válido.
+  function whatsappOrderLink(config,order,options){
+    const number=whatsappNumber(config);
+    if(!number) return '';
+    return `https://wa.me/${number}?text=${encodeURIComponent(whatsappOrderMessage(order,options))}`;
+  }
+  // Ícono del CTA del recibo: mismo trazo del botón flotante del menú.
+  const WHATSAPP_ICON='<svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>';
   // Límite del SRI para consumidor final: por encima de USD 50 el pedido web exige datos
   // fiscales. Mismo umbral que el servidor (WEB_FINAL_CONSUMER_MAX_CENTS en orders.js).
   const FINAL_CONSUMER_MAX_CENTS=5000;
@@ -295,7 +366,8 @@
     billingErrorsFor,invoiceRequired,paymentMethods,taxBreakdown,normalizeTax,taxRateLabel,
     parseOrderReturn,orderPaymentLabel,thanksRetryAllowed,thanksPurchaseEligible,thanksPollFinal,
     cardPaymentMethod,paymentStartPath,transferReceiptRequired,maskPhone,thanksPickupText,thanksReadyText,
-    thanksTransferState};
+    thanksTransferState,whatsappNumber,whatsappPaymentState,whatsappOrderAllowed,whatsappOrderMessage,
+    whatsappOrderLink};
 
   // El motor solo corre en el navegador: el guard permite testear clubBanner en Node sin DOM.
   if(typeof document!=='undefined') (function(){
@@ -354,6 +426,11 @@
       'Pago rechazado por la tarjeta':'Payment rejected by the card','Pago con tarjeta en verificación':'Card payment being verified','Pago confirmado con tarjeta':'Payment confirmed with card','Esperando confirmación de la tarjeta':'Waiting for card confirmation',
       'Estamos verificando tu pago con tarjeta. No vuelvas a pagar.':'We are verifying your card payment. Please do not pay again.',
       'Volver al menú':'Back to the menu','Actualizar estado':'Refresh status','Actualizando…':'Refreshing…','Verificando tu pago…':'Verifying your payment…','No pudimos consultar el estado. Reintenta.':'We could not check the status. Try again.','No encontramos este pedido en este dispositivo.':'We could not find this order on this device.','Muestra este número en caja.':'Show this number at the counter.','Envía tu comprobante por WhatsApp':'Send your receipt on WhatsApp','Transferencia no disponible':'Transfer unavailable','La cuenta bancaria aún no está configurada. Paga en efectivo en caja.':'The bank account is not configured yet. Please pay in cash at the counter.','Reintentar pago con tarjeta':'Retry card payment','El pago no fue aprobado. Puedes volver al menú e intentar de nuevo.':'The payment was not approved. You can go back to the menu and try again.','Cuando tu pedido esté listo te avisaremos por WhatsApp al número que registraste.':'When your order is ready we will notify you on WhatsApp at the number you registered.','Tus datos fiscales no se muestran en esta página.':'Your tax details are not shown on this page.','Resumen':'Summary','Sede':'Location','Método de pago':'Payment method','Datos para tu comprobante':'Details for your receipt','Facturación':'Billing','Resumen no disponible. Muestra tu número en caja.':'Summary unavailable. Show your number at the counter.',
+      'Enviar mi pedido por WhatsApp':'Send my order on WhatsApp','Enviado ✓ (reenviar)':'Sent ✓ (resend)',
+      'Así el local recibe tu pedido al instante.':'The store receives your order right away.',
+      'Acércate a caja con tu número {0} para pagar.':'Go to the counter with your number {0} to pay.',
+      'Acércate a caja para pagar.':'Go to the counter to pay.',
+      'Pagas al retirar en caja. Tu pedido se prepara después de pagar.':'Pay when you pick up at the counter. Your order is prepared after payment.',
       'Datos para tu comprobante. No se muestran públicamente.':'Details for your receipt. They are not shown publicly.',
       'Cuando tu pedido esté listo te avisaremos por WhatsApp.':'We will notify you on WhatsApp when your order is ready.',
       'Banco':'Bank','Tipo de cuenta':'Account type','Cuenta':'Account','Titular':'Account holder',
@@ -1486,6 +1563,9 @@
       document_number:'fieldDocNumber',email:'fieldEmail',address:'fieldBillingAddress'};
     let orderPollTimer=null,orderStorageKey='';
     let thanksTimer=null,thanksRecord=null,thanksCheckout=null,thanksBusy=false,thanksError='',thanksBound=false;
+    // Envío de WhatsApp del recibo: el cliente lo dispara; solo se marca como enviado en
+    // esta sesión para ofrecer "reenviar" sin volver a pintarlo como acción principal.
+    let thanksWhatsappSent=false;
     // Comprobante elegido en el checkout (se sube después de crear el pedido).
     let transferReceiptFile=null;
     function readSede(){try{return sessionStorage.getItem(SEDE_KEY)||'';}catch(e){return '';}}
@@ -1799,7 +1879,7 @@
       if(!payment||!hint) return;
       const transfer=transferInfo(config);
       const hints={
-        cash:'Paga en caja; el pedido se prepara después del cobro.',
+        cash:'Pagas al retirar en caja. Tu pedido se prepara después de pagar.',
         transfer:transfer?'Transfiere el monto exacto y sube tu comprobante. La caja lo revisa antes de preparar.':'Transferencia no disponible: la cuenta bancaria aún no está configurada.',
         bendo:'Serás dirigido al pago seguro con tarjeta. La confirmación llega al volver.',
       };
@@ -1839,6 +1919,13 @@
       const message=document.getElementById('paymentUnavailable');
       if(message) message.hidden=!paymentsBlocked;
       if(paymentsBlocked){showNoPayments();return;}
+      // Orden visible del checkout: tarjeta → transferencia → efectivo en caja.
+      for(const method of methods){
+        const option=paymentOption(payment,method);
+        if(!option) continue;
+        if(typeof option.remove==='function') option.remove();
+        if(typeof payment.appendChild==='function') payment.appendChild(option);
+      }
       const select=document.getElementById('fieldPayment');
       if(select){
         select.hidden=false;
@@ -1996,6 +2083,19 @@
       }catch(e){}
     }
     function clearThanksPoll(){if(thanksTimer){clearTimeout(thanksTimer);thanksTimer=null;}}
+    // URL absoluta del recibo con su token: la misma que el cliente ve en su navegador.
+    function thanksShareUrl(record){
+      const query=new URLSearchParams({pedido:String(record.id||''),token:String(record.token||'')});
+      try{ return new URL('/gracias?'+query.toString(),location.href).href; }
+      catch(e){ return '/gracias?'+query.toString(); }
+    }
+    // Se rehace en cada clic (y en cada pintado) con el estado de pago vigente.
+    function thanksWhatsappHref(record,sede){
+      if(!whatsappOrderAllowed(record,config)) return '';
+      return whatsappOrderLink(config,record,{store_name:config.store_name||'Munch',
+        sede_name:sede?sede.nombre:'',link:thanksShareUrl(record),formatMoney:cents=>formatPrice(cents/100)});
+    }
+    function thanksWhatsappLabel(){ return thanksWhatsappSent?'Enviado ✓ (reenviar)':'Enviar mi pedido por WhatsApp'; }
     function thanksTone(record){
       const status=String(record&&record.status||'pending');
       const payment=derivedPaymentStatus(record);
@@ -2054,8 +2154,9 @@
       const methodLabel=method==='bendo'?t('Tarjeta de crédito o débito'):method==='transfer'?t('Transferencia bancaria'):method==='cash'?t('Efectivo en caja'):method?t('Tarjeta de crédito o débito'):'';
       let payHTML='';
       if(method==='cash'){
+        const cashNumber=orderNumberLabel(record.number);
         payHTML=`<h2>${t('Método de pago')}</h2><p class="thanks-pay-state"><strong>${t(orderPaymentLabel(record))}</strong></p>
-          <p class="thanks-muted">${t('Muestra este número en caja.')}</p>`;
+          <p class="thanks-muted">${cashNumber?t('Acércate a caja con tu número {0} para pagar.',cashNumber):t('Acércate a caja para pagar.')}</p>`;
       } else if(method==='transfer'){
         const info=transferInfo(config);
         payHTML=`<h2>${t('Método de pago')}</h2><p class="thanks-pay-state"><strong>${t(thanksTransferState(record))}</strong></p>`;
@@ -2102,6 +2203,9 @@
       }
       const retry=thanksRetryAllowed(record);
       const readyText=record.customer_phone_masked?thanksReadyText(record.customer_phone_masked):'';
+      // CTA de WhatsApp: solo con número válido y sin tarjeta rechazada. El enlace se
+      // rehace en cada clic con el estado público vigente del pedido.
+      const waHref=thanksWhatsappHref(record,sede);
       section.innerHTML=`<div class="thanks-shell">
         <div class="thanks-head">
           <span class="thanks-kicker">${esc(config.store_name||'Munch')}</span>
@@ -2110,6 +2214,10 @@
           <span class="thanks-badge ${tone}"${method?'':' hidden'}>${t(orderPaymentLabel(record))}</span>
           ${sede?`<p class="thanks-sede">${t('Sede')}: ${esc(sede.nombre)}</p>`:''}
         </div>
+        ${waHref?`<div class="thanks-wa">
+          <a class="btn-whatsapp thanks-wa-btn" id="thanksWhatsapp" href="${esc(waHref)}" target="_blank" rel="noopener">${WHATSAPP_ICON}<span>${t(thanksWhatsappLabel())}</span></a>
+          <p class="thanks-wa-hint">${t('Así el local recibe tu pedido al instante.')}</p>
+        </div>`:''}
         <section class="thanks-card">
           <h2>${t('Resumen')}</h2>
           ${lines?`<ul class="thanks-lines">${lines}</ul>`:`<p class="thanks-muted">${t('Resumen no disponible. Muestra tu número en caja.')}</p>`}
@@ -2132,6 +2240,15 @@
       section.querySelector('#thanksRefresh')?.addEventListener('click',()=>refreshThanks(true));
       section.querySelector('#thanksRetry')?.addEventListener('click',retryThanksPayment);
       section.querySelector('#thanksUpload')?.addEventListener('click',uploadThanksReceipt);
+      // Un solo clic: el enlace se abre con el texto del momento y después queda
+      // como "Enviado ✓ (reenviar)". Nunca se abre solo.
+      section.querySelector('#thanksWhatsapp')?.addEventListener('click',event=>{
+        const href=thanksWhatsappHref(record,sede);
+        if(!href){event.preventDefault();return;}
+        event.currentTarget.setAttribute('href',href);
+        thanksWhatsappSent=true;
+        event.currentTarget.innerHTML=WHATSAPP_ICON+`<span>${t(thanksWhatsappLabel())}</span>`;
+      });
     }
     // Reintento de la subida desde /gracias: el pedido ya existe y su token es la
     // única autorización necesaria.
@@ -2226,6 +2343,7 @@
       }
       if(!record||!record.id||!record.token||!thanksCheckout){renderThanksMissing();return;}
       thanksRecord=record;
+      thanksWhatsappSent=false;
       saveOrderRecord(record);
       syncThanksUrl(record);
       document.title=t('Pedido')+' · '+(config.store_name||'Munch');
@@ -2245,6 +2363,7 @@
       try{closeCart();}catch(e){}
       try{history.pushState(null,'',url);}catch(e){location.assign(url);return;}
       thanksRecord=record;thanksCheckout=checkoutOrders(config);thanksError='';
+      thanksWhatsappSent=false;
       syncThanksUrl(record);
       document.title=t('Pedido')+' · '+(config.store_name||'Munch');
       renderThanks();
@@ -2315,6 +2434,7 @@
         }
         const totals=cartPayableCents();
         const record=orderRecord(receipt,paymentMethod,sedeId,{
+          customer_name:customer.name,
           customer_phone_masked:maskPhone(customer.phone),
           subtotal_cents:totals.subtotal_cents,tax_cents:totals.tax_cents,
           receipt_uploaded:false,

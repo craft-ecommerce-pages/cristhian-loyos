@@ -7,6 +7,7 @@
   "hero_divider": false,
   "search_placeholder": "Busca tu antojo...",
   "whatsapp_number": "593958610812",
+  "web_cash": true,
   "currency": "USD",
   "price_symbol": "$",
   "price_locale": "en-US",

@@ -693,6 +693,10 @@
     .thanks-receipt input[type="file"]{font-size:12.5px;color:var(--text-soft)}
     .thanks-receipt-ok{font-size:13.5px;line-height:1.5;padding:10px 12px;border-radius:12px;color:#8af0af;background:color-mix(in srgb,var(--wa) 14%,transparent);border:1px solid color-mix(in srgb,var(--wa) 40%,transparent)}
     .thanks-privacy{font-size:11.5px;line-height:1.5;text-align:center;color:var(--text-dim)}
+    /* CTA de WhatsApp del recibo: lo dispara el cliente, nunca el servidor. */
+    .thanks-wa{display:flex;flex-direction:column;gap:8px}
+    .thanks-wa-btn{min-height:58px;font-size:16.5px;text-decoration:none;box-shadow:0 12px 30px color-mix(in srgb,var(--wa) 30%,transparent)}
+    .thanks-wa-hint{font-size:12.5px;line-height:1.5;text-align:center;color:var(--text-soft)}
     .transfer-panel{display:flex;flex-direction:column;gap:12px;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm)}
     .transfer-panel[hidden]{display:none}
     .transfer-panel h3{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-soft)}
