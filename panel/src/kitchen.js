@@ -282,7 +282,7 @@ function kitchenRuntime() {
   function paintSede() {
     sedeSelect.replaceChildren(
       h("option", { value: "", text: sedes.length ? "Elige una sede" : "Sin sedes disponibles" }),
-      sedes.map(item => h("option", { value: item.id, text: text(item.nombre) || item.id })));
+      ...sedes.map(item => h("option", { value: item.id, text: text(item.nombre) || item.id })));
     sedeSelect.value = sedes.some(item => item.id === sede) ? sede : "";
     sedeSelect.disabled = !sedes.length;
   }
