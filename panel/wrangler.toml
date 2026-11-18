@@ -39,6 +39,17 @@ migrations_dir = "../migrations"
 binding = "MEDIA"
 bucket_name = "${R2_BUCKET_NAME}"
 
+# Durable Object del tiempo real (caja/cocina): una instancia por sede. SQLite
+# (obligatorio en el plan gratis de Cloudflare). La migración `v1-orders-hub` ya
+# aplicada no se edita: para cambiar la clase se añade un tag nuevo.
+[[durable_objects.bindings]]
+name = "ORDERS_HUB"
+class_name = "OrdersHub"
+
+[[migrations]]
+tag = "v1-orders-hub"
+new_sqlite_classes = ["OrdersHub"]
+
 # Rate limit del login. El namespace es un ID numérico de la cuenta del cliente.
 [[ratelimits]]
 name = "LOGIN_LIMITER"
