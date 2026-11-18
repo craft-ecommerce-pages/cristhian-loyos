@@ -83,6 +83,7 @@ h1,h2,h3{margin:0;letter-spacing:-.01em}
 .nav-link{display:block;width:100%;padding:9px 12px;border:0;border-radius:8px;background:none;color:#c9d2da;font:inherit;font-size:13.5px;text-align:left;cursor:pointer;transition:background .13s,color .13s}
 .nav-link:hover{background:var(--side2);color:#fff}
 .nav-link.active{background:rgba(218,123,43,.19);color:#ffad68;font-weight:600}
+.nav-link.nav-cta{background:#da7b2b;color:#fff;font-weight:700;text-decoration:none;margin:2px 0 6px}.nav-link.nav-cta:hover{background:#c46a1f}
 .side-foot{display:flex;flex-direction:column;gap:2px;padding:10px 8px 14px;border-top:1px solid var(--side-line)}
 .side-foot .nav-link{color:var(--side-ink2);font-size:13px;text-decoration:none}
 .user{display:grid;grid-template-columns:32px minmax(0,1fr);gap:4px 10px;align-items:center;margin-top:8px;padding:10px 6px 0;border-top:1px solid var(--side-line)}
@@ -901,6 +902,8 @@ function runtime() {
       ["products", "Productos", productsScreen, "Menú"],
       ["variants", "Variantes", variantsScreen, "Menú"],
       ["packagings", "Empaques", packagingsScreen, "Menú"],
+      // Food truck: se cobra solo desde la Caja POS; "Nueva orden" y mesas confundían (pedido pendiente sin cobro).
+      ["pos", "Cobrar (Caja)", "/panel/pos", "Ventas"],
       ["orders", "Pedidos", ordersScreen, "Ventas"],
       ["new-order", "Nueva orden", newOrderScreen, "Ventas"],
       ["waiters-tables", "Meseros y mesas", meserosTablesScreen, "Ventas"],
@@ -910,11 +913,14 @@ function runtime() {
       ["store", "Mi negocio", storeScreen, "Negocio"],
       ...(me.loyalty_available ? [["loyalty", "Fidelidad", loyaltyScreen, "Negocio"]] : []),
     ];
+    // ponytail: ocultas, no borradas (sus tests y el código siguen); se cobra solo desde la Caja POS.
+    const HIDDEN_TABS = new Set(["new-order", "waiters-tables"]);
     const buttons = [];
     let navGroup = "";
     tabs.forEach(([id, label, action, group]) => {
       if (group !== navGroup) { navGroup = group; nav.append(h("div", { class: "nav-title", text: group })); }
-      const b = h("button", { class: "nav-link", type: "button", "data-tab": id, onclick: () => go(id) }, label);
+      if (typeof action === "string") { nav.append(h("a", { class: "nav-link nav-cta", href: action }, label)); return; }
+      const b = h("button", { class: "nav-link", type: "button", "data-tab": id, onclick: () => go(id), hidden: HIDDEN_TABS.has(id) }, label);
       nav.append(b); buttons.push(b);
     });
     const ordersButton = buttons.find(b => b.dataset.tab === "orders");
@@ -2193,7 +2199,7 @@ function runtime() {
         h("h1", { text: "Pedidos" }),
         h("p", { class: "muted small", text: "Pedidos enviados desde el menú." })),
       h("div", { class: "actions" },
-        btn("+ Nueva orden", "btn primary small", () => newOrderScreen()),
+        h("a", { class: "btn primary small", href: "/panel/pos", text: "Cobrar (Caja)" }),
         h("a", { class: "btn small", href: "/panel/cocina", target: "_blank", rel: "noopener", text: "Abrir cocina" }),
         h("a", { class: "btn small", href: "/panel/pos", target: "_blank", rel: "noopener", text: "Abrir caja POS" }))),
       notice, posSection, list, h("div", { class: "club-pagination" }, prev, page, next)));
