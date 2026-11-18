@@ -50,7 +50,7 @@ test("el catálogo completo expone sus pantallas y control de versión", () => {
 });
 
 test("producto, negocio y pedidos usan los campos del contrato", () => {
-  for (const text of ["Grupos reutilizables", "Variantes propias", "Gratis (NxM)", "Nombre singular", "Sugeridos al pedir", "Envío y cobertura", "Coordenadas (lat, lng)", "https://wa.me/"]) {
+  for (const text of ["Grupos reutilizables", "Variantes propias", "Gratis (NxM)", "Nombre singular", "Sugeridos al pedir", "Envío y cobertura", "Universidad o lugar", "Dar de baja", "https://wa.me/"]) {
     assert.ok(html.includes(text), `incluye ${text}`);
   }
   assert.ok(html.includes('toLocaleString("es-EC"'));

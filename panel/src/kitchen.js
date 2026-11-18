@@ -367,7 +367,7 @@ function kitchenRuntime() {
       ? ticketFn(printable, { store, width })
       : [store, "COMANDA " + printOrderTitle(order), ...printable.items.map(item => item.qty + " x " + item.nombre)];
     const height = typeof heightFn === "function" ? heightFn(lines.length) : Math.max(50, lines.length * 4 + 8);
-    if (printCss) printCss.textContent = "@page{size:" + paper + "mm " + height + "mm;margin:3mm}";
+    if (printCss) printCss.textContent = "@page{size:" + paper + "mm " + height + "mm;margin:0}@media print{body{margin:0;padding:3mm}}";
     ticketEl.textContent = lines.join("\n");
     try { window.print(); return true; } catch { return false; }
   }

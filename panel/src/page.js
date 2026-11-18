@@ -1649,7 +1649,7 @@ function runtime() {
       : ["COMANDA " + orderCode(order)];
     const height = typeof heightFn === "function" ? heightFn(lines.length) : Math.max(50, lines.length * 4 + 8);
     const style = document.createElement("style");
-    style.textContent = "@page{size:" + paper + "mm " + height + "mm;margin:3mm}";
+    style.textContent = "@page{size:" + paper + "mm " + height + "mm;margin:0}@media print{body{margin:0;padding:3mm}}";
     const pre = document.createElement("pre");
     pre.className = "print-ticket";
     pre.textContent = lines.join("\n");
@@ -2547,31 +2547,56 @@ function runtime() {
       id: typeof s?.id === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(s.id) ? s.id : "",
       nombre: String(s?.nombre || ""), direccion: String(s?.direccion || ""), telefono: String(s?.telefono || ""),
       universidad: String(s?.universidad || ""), activa: s?.activa !== false,
-      coords: s?.lat == null ? "" : String(s.lat) + ", " + String(s.lng), radio_km: s?.radio_km == null ? "" : String(s.radio_km),
     }));
+    let showInactiveBranches = false;
     const branchList = h("div", { class: "branches" });
     const sedesQr = h("div");
+    const inactiveToggle = btn("Mostrar sedes dadas de baja", "link", () => {
+      showInactiveBranches = !showInactiveBranches;
+      paintBranches();
+    });
+    // El id sale solo y nunca se reutiliza: parte del mayor `sede-NN` ya usado,
+    // incluidas las sedes dadas de baja que se conservan por sus pedidos.
     const nextSedeId = () => {
-      let n = 1;
-      while (branches.some(branch => branch.id === "sede-" + String(n).padStart(2, "0"))) n++;
-      return "sede-" + String(n).padStart(2, "0");
+      let max = 0;
+      for (const branch of branches) {
+        const match = /^sede-(\d+)$/.exec(branch.id || "");
+        if (match) max = Math.max(max, Number(match[1]));
+      }
+      return "sede-" + String(max + 1).padStart(2, "0");
     };
+    const activeBranches = () => branches.filter(branch => branch.activa !== false);
     function paintBranches() {
+      const visible = branches.filter(branch => branch.activa !== false || showInactiveBranches);
       branchList.replaceChildren();
-      if (!branches.length) branchList.append(h("p", { class: "muted small", text: "Todavía no hay sedes. Agrega la primera." }));
-      branches.forEach((branch, index) => {
-        const name = h("input", { id: uid("bsn"), type: "text", maxlength: 120, value: branch.nombre });
-        const address = h("input", { id: uid("bsa"), type: "text", maxlength: 300, value: branch.direccion });
-        const phone = h("input", { id: uid("bst"), type: "tel", inputmode: "tel", value: branch.telefono });
-        const coords = h("input", { id: uid("bco"), type: "text", placeholder: "-2.18, -79.89", value: branch.coords });
-        const radio = h("input", { id: uid("bra"), type: "text", inputmode: "decimal", value: branch.radio_km });
+      if (!visible.length) branchList.append(h("p", { class: "muted small", text: "Todavía no hay sedes activas. Agrega la primera." }));
+      visible.forEach(branch => {
+        const name = h("input", { id: uid("bsn"), type: "text", maxlength: 120, value: branch.nombre, "aria-label": "Nombre de la sede" });
+        const place = h("input", { id: uid("bun"), type: "text", maxlength: 120, value: branch.universidad, "aria-label": "Universidad o lugar" });
+        const address = h("input", { id: uid("bsa"), type: "text", maxlength: 300, value: branch.direccion, "aria-label": "Dirección" });
         name.addEventListener("input", () => { branch.nombre = name.value; });
+        place.addEventListener("input", () => { branch.universidad = place.value; });
         address.addEventListener("input", () => { branch.direccion = address.value; });
-        phone.addEventListener("input", () => { branch.telefono = phone.value; }); coords.addEventListener("input", () => { branch.coords = coords.value; }); radio.addEventListener("input", () => { branch.radio_km = radio.value; });
-        branchList.append(h("div", { class: "branch" }, field("Nombre de la sede", name), field("Dirección", address), field("Teléfono", phone), field("Coordenadas (lat, lng)", coords), field("Radio km", radio),
-          btn("Quitar", "btn small danger", () => { branches.splice(index, 1); paintBranches(); })));
+        const active = branch.activa !== false;
+        const state = active
+          ? btn("Dar de baja", "btn small danger", () => {
+            if (activeBranches().length <= 1) { toast("No puedes dar de baja la última sede activa.", true); return; }
+            if (typeof window.confirm === "function" && !window.confirm("¿Dar de baja " + (branch.nombre.trim() || branch.id) + "? Sus pedidos históricos se conservan.")) return;
+            branch.activa = false;
+            paintBranches();
+          })
+          : btn("Reactivar", "btn small", () => { branch.activa = true; paintBranches(); });
+        branchList.append(h("div", { class: "branch" },
+          field("Nombre de la sede", name),
+          field("Universidad o lugar", place, "Opcional: campus o referencia del local."),
+          field("Dirección", address, "Opcional; puedes completarla después."),
+          h("div", { class: "actions" },
+            h("span", { class: "hint", text: (active ? "Activa" : "Dada de baja") + " · " + (branch.id || "sin id") }),
+            state)));
       });
-      sedesQr.replaceChildren(sedesQrCard(branches));
+      inactiveToggle.hidden = !branches.some(branch => branch.activa === false);
+      inactiveToggle.textContent = showInactiveBranches ? "Ocultar sedes dadas de baja" : "Mostrar sedes dadas de baja";
+      sedesQr.replaceChildren(sedesQrCard(activeBranches()));
     }
     paintBranches();
     const locationPhone = h("input", { id: uid("blphone"), type: "tel", inputmode: "tel", autocomplete: "tel", value: String(rawLocation.telefono_principal || "") });
@@ -2596,19 +2621,22 @@ function runtime() {
     const save = h("button", { type: "submit", class: "btn primary" }, "Guardar cambios");
     const form = h("form", { novalidate: true, class: "card" },
       sectioned([
-        ["contacto", "Contacto", "A este WhatsApp llegan los pedidos.",
-          h("div", { class: "grid2" }, field("WhatsApp", wa, "Con código de país. Ejemplo: 593991234567."),
+        ["contacto", "Contacto", "Datos de contacto que aparecen en el menú.",
+          h("div", { class: "grid2" }, field("WhatsApp del local (avisos de pedido listo)", wa, "Con código de país, ejemplo 593958610812"),
             field("Teléfono principal de las sedes", locationPhone, "Solo dígitos, con código de país."))],
         ["horario", "Horario semanal", "Marca los días cerrados o configura hasta dos rangos por día.",
           schedule,
           field("Mensaje cuando está cerrado", closedMsg),
           switchField("Permitir pedidos anticipados", preorders)],
-        ["sedes", "Sedes", "Dirección de cada local.",
+        ["sedes", "Sedes", "Las sedes activas aparecen en el menú, la caja, la cocina y los reportes.",
           branchList,
-          btn("+ Agregar sede", "btn small", () => { branches.push({ id: nextSedeId(), nombre: "", direccion: "", activa: true }); paintBranches(); }),
+          h("div", { class: "actions" },
+            btn("+ Agregar sede", "btn small", () => {
+              branches.push({ id: nextSedeId(), nombre: "", direccion: "", universidad: "", activa: true });
+              paintBranches();
+            }),
+            inactiveToggle),
           sedesQr],
-        ["delivery", "Envío y cobertura", "Tarifa fija y alcance desde cada sede.",
-          h("div", { class: "grid2" }, field("Tarifa fija", fee), field("Mensaje fuera de cobertura", coverage))],
         ["social", "Redes y mapa", "Enlaces públicos de tu negocio.",
           h("div", { class: "grid2" }, field("Facebook", facebook), field("Instagram", instagram), field("TikTok", tiktok), field("Mapa embebido", mapEmbed))],
         ["suggest", "Sugeridos al pedir", "Categorías que se recomiendan en el checkout.",
@@ -2622,6 +2650,12 @@ function runtime() {
           h("div", { class: "actions" }, btn("Cambiar contraseña", "btn small", () => passwordScreen(false)),
             btn("Cerrar sesión", "btn small", logout))],
       ]),
+      // No hay delivery: la sección queda oculta, pero sus campos siguen en el
+      // formulario para conservar `delivery_fee` y el mensaje fuera de cobertura.
+      h("section", { class: "sec", hidden: true, "aria-hidden": "true" },
+        h("h3", { text: "Envío y cobertura" }),
+        h("p", { text: "No se usa: el local trabaja solo con retiro." }),
+        h("div", { class: "grid2" }, field("Tarifa fija", fee), field("Mensaje fuera de cobertura", coverage))),
       h("div", { class: "form-actions" }, save),
       err);
     form.addEventListener("submit", async ev => {
@@ -2638,20 +2672,24 @@ function runtime() {
           err.textContent = "Revisa los rangos de " + days[day].name + "."; return;
         }
       }
+      // Solo el nombre es obligatorio. La dirección vacía se guarda vacía en D1/KV;
+      // para el PATCH de negocio se usa el marcador ya conocido "Por confirmar"
+      // porque su validador exige dirección no vacía.
       const cleanBranches = branches.map(branch => {
         if (!branch.id) branch.id = nextSedeId();
-        const coords = String(branch.coords || "").split(",").map(x => x.trim());
         const out = {
           id: branch.id, nombre: branch.nombre.trim(), direccion: branch.direccion.trim(),
           universidad: String(branch.universidad || "").trim(), activa: branch.activa !== false,
         };
         const branchPhone = String(branch.telefono || "").replace(/\D/g, "");
         if (branchPhone) out.telefono = branchPhone;
-        if (coords.length === 2 && coords[0] !== "" && coords[1] !== "" && branch.radio_km !== "") { out.lat = Number(coords[0]); out.lng = Number(coords[1]); out.radio_km = num(branch.radio_km); }
         return out;
       });
-      if (cleanBranches.some(branch => !branch.nombre || !branch.direccion)) { err.textContent = "Completa el nombre y la dirección de cada sede."; return; }
-      if (cleanBranches.some(branch => (branch.lat == null) !== (branch.lng == null) || (branch.lat == null) !== (branch.radio_km == null) || (branch.lat != null && (!Number.isFinite(branch.lat) || !Number.isFinite(branch.lng) || !Number.isFinite(branch.radio_km))))) { err.textContent = "Las coordenadas y el radio deben estar completos y ser válidos."; return; }
+      if (cleanBranches.some(branch => !branch.nombre)) { err.textContent = "Escribe el nombre de cada sede."; return; }
+      if (!cleanBranches.some(branch => branch.activa)) { err.textContent = "Debe quedar al menos una sede activa."; return; }
+      const storeBranches = cleanBranches.map(branch => Object.assign({}, branch, {
+        direccion: branch.direccion || "Por confirmar",
+      }));
       const deliveryFee = fee.value.trim() === "" ? 0 : priceValue(fee.value);
       if (deliveryFee == null || deliveryFee > 1000) { err.textContent = "Escribe una tarifa entre 0 y 1000."; return; }
       save.disabled = true;
@@ -2660,7 +2698,7 @@ function runtime() {
       for (const [network, input] of [["facebook", facebook], ["instagram", instagram], ["tiktok", tiktok]]) if (input.value.trim()) social[network] = input.value.trim();
       const body = {
         hours: { tz: typeof rawHours.tz === "string" && rawHours.tz ? rawHours.tz : "America/Guayaquil", weekly, closed_msg: closedMsg.value.trim(), allow_preorders: preorders.checked },
-        location: { sedes: cleanBranches, telefono_principal: locationNumber, out_of_coverage_message: coverage.value.trim(), social, map_embed: mapEmbed.value.trim() },
+        location: { sedes: storeBranches, telefono_principal: locationNumber, out_of_coverage_message: coverage.value.trim(), social, map_embed: mapEmbed.value.trim() },
         delivery_fee: deliveryFee,
         cross_sell: { categories: [...selectedCross], title: crossTitle.value.trim(), max: Math.max(1, Math.min(12, Math.floor(num(crossMax.value) || 1))) },
         search_placeholder: placeholder.value.trim(),
@@ -2673,7 +2711,8 @@ function runtime() {
       save.disabled = false;
       save.textContent = "Guardar cambios";
       if (r.status === 200 || r.status === 204) {
-        // Las sedes viven en D1 (pos_sedes); el PATCH de negocio solo actualiza la config.
+        // Las sedes viven en D1 (pos_sedes); upsertSedes también sincroniza
+        // location.sedes en KV para que el menú y la caja no diverjan.
         const sedeSync = await api("sedes", { sedes: cleanBranches.map(branch => ({
           id: branch.id, nombre: branch.nombre, direccion: branch.direccion,
           universidad: branch.universidad, activa: branch.activa,
@@ -3455,7 +3494,7 @@ function runtime() {
     const list = (Array.isArray(branches) ? branches : []).filter(branch => branch && branch.id);
     return h("section", { class: "card" },
       h("h2", { text: "QR por sede" }),
-      h("p", { class: "muted small", text: "Cada QR abre la misma carta con la sede ya elegida. Imprímelo y pégalo en el food truck. Los IDs de sede son provisionales." }),
+      h("p", { class: "muted small", text: "Cada QR abre la misma carta con la sede ya elegida. Solo se generan para sedes activas; imprímelo y pégalo en el local." }),
       list.length ? h("div", { class: "qr-grid" }, list.map(branch => {
         const url = origin + "/?sede=" + encodeURIComponent(branch.id);
         const title = "QR " + (branch.nombre || branch.id);

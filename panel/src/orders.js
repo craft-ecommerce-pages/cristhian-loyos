@@ -318,14 +318,17 @@ export async function sedesFor(env, slug) {
       let id = base.slice(0, 64), n = 2;
       while (used.has(id)) id = `${base.slice(0, 60)}-${n++}`;
       used.add(id);
-      seeds.push({ id, nombre, direccion: clippedText(sede.direccion, 0, 300) || "" });
+      seeds.push({
+        id, nombre, direccion: clippedText(sede.direccion, 0, 300) || "",
+        universidad: clippedText(sede.universidad, 0, 120) || "", activa: sede.activa === false ? 0 : 1,
+      });
     }
     if (seeds.length) {
       const now = Date.now();
       await env.DB.batch(seeds.map(sede => env.DB.prepare(
         "INSERT OR IGNORE INTO pos_sedes (slug, id, nombre, direccion, universidad, activa, updated_at) " +
-        "VALUES (?, ?, ?, ?, '', 1, ?)",
-      ).bind(slug, sede.id, sede.nombre, sede.direccion, now)));
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+      ).bind(slug, sede.id, sede.nombre, sede.direccion, sede.universidad, sede.activa, now)));
       rows = (await env.DB.prepare(
         "SELECT id, nombre, direccion, universidad, activa FROM pos_sedes WHERE slug = ? ORDER BY nombre, id",
       ).bind(slug).all()).results || [];
@@ -341,23 +344,63 @@ export async function sedeById(env, slug, id) {
   return (await sedesFor(env, slug)).find(sede => sede.id === id) || null;
 }
 
-// Alta/actualización de sedes desde el panel. No borra las existentes (baja = activa:false).
+// Siguiente ID libre `sede-NN`: parte del mayor ya usado (incluidas las dadas de baja)
+// para no reutilizar IDs históricos. El panel también lo calcula, pero el servidor no
+// confía en él: si falta el id, lo asigna aquí.
+function nextSedeId(used) {
+  let max = 0;
+  for (const id of used) {
+    const match = /^sede-(\d+)$/.exec(id);
+    if (match) max = Math.max(max, Number(match[1]));
+  }
+  return `sede-${String(max + 1).padStart(2, "0")}`;
+}
+
+// Escribe la lista canónica de sedes en KV `{slug}:config`.location.sedes sin tocar
+// otras claves del menú (lectura-modificación-escritura). El menú lee esa lista.
+async function syncSedesConfig(env, slug, sedes) {
+  if (!env.MENUS) return;
+  const current = await env.MENUS.get(`${slug}:config`, "json").catch(() => null);
+  const config = isObject(current) ? current : {};
+  const location = isObject(config.location) ? config.location : {};
+  const list = sedes.map(({ id, nombre, direccion, universidad, activa }) => ({
+    id, nombre, direccion, universidad, activa,
+  }));
+  await env.MENUS.put(`${slug}:config`, JSON.stringify({ ...config, location: { ...location, sedes: list } }));
+}
+
+// Alta/actualización de sedes desde el panel. No borra las existentes (baja = activa:false)
+// y nunca deja el negocio sin una sede activa (409 `ultima_sede_activa`).
 export async function upsertSedes(env, slug, input) {
   if (!Array.isArray(input) || input.length > 50) return { error: "sede_invalida", status: 400 };
+  const existing = await sedesFor(env, slug);
+  const usedIds = new Set(existing.map(sede => sede.id));
   const now = Date.now(), sedes = [], seen = new Set();
   for (const raw of input) {
     if (!isObject(raw)) return { error: "sede_invalida", status: 400 };
-    const id = typeof raw.id === "string" && SEDE_ID_RE.test(raw.id) ? raw.id : null;
+    let id = raw.id == null ? null : raw.id;
+    if (id != null && (typeof id !== "string" || !SEDE_ID_RE.test(id))) return { error: "sede_invalida", status: 400 };
+    if (!id) id = nextSedeId(usedIds);
+    usedIds.add(id);
     const nombre = clippedText(raw.nombre, 1, 120);
     const direccion = raw.direccion == null ? "" : typeof raw.direccion === "string" ? raw.direccion.trim().slice(0, 300) : null;
     const universidad = raw.universidad == null ? "" : typeof raw.universidad === "string" ? raw.universidad.trim().slice(0, 120) : null;
     const activa = raw.activa == null ? true : raw.activa;
-    if (!id || !nombre || direccion == null || universidad == null || typeof activa !== "boolean" || seen.has(id)) {
+    if (!nombre || direccion == null || universidad == null || typeof activa !== "boolean" || seen.has(id)) {
       return { error: "sede_invalida", status: 400 };
     }
     seen.add(id);
     sedes.push({ id, nombre, direccion, universidad, activa: activa ? 1 : 0 });
   }
+  // Resultado = sedes no tocadas por esta llamada + las enviadas.
+  let active = sedes.filter(sede => sede.activa === 1).length;
+  let total = sedes.length;
+  for (const sede of existing) {
+    if (seen.has(sede.id)) continue;
+    total++;
+    if (sede.activa) active++;
+  }
+  if (total > 0 && active === 0) return { error: "ultima_sede_activa", status: 409 };
   for (const sede of sedes) {
     await env.DB.prepare(
       "INSERT INTO pos_sedes (slug, id, nombre, direccion, universidad, activa, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) " +
@@ -365,7 +408,9 @@ export async function upsertSedes(env, slug, input) {
       "universidad = excluded.universidad, activa = excluded.activa, updated_at = excluded.updated_at",
     ).bind(slug, sede.id, sede.nombre, sede.direccion, sede.universidad, sede.activa, now).run();
   }
-  return { sedes: await sedesFor(env, slug) };
+  const all = await sedesFor(env, slug);
+  await syncSedesConfig(env, slug, all);
+  return { sedes: all };
 }
 
 /* ── Precios: siempre desde el catálogo vigente en D1 ─────────────────────── */
@@ -891,7 +936,10 @@ export async function createPublicPosOrder(request, env, ctx, site) {
 }
 
 export async function publicSedes(env, slug) {
-  return json({ sedes: await sedesFor(env, slug) });
+  // Público, caja, cocina y selectores de reportes: solo sedes activas. Los pedidos
+  // históricos de sedes dadas de baja siguen en reportes porque viven en los pedidos.
+  const sedes = await sedesFor(env, slug);
+  return json({ sedes: sedes.filter(sede => sede.activa) });
 }
 
 // Último intento de pago del pedido. El recibo necesita distinguir un cobro

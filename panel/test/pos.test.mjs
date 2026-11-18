@@ -160,7 +160,8 @@ test("catálogo: producto apagado, sin stock o inactivo en sede", async () => {
   assert.deepEqual(await response.json(), { error: "sede_invalida" });
 
   const sedes = await (await panel.fetch(request("/api/sedes"), env, makeCtx())).json();
-  assert.deepEqual(sedes.sedes.map(sede => [sede.id, sede.activa]), [["centro", false], ["norte", true]]);
+  // /api/sedes publica solo activas; la sede dada de baja ya no se ofrece.
+  assert.deepEqual(sedes.sedes.map(sede => [sede.id, sede.activa]), [["norte", true]]);
 });
 
 test("idempotencia de orden: misma clave mismo resultado, cuerpo distinto 409", async () => {

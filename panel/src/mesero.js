@@ -3654,8 +3654,8 @@ function meseroRuntime() {
             "'": "&#39;",
           })[char],
       );
-    const printCss = `@page{size:${paper}mm ${height}mm;margin:3mm}
-body{margin:0;font-family:monospace;font-size:11px;white-space:pre;line-height:1.25}`;
+    const printCss = `@page{size:${paper}mm ${height}mm;margin:0}
+body{margin:0;padding:3mm;font-family:monospace;font-size:11px;white-space:pre;line-height:1.25}`;
     const html =
       "<!doctype html><html><head><style>" +
       printCss +

@@ -238,16 +238,20 @@ const PRODUCTS = [
   p("tradicional-arroz-moro-huevo", "Arroz moro con huevo frito", 350, "tradicional-arroces", { desc: "Arroz moro con huevo frito." }),
 ];
 
-/* ── Sedes: seis food trucks, IDs estables. Nombres/direcciones pendientes de confirmar. ── */
-// IDs alineados con el QR acordado (`?sede=sede-01` … `sede-06`). Nombres, direcciones y
-// universidades son provisionales: no se inventan campus ni marcas.
-const SEDES = Array.from({ length: 6 }, (_, i) => ({
-  id: `sede-0${i + 1}`,
-  nombre: `Food truck ${i + 1}`,
-  direccion: "Por confirmar",
-  universidad: "",
-  activa: true,
-}));
+/* ── Sedes: IDs estables. En producción solo UIDE está activa (2026-11-17). ── */
+// IDs alineados con el QR acordado (`?sede=sede-01` … `sede-06`). Las sedes 02–06 quedan
+// dadas de baja (`activa:false`) porque no tienen pedidos; se conservan para no reutilizar
+// IDs ni perder pedidos históricos. La dirección de UIDE está pendiente de confirmar.
+const SEDES = [
+  { id: "sede-01", nombre: "UIDE", direccion: "Por confirmar", universidad: "UIDE", activa: true },
+  ...Array.from({ length: 5 }, (_, i) => ({
+    id: `sede-0${i + 2}`,
+    nombre: `Food truck ${i + 2}`,
+    direccion: "Por confirmar",
+    universidad: "",
+    activa: false,
+  })),
+];
 
 const doc = {
   categories: CATEGORIES.map(([slug, name]) => ({ slug, name })),
@@ -264,6 +268,8 @@ const config = {
   hero_title: "Munch",
   hero_divider: false,
   search_placeholder: "Busca tu antojo...",
+  // WhatsApp del local para avisos manuales de "pedido listo" desde la caja.
+  whatsapp_number: "593958610812",
   currency: "USD",
   price_symbol: "$",
   price_locale: "en-US",
@@ -297,6 +303,7 @@ const config = {
     // El menú usa estos IDs para `?sede=` y para el selector; `sedesFor` del panel los siembra
     // una vez en D1. `locationField` del panel acepta id/universidad/activa al editar.
     sedes: SEDES.map(({ id, nombre, direccion, universidad, activa }) => ({ id, nombre, direccion, universidad, activa })),
+    telefono_principal: "593958610812",
     out_of_coverage_message: "Selecciona tu food truck para confirmar el pedido.",
   },
   // Checkout opt-in del cliente: POST /api/orders, selección de sede y polling de estado (sin WhatsApp).
