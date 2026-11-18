@@ -7,6 +7,7 @@ import { OWNER_STAFF } from "./caja.js";
 import { load, slugify } from "./catalog.js";
 import { dayOf, error, json, noContent } from "./contract.js";
 import { lineTaxSplit, loadInvoiceConfig, prepareInvoice } from "./invoices.js";
+import { notifyOrders } from "./realtime.js";
 import { openShiftFor } from "./turnos.js";
 
 const MAX_BYTES = 16 * 1024;
@@ -928,6 +929,7 @@ export async function createPosOrder(env, site, body, options = {}) {
     return createdResponse(env, site.slug, existing);
   }
   const row = await posOrderRow(env, site.slug, id);
+  await notifyOrders(env, site.slug, order.sede_id);
   return createdResponse(env, site.slug, row);
 }
 
@@ -1078,9 +1080,11 @@ export async function confirmPosOrder(env, site, session, encodedId) {
   })));
   if (priced.error) return error(priced.error, priced.status, priced.product_id ? { product_id: priced.product_id } : {});
   const now = Date.now();
-  await env.DB.prepare(
+  const changed = await env.DB.prepare(
     "UPDATE pos_orders SET status = 'confirmed', status_at = ?, updated_at = ? WHERE slug = ? AND id = ? AND status = 'pending'",
   ).bind(now, now, site.slug, order.id).run();
+  // Solo avisa la transición real: un reintento que no cambia la fila no despierta pantallas.
+  if (changed.meta.changes) await notifyOrders(env, site.slug, order.sede_id);
   return json({ order: posOrderData(await posOrderRow(env, site.slug, order.id)) });
 }
 
@@ -1098,6 +1102,7 @@ export async function rejectPosOrder(env, site, session, encodedId) {
     const current = await posOrderRow(env, site.slug, order.id);
     return current?.status === "rejected" ? json({ order: posOrderData(current) }) : error("estado_invalido", 409);
   }
+  await notifyOrders(env, site.slug, order.sede_id);
   return json({ order: posOrderData(await posOrderRow(env, site.slug, order.id)) });
 }
 
@@ -1128,6 +1133,7 @@ export async function editPosOrder(env, site, session, encodedId, body) {
     "updated_at = ? WHERE slug = ? AND id = ? AND status = 'pending'",
   ).bind(JSON.stringify(lines), totals.subtotal_cents, totals.total_cents, table, note, name, now, site.slug, order.id).run();
   if (!changed.meta.changes) return error("estado_invalido", 409);
+  await notifyOrders(env, site.slug, order.sede_id);
   return json({ order: posOrderData(await posOrderRow(env, site.slug, order.id)) });
 }
 
@@ -1301,7 +1307,7 @@ async function afterPaid(env, slug, row) {
 // Aprobado: pago, orden, comanda y snapshot de líneas en un solo batch.
 export async function settlePaymentApproved(env, slug, order, payment, details = {}) {
   const now = Date.now();
-  await env.DB.batch([
+  const results = await env.DB.batch([
     env.DB.prepare(
       "UPDATE pos_payments SET status = 'paid', provider_id = COALESCE(provider_id, ?), authorization = ?, message = NULL, " +
       "paid_at = ?, updated_at = ? WHERE slug = ? AND id = ? AND status <> 'paid'",
@@ -1324,6 +1330,8 @@ export async function settlePaymentApproved(env, slug, order, payment, details =
     ).bind(slug, order.id, now),
     ...snapshotStatements(env, slug, order, now),
   ]);
+  // results[2] es el UPDATE de la orden: una conciliación repetida no avisa.
+  if (results[2]?.meta?.changes) await notifyOrders(env, slug, order.sede_id);
   const paid = await posOrderRow(env, slug, order.id);
   await afterPaid(env, slug, paid);
   return paid;
@@ -1331,7 +1339,7 @@ export async function settlePaymentApproved(env, slug, order, payment, details =
 
 export async function settlePaymentRejected(env, slug, order, payment, message) {
   const now = Date.now();
-  await env.DB.batch([
+  const results = await env.DB.batch([
     env.DB.prepare(
       "UPDATE pos_payments SET status = 'rejected', message = ?, updated_at = ? WHERE slug = ? AND id = ? AND status <> 'paid'",
     ).bind(String(message || "").slice(0, 200), now, slug, payment.id),
@@ -1339,6 +1347,8 @@ export async function settlePaymentRejected(env, slug, order, payment, message) 
       "UPDATE pos_orders SET status = 'rejected', status_at = ?, updated_at = ? WHERE slug = ? AND id = ? AND status IN ('pending', 'confirmed')",
     ).bind(now, now, slug, order.id),
   ]);
+  // results[1] es el UPDATE de la orden: repetir un rechazo ya aplicado no avisa.
+  if (results[1]?.meta?.changes) await notifyOrders(env, slug, order.sede_id);
   return posOrderRow(env, slug, order.id);
 }
 
@@ -1482,6 +1492,7 @@ async function payManualOrder(env, site, session, encodedId, body, options) {
     if (current?.status === "paid") return error("orden_ya_pagada", 409);
     return error("estado_invalido", 409);
   }
+  await notifyOrders(env, site.slug, order.sede_id);
   const paid = await posOrderRow(env, site.slug, order.id);
   await afterPaid(env, site.slug, paid);
   return paidManualResponse(env, site, paid, payment);
@@ -1504,9 +1515,10 @@ export async function markOrderReady(env, site, session, encodedId) {
   if (order.status !== "paid") return error("estado_invalido", 409);
   if (order.ready_at == null) {
     const now = Date.now();
-    await env.DB.prepare(
+    const changed = await env.DB.prepare(
       "UPDATE pos_orders SET ready_at = ?, updated_at = ? WHERE slug = ? AND id = ? AND status = 'paid' AND ready_at IS NULL",
     ).bind(now, now, site.slug, order.id).run();
+    if (changed.meta.changes) await notifyOrders(env, site.slug, order.sede_id);
   }
   return json({ order: posOrderData(await posOrderRow(env, site.slug, order.id)) });
 }
@@ -1545,6 +1557,8 @@ export async function printKitchenOrder(env, site, session, encodedId, body) {
     await env.DB.prepare(
       "UPDATE pos_comandas SET print_count = print_count + 1, printed_at = ? WHERE slug = ? AND order_id = ?",
     ).bind(now, site.slug, order.id).run();
+    // El acuse lo ven las otras pantallas de la sede (cocina/caja): solo el nuevo.
+    await notifyOrders(env, site.slug, order.sede_id);
   }
   const comanda = await env.DB.prepare(
     "SELECT print_count, printed_at FROM pos_comandas WHERE slug = ? AND order_id = ?",
