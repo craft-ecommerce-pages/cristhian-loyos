@@ -15,6 +15,7 @@ workers_dev = true
 # Mismo slug que el Worker de menú: resuelve el host (workers.dev o dominio propio) a sus datos.
 CLIENT_SLUG = "${CLIENT_SLUG}"
 MENU_PUBLIC_URL = "${MENU_PUBLIC_URL}"
+MEDIA_ORIGIN = "${MEDIA_ORIGIN}"
 # Bendo (tarjeta, link hospedado): disabled | mock | live. staging | production
 # eligen idp/api de Geopagos. BENDO_POINT_OF_SALE vacío = se resuelve con
 # GET /api/v4/points-of-sale (cache KV 24 h); nunca se envía una cadena vacía.
@@ -38,6 +39,12 @@ migrations_dir = "../migrations"
 [[r2_buckets]]
 binding = "MEDIA"
 bucket_name = "${R2_BUCKET_NAME}"
+
+# Copia pública de las fotos (solo `media/panel/...`, nunca `private/`), servida por
+# MEDIA_ORIGIN (dominio propio de R2). Las subidas del panel escriben en ambos.
+[[r2_buckets]]
+binding = "MEDIA_PUBLIC"
+bucket_name = "${R2_BUCKET_NAME}-public"
 
 # Durable Object del tiempo real (caja/cocina): una instancia por sede. SQLite
 # (obligatorio en el plan gratis de Cloudflare). La migración `v1-orders-hub` ya

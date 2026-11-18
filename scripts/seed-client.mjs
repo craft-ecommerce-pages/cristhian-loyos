@@ -126,6 +126,7 @@ let uploaded = 0;
 if (!occupied.size) {
   for (const file of mediaFiles) {
     wrangler(["r2", "object", "put", `${R2_BUCKET}/${file.key}`, "--file", join(root, file.local), "--config", CFG, "--remote"]);
+    wrangler(["r2", "object", "put", `${R2_BUCKET}-public/media/${file.key}`, "--file", join(root, file.local), "--config", CFG, "--remote"]);
     uploaded++;
   }
 }

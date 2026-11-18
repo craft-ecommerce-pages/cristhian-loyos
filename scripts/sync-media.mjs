@@ -65,8 +65,9 @@ if (BACKUP_ONLY) process.exit(0);
 
 // 2) R2 primero, para que KV/D1 nunca apunten a un objeto inexistente.
 for (const f of sync.files) {
-  wrangler(["r2", "object", "put", `${BUCKET}/panel/${SLUG}/products/${f}`, "--file", join(root, "media/products", f),
-    "--content-type", "image/webp", "--config", CFG, "--remote"]);
+  for (const dest of [`${BUCKET}/panel`, `${BUCKET}-public/media/panel`]) // privado + copia pública (MEDIA_ORIGIN)
+    wrangler(["r2", "object", "put", `${dest}/${SLUG}/products/${f}`, "--file", join(root, "media/products", f),
+      "--content-type", "image/webp", "--cache-control", "public, max-age=31536000, immutable", "--config", CFG, "--remote"]);
 }
 log(`R2: ${sync.files.length} objetos subidos`);
 

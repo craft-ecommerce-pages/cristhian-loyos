@@ -206,7 +206,7 @@ export async function handle(url, env, template) {
   if (url.pathname === "/productos.json" || url.pathname === "/config.json") {
     const key = url.pathname === "/config.json" ? "config" : "productos";
     const data = await env.MENUS.get(`${slug}:${key}`);
-    return ok(jsonType, data == null ? (key === "productos" ? "[]" : "{}") : data);
+    return ok(jsonType, data == null ? (key === "productos" ? "[]" : "{}") : publicMedia(data, env));
   }
 
   // Tienda bespoke: HTML/CSS/JS autorado (multi-página) servido estático desde {slug}:site.
@@ -231,8 +231,16 @@ export async function handle(url, env, template) {
   // sitio bespoke (/pages/contacto.html), rompería la carga → 301 a "/" con su query.
   if (!isReceipt && url.pathname !== "/" && url.pathname !== "/index.html") return { status: 301, headers: { location: "/" + url.search }, body: "" };
   const theme = (await env.MENUS.get(`${slug}:theme`)) || "";
-  const html = render(template, safeParse(cfgRaw), cfgRaw, theme, env.ENGINE_ORIGIN || undefined);
+  const html = publicMedia(render(template, safeParse(cfgRaw), cfgRaw, theme, env.ENGINE_ORIGIN || undefined), env);
   return isReceipt ? receiptHtml(html) : okHtml(html);
+}
+
+// publicMedia: con MEDIA_ORIGIN (p. ej. https://media.munchec.com, bucket R2 público con solo
+// las fotos bajo `media/`), las fotos `/media/panel/...` se piden directo a R2 y no gastan
+// peticiones de Workers. Solo el prefijo `panel/`: `private/` nunca está en el bucket público.
+export function publicMedia(text, env) {
+  const origin = /^https:\/\/[a-z0-9.-]+$/i.test(env?.MEDIA_ORIGIN || "") ? env.MEDIA_ORIGIN : "";
+  return origin ? text.replace(/(["'(=\s])\/media\/panel\//g, `$1${origin}/media/panel/`) : text;
 }
 
 // siteFile: elige el archivo del mapa de la tienda para un pathname, con índice de directorio

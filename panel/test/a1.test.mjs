@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import panel from "../src/index.js";
-import { makeEnv, makeLimiter } from "./helpers.mjs";
+import { makeEnv, makeLimiter, makeR2 } from "./helpers.mjs";
 
 const host = "pizza.craft-systems.com";
 const request = (path, options = {}) => new Request(`https://${host}${path}`, options);
@@ -180,6 +180,20 @@ test("upload restringe sesión, tipo y tamaño", async () => {
   const uploaded = await response.json();
   assert.match(uploaded.url, /^\/media\/panel\/pizza\/.+\.webp$/);
   assert.equal(env.MEDIA.map.values().next().value.o.httpMetadata.cacheControl, "public, max-age=31536000, immutable");
+});
+
+test("upload con MEDIA_PUBLIC copia la foto al bucket público y devuelve la URL de MEDIA_ORIGIN", async () => {
+  const env = makeEnv({ "pizza:config": {} });
+  env.MEDIA_PUBLIC = makeR2();
+  env.MEDIA_ORIGIN = "https://media.pizza.ec";
+  const credentials = await owner(env), cookie = cookieOf(await login(env, credentials));
+  const response = await panel.fetch(request("/panel/api/upload", { method: "POST", headers: { cookie, "x-panel": "1", "content-type": "image/webp" }, body: new Uint8Array([1, 2]) }), env, {});
+  assert.equal(response.status, 201);
+  const { url } = await response.json();
+  const key = url.replace("https://media.pizza.ec/media/", "");
+  assert.match(url, /^https:\/\/media\.pizza\.ec\/media\/panel\/pizza\/.+\.webp$/);
+  assert.ok(env.MEDIA.map.has(key), "original en el bucket privado");
+  assert.ok(env.MEDIA_PUBLIC.map.has("media/" + key), "copia pública bajo media/");
 });
 
 test("admin exige Bearer y permite owner, reset y delete", async () => {

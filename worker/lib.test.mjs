@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert";
-import { resolveSlug, render, trackingTags, SHELL_EN, esc, jsonInline, sanitizeBrandSub, handle, siteFile, contentType, ogTags, clubBinding, receiptRedirect } from "./src/lib.js";
+import { resolveSlug, render, trackingTags, SHELL_EN, esc, jsonInline, sanitizeBrandSub, handle, siteFile, contentType, ogTags, clubBinding, receiptRedirect, publicMedia } from "./src/lib.js";
 
 test("/club y subrutas pasan el Request intacto al binding; sin binding sigue el menú", async () => {
   const calls = [];
@@ -222,4 +222,19 @@ test("SHELL_EN: cada texto existe en template.html y locale en traduce el shell;
   const en = render(tpl, { ...cfg, locale: "en" }, "{}", "");
   assert.match(en, /<html lang="en">/);
   for (const w of ["Tu Pedido", "Realizar pedido", "Retiro en local", "Ver mi carrito", "Confirmar pedido"]) assert.ok(!en.includes(w), w);
+});
+
+test("publicMedia reescribe solo /media/panel/ al origen público; sin MEDIA_ORIGIN no toca nada", async () => {
+  const env = { MEDIA_ORIGIN: "https://media.munchec.com" };
+  const json = '[{"imagenes":["/media/panel/s/products/a.webp"]}]';
+  assert.equal(publicMedia(json, env), '[{"imagenes":["https://media.munchec.com/media/panel/s/products/a.webp"]}]');
+  assert.equal(publicMedia('<img src="/media/panel/x.png"> url(/media/panel/y.png)', env), '<img src="https://media.munchec.com/media/panel/x.png"> url(https://media.munchec.com/media/panel/y.png)');
+  for (const keep of ['"/media/private/receipts/r.png"', '"https://otro.com/media/panel/z.png"', '"/v1/media/panel/q.png"'])
+    assert.equal(publicMedia(keep, env), keep);
+  assert.equal(publicMedia(json, {}), json);
+  assert.equal(publicMedia(json, { MEDIA_ORIGIN: "http://inseguro.com" }), json);
+  // /productos.json pasa por la reescritura
+  const kv = { get: async k => (k === "s:productos" ? json : null) };
+  const res = await handle(new URL("https://m.test/productos.json"), { CLIENT_SLUG: "s", MENUS: kv, MEDIA_ORIGIN: env.MEDIA_ORIGIN }, "");
+  assert.match(res.body, /https:\/\/media\.munchec\.com\/media\/panel\/s\/products\/a\.webp/);
 });

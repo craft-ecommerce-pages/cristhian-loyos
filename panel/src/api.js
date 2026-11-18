@@ -779,7 +779,10 @@ async function upload(request, env, site) {
   const data = await request.arrayBuffer();
   if (!data.byteLength || data.byteLength > MAX_UPLOAD_BYTES) return error("archivo_invalido", 400);
   const key = `panel/${site.slug}/${crypto.randomUUID()}.${ext}`;
-  await env.MEDIA.put(key, data, { httpMetadata: { contentType: type, cacheControl: "public, max-age=31536000, immutable" } });
+  const meta = { httpMetadata: { contentType: type, cacheControl: "public, max-age=31536000, immutable" } };
+  await env.MEDIA.put(key, data, meta);
+  // Copia pública (MEDIA_ORIGIN la sirve directo desde R2, sin pasar por el Worker).
+  if (env.MEDIA_PUBLIC) await env.MEDIA_PUBLIC.put(`media/${key}`, data, meta);
   return json({ url: mediaUrl(env, key) }, 201);
 }
 

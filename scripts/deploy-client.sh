@@ -52,6 +52,7 @@ check RATELIMIT_NAMESPACE_ID '^[0-9]+$' 'id numérico de rate limit namespace'
 
 export ENGINE_ORIGIN="${ENGINE_ORIGIN:-/v1}"
 export MENU_PUBLIC_URL="${MENU_PUBLIC_URL:-}"
+export MEDIA_ORIGIN="${MEDIA_ORIGIN:-}"
 # Bendo: sin modo explícito queda apagado. El punto de venta es opcional: vacío
 # deja que el adaptador lo resuelva con GET /api/v4/points-of-sale (KV 24 h).
 export BENDO_MODE="${BENDO_MODE:-disabled}"

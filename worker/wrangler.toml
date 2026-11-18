@@ -20,6 +20,8 @@ workers_dev = true
 CLIENT_SLUG = "${CLIENT_SLUG}"
 # Origen de los assets del motor. Vacío/omitido = "/v1" (Workers Assets locales).
 ENGINE_ORIGIN = "${ENGINE_ORIGIN}"
+# Origen público de las fotos (bucket R2 `<bucket>-public`). Vacío = se sirven por /media/.
+MEDIA_ORIGIN = "${MEDIA_ORIGIN}"
 
 # KV de la cuenta del cliente con los datos de sus menús.
 [[kv_namespaces]]

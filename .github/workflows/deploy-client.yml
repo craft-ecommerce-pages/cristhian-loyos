@@ -83,6 +83,7 @@ jobs:
           FACTURON_WEBHOOK_SECRET: ${{ secrets.FACTURON_WEBHOOK_SECRET }}
           ENGINE_ORIGIN: ${{ vars.ENGINE_ORIGIN }}
           MENU_PUBLIC_URL: ${{ vars.MENU_PUBLIC_URL }}
+          MEDIA_ORIGIN: ${{ vars.MEDIA_ORIGIN }}
           BENDO_MODE: ${{ vars.BENDO_MODE }}
           BENDO_ENV: ${{ vars.BENDO_ENV }}
           BENDO_POINT_OF_SALE: ${{ vars.BENDO_POINT_OF_SALE }}
