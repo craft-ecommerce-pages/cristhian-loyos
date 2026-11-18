@@ -815,6 +815,41 @@ test("cron: recupera un 'submitting' de más de 5 minutos con la misma clave", a
   assert.equal(env.DB.raw.prepare("SELECT COUNT(*) n FROM invoices WHERE order_id = 'ord-1'").get().n, 1);
 });
 
+test("cron: refresca una submitted de 3 días pero no reemite un pending de 2 días", async () => {
+  const env = envWith();
+  await prepareInvoice(env, { slug: SLUG, order: posOrder(), config: config(), now: NOW });
+  await prepareInvoice(env, { slug: SLUG, order: posOrder({ id: "ord-2" }), config: config(), now: NOW });
+
+  // Enviada hace 3 días: una autorización del SRI puede seguir en trámite
+  // (contingencia). Reconsultarla no reemite, así que la ventana es de 7 días.
+  const threeDaysAgo = NOW - 3 * 24 * 3600 * 1000;
+  env.DB.raw.prepare(
+    "UPDATE invoices SET status = 'submitted', provider_operation_id = '812', submitted_at = ?, " +
+    "created_at = ?, updated_at = ? WHERE order_id = 'ord-1'",
+  ).run(threeDaysAgo, threeDaysAgo, threeDaysAgo);
+  // Pending sin intento de hace 2 días: fuera de la idempotencia de 24 h de Facturón.
+  const twoDaysAgo = NOW - 2 * 24 * 3600 * 1000;
+  env.DB.raw.prepare("UPDATE invoices SET created_at = ?, updated_at = ? WHERE order_id = 'ord-2'")
+    .run(twoDaysAgo, twoDaysAgo);
+
+  const calls = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = facturonFetch({
+    "GET /documents/812/status": () => [200, { success: true, data: { status: "authorized", authorization_number: ACCESS_KEY } }],
+  }, calls);
+  try {
+    const { reconcileInvoices } = await import("../src/invoices.js");
+    assert.deepEqual(await reconcileInvoices(env, NOW), { checked: 1 }, "solo se toca la enviada");
+  } finally { globalThis.fetch = realFetch; }
+
+  assert.equal(rowOf(env, "ord-1").status, "issued", "la submitted añeja sí se refresca");
+  assert.equal(rowOf(env, "ord-2").status, "pending");
+  assert.equal(rowOf(env, "ord-2").provider_status, null);
+  assert.equal(calls.filter(c => c.method === "POST" && c.path === "/documents").length, 0,
+    "un pending fuera de la ventana de idempotencia no se reemite");
+  assert.deepEqual(eventsOf(env, "ord-2").map(event => event.kind), ["prepared"]);
+});
+
 test("timeout de Facturón: queda incierto y se reintenta con la misma clave", async () => {
   const env = envWith();
   await prepareInvoice(env, { slug: SLUG, order: posOrder(), config: config(), now: NOW });

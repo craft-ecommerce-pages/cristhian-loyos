@@ -1164,22 +1164,34 @@ export async function handleInvoiceWebhook(request, env, site, { adapter = null,
 }
 
 // Cron: emite los borradores pendientes, reconsulta las enviadas y reintenta (misma
-// clave) las que quedaron sin respuesta del proveedor. Facturón guarda la idempotencia
-// 24 h; por eso la ventana es de 23 h, ordenada de la factura más antigua a la más nueva.
+// clave) las que quedaron sin respuesta del proveedor. Ordenado de la factura más
+// antigua a la más nueva. Dos ventanas distintas:
+//  · pending (sin intento, incierta o candado vencido): 23 h, porque Facturón guarda la
+//    idempotencia 24 h y reemitir fuera de ella crearía un documento duplicado.
+//  · submitted: 7 días, porque la autorización del SRI puede tardar (contingencia) y
+//    reconsultarla nunca reemite.
 // `submitting` con más de 5 minutos es un candado vencido (el Worker murió a mitad de
 // la llamada): se retoma con la MISMA idempotency key, nunca con un documento nuevo.
 const RECONCILE_LIMIT = 10;
+const RECONCILE_PENDING_WINDOW_MS = 23 * 3600 * 1000;
+const RECONCILE_SUBMITTED_WINDOW_MS = 7 * 24 * 3600 * 1000;
 export async function reconcileInvoices(env, now = Date.now()) {
   if (!env?.DB) return { checked: 0 };
   const rows = await env.DB.prepare(
-    "SELECT slug, order_id, status FROM invoices WHERE created_at >= ? AND updated_at < ? AND (" +
-    "(status = 'submitted') OR " +
-    "(status = 'pending' AND failure_code = 'provider_uncertain') OR " +
-    "(status = 'pending' AND failure_code IS NULL AND provider_status IS NULL) OR " +
-    "(status = 'pending' AND provider_status = 'submitting' AND updated_at < ?)) " +
+    "SELECT slug, order_id, status FROM invoices WHERE updated_at < ? AND (" +
+    "(status = 'submitted' AND created_at >= ?) OR " +
+    "(status = 'pending' AND failure_code = 'provider_uncertain' AND created_at >= ?) OR " +
+    "(status = 'pending' AND failure_code IS NULL AND provider_status IS NULL AND created_at >= ?) OR " +
+    "(status = 'pending' AND provider_status = 'submitting' AND updated_at < ? AND created_at >= ?)) " +
     "ORDER BY updated_at ASC LIMIT ?",
   ).bind(
-    now - 23 * 3600 * 1000, now - 60 * 1000, now - SUBMIT_LOCK_MS, RECONCILE_LIMIT,
+    now - 60 * 1000,
+    now - RECONCILE_SUBMITTED_WINDOW_MS,
+    now - RECONCILE_PENDING_WINDOW_MS,
+    now - RECONCILE_PENDING_WINDOW_MS,
+    now - SUBMIT_LOCK_MS,
+    now - RECONCILE_PENDING_WINDOW_MS,
+    RECONCILE_LIMIT,
   ).all();
   const list = rows.results || [];
   for (const row of list) {
