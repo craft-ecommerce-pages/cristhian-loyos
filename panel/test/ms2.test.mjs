@@ -93,7 +93,7 @@ test("el papel de 58/80 mm usa 32/48 columnas", () => {
   assert.equal(ticketPageHeight(-1), 50);
 });
 
-test("la página del mesero tiene shim, escape, marcadores y sondea cada 10 s", async () => {
+test("la página del mesero tiene shim, escape, marcadores y sondea cada 2 min", async () => {
   const env = makeEnv({ "pizza:config": { store_name: "<b>Pizzería</b>" } });
   const html = await renderMeseroPage(
     new Request("https://pizza.craft-systems.com/panel/mesero"),
@@ -101,8 +101,8 @@ test("la página del mesero tiene shim, escape, marcadores y sondea cada 10 s", 
     site,
   );
   assert.ok(html.indexOf("var __name=") < html.indexOf("meseroMain"));
-  // El sondeo de pedidos web es de 10 s y nunca usa innerHTML.
-  assert.match(html, /const POLL_MS = 10000/);
+  // El respaldo de pedidos web es de 2 min y nunca usa innerHTML.
+  assert.match(html, /const POLL_MS = 120000/);
   assert.match(html, /setInterval\(/);
   assert.equal(html.includes("<b>Pizzería</b>"), false);
   assert.match(html, /&lt;b&gt;Pizzería&lt;\/b&gt;/);
