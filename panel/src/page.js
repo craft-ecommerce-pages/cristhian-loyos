@@ -914,6 +914,7 @@ function runtime() {
       ...(me.loyalty_available ? [["loyalty", "Fidelidad", loyaltyScreen, "Negocio"]] : []),
     ];
     // ponytail: ocultas, no borradas (sus tests y el código siguen); se cobra solo desde la Caja POS.
+    // Lo mismo el botón "Abrir cocina": la caja imprime las comandas (auto-impresión web); /panel/cocina sigue viva.
     const HIDDEN_TABS = new Set(["new-order", "waiters-tables"]);
     const buttons = [];
     let navGroup = "";
@@ -1463,7 +1464,7 @@ function runtime() {
         }
         return toast(errMsg(r, "No pudimos registrar el cobro."), true);
       }
-      toast((transfer ? "Transferencia confirmada." : "Cobrado.") + " La comanda ya está en cocina; imprímela desde Cocina o aquí.");
+      toast((transfer ? "Transferencia confirmada." : "Cobrado.") + " La comanda ya está en cocina; imprímela aquí o desde la caja.");
       paymentKeys.delete(order.id);
       reload();
     });
@@ -1543,7 +1544,7 @@ function runtime() {
       }
       datafonoKeys.delete(order.id);
       if (box) box.replaceChildren();
-      toast("Cobrado con datáfono. La comanda ya está en cocina; imprímela desde Cocina o aquí.");
+      toast("Cobrado con datáfono. La comanda ya está en cocina; imprímela aquí o desde la caja.");
       reload();
     });
   }
@@ -2203,7 +2204,7 @@ function runtime() {
         h("p", { class: "muted small", text: "Pedidos enviados desde el menú." })),
       h("div", { class: "actions" },
         h("a", { class: "btn primary small", href: "/panel/pos", text: "Cobrar (Caja)" }),
-        h("a", { class: "btn small", href: "/panel/cocina", target: "_blank", rel: "noopener", text: "Abrir cocina" }),
+        h("a", { class: "btn small", href: "/panel/cocina", target: "_blank", rel: "noopener", text: "Abrir cocina", hidden: true }),
         btn("Actualizar", "btn small", () => load(offset)))),
       notice, posSection, list, h("div", { class: "club-pagination" }, prev, page, next)));
     load();
@@ -2482,7 +2483,7 @@ function runtime() {
         h("h1", { text: "Nueva orden" }),
         h("p", { class: "muted small", text: "Pedido de caja o teléfono. Queda pendiente hasta que confirmes y cobres." })),
       h("div", { class: "actions" },
-        h("a", { class: "btn small", href: "/panel/cocina", target: "_blank", rel: "noopener", text: "Abrir cocina" }),
+        h("a", { class: "btn small", href: "/panel/cocina", target: "_blank", rel: "noopener", text: "Abrir cocina", hidden: true }),
         h("a", { class: "btn small", href: "/panel/pos", target: "_blank", rel: "noopener", text: "Caja POS" }))),
       h("div", { class: "neworder" },
         h("div", { class: "neworder-main" }, pickBox, search, grid),
