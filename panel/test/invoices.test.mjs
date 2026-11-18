@@ -723,6 +723,21 @@ const withDeadline = (promise, ms = 2_000) => {
   });
   return Promise.race([promise.finally(() => clearTimeout(timer)), deadline]);
 };
+// Fetch falso que "cuelga" hasta que el AbortSignal de la llamada vence. En Node
+// AbortSignal.timeout() usa un temporizador unref: sin una espera ref'd el event loop
+// se vacía antes de que el abort se dispare y `node --test` cancela el test. El
+// temporizador de respaldo mantiene vivo el loop y falla en vez de quedarse colgado.
+const hangingFetch = (onCall = () => {}) => (_url, init) => new Promise((_resolve, reject) => {
+  onCall();
+  const signal = init?.signal;
+  const backstop = setTimeout(() => {
+    reject(new Error("el fetch falso nunca fue abortado: revisa timeoutMs y el signal"));
+  }, 5_000);
+  const fail = () => { clearTimeout(backstop); reject(signal?.reason); };
+  if (!signal) return;
+  if (signal.aborted) fail();
+  else signal.addEventListener("abort", fail, { once: true });
+});
 
 test("cobro en efectivo: responde aunque el fetch de Facturón nunca resuelva", async () => {
   const env = cashEnv(), ctx = makeCtx(), cookie = await cashCookie(env);
@@ -735,7 +750,7 @@ test("cobro en efectivo: responde aunque el fetch de Facturón nunca resuelva", 
 
   const realFetch = globalThis.fetch;
   let providerCalls = 0;
-  globalThis.fetch = () => { providerCalls++; return new Promise(() => { /* cuelgue total */ }); };
+  globalThis.fetch = hangingFetch(() => { providerCalls++; });
   try {
     const paid = await withDeadline(panel.fetch(
       jsonPost(`/panel/api/orders/${order.id}/pay-cash`, { idempotency_key: "cash-factura-0001" }, { cookie }),
@@ -854,13 +869,10 @@ test("timeout de Facturón: queda incierto y se reintenta con la misma clave", a
   const env = envWith();
   await prepareInvoice(env, { slug: SLUG, order: posOrder(), config: config(), now: NOW });
 
-  // fetch que solo termina cuando el AbortSignal de la llamada vence.
-  const abortingFetch = (_url, init) => new Promise((_resolve, reject) => {
-    init.signal.addEventListener("abort", () => reject(init.signal.reason));
-  });
+  // El fetch cuelga hasta que vence el AbortSignal de la llamada (timeout del adaptador).
   const slow = createFacturonAdapter({
     apiKey: "fec_test", companyId: 3, emissionPointId: 7, environment: "sandbox",
-    fetchImpl: abortingFetch, timeoutMs: 5,
+    fetchImpl: hangingFetch(), timeoutMs: 50,
   });
   const timedOut = await submitInvoice(env, { slug: SLUG, orderId: "ord-1", config: config(), adapter: slow, now: NOW });
   assert.equal(timedOut.ok, false);
