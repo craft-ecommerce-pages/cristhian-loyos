@@ -175,4 +175,5 @@ test("cocina y caja incluyen liveOrders y el respaldo de 2 min", async () => {
   }
   assert.ok(kitchen.includes("kdsLiveState"), "indicador de estado en cocina");
   assert.ok(caja.includes("meseroLiveState"), "indicador de estado en caja");
+  assert.ok(caja.indexOf("var __name=") > 0 && caja.indexOf("var __name=") < caja.indexOf('id="meseroLive"'), "shim __name antes de liveOrders en caja");
 });

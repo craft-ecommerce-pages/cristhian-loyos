@@ -241,6 +241,9 @@ test("el polling usa el cursor next y conserva las órdenes ya vistas", async ()
 
 test("la cocina define el shim __name antes del runtime (esbuild keepNames en producción)", async () => {
   const html = await prepareHtml();
-  const shim = html.indexOf("var __name="), main = html.indexOf("function kitchenRuntime");
-  assert.ok(shim > 0 && shim < main, "sin el shim la cocina no arranca en producción");
+  // Debe ir antes de CUALQUIER función serializada (ticket, liveOrders, runtime):
+  // el bundle de wrangler les inserta llamadas __name(...).
+  const shim = html.indexOf("var __name=");
+  for (const marker of ['id="kdsTicketFn"', 'id="kdsLive"', "function kitchenRuntime"])
+    assert.ok(shim > 0 && shim < html.indexOf(marker), "shim __name después de " + marker);
 });

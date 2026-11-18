@@ -36,13 +36,13 @@ export async function renderKitchenPage(request, env, site) {
 <div id="kdsToast" class="toast" role="status" aria-live="polite"></div>
 <div class="print-only"><pre id="kdsTicket"></pre></div>
 <style id="kdsPrintCss"></style>
-<script id="kdsStore">var __kdsStore=${inline(store)};</script>
+<script id="kdsStore">var __name=function(f){return f};var __kdsStore=${inline(store)};</script>
 <script id="kdsTicketFn">var __kdsTicket=${String(ticketLines)};window.__kdsTicket=__kdsTicket;</script>
 <script id="kdsColumns">var __kdsColumns=${String(ticketColumns)};window.__kdsColumns=__kdsColumns;</script>
 <script id="kdsHeight">var __kdsHeight=${String(ticketPageHeight)};window.__kdsHeight=__kdsHeight;</script>
 <script id="kdsQueue">var __kdsQueue=${String(autoPrintCandidates)};window.__kdsQueue=__kdsQueue;</script>
 <script id="kdsLive">var __liveOrders=${String(liveOrders)};window.__liveOrders=__liveOrders;</script>
-<script id="kdsMain">var __name=function(f){return f};${String(kitchenRuntime)}
+<script id="kdsMain">${String(kitchenRuntime)}
 kitchenRuntime();</script></body></html>`;
 }
 
