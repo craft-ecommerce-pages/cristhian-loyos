@@ -177,3 +177,26 @@ test("cocina y caja incluyen liveOrders y el respaldo de 2 min", async () => {
   assert.ok(caja.includes("meseroLiveState"), "indicador de estado en caja");
   assert.ok(caja.indexOf("var __name=") > 0 && caja.indexOf("var __name=") < caja.indexOf('id="meseroLive"'), "shim __name antes de liveOrders en caja");
 });
+
+test("caja: cola de impresión automática (solo pagados sin comanda, 8 s de espera, sin repetir)", async () => {
+  const { cajaAutoQueue } = await import("../src/mesero.js");
+  const now = 1_000_000_000_000;
+  const o = (id, extra) => ({ id, status: "paid", print_count: 0, paid_at: now - 60_000, ...extra });
+  const orders = [
+    o("nuevo", { paid_at: now - 2_000 }),          // recién cobrado: espera
+    o("web-2", { paid_at: now - 30_000 }),
+    o("impreso", { print_count: 1 }),               // ya tiene comanda
+    o("web-1", { paid_at: now - 90_000 }),
+    o("viejo", { paid_at: now - 13 * 3600_000 }),  // más de 12 h
+    o("intentado"),                                 // esta caja ya lo imprimió/intentó
+    o("sin-pagar", { status: "confirmed" }),
+  ];
+  const { ready, waiting } = cajaAutoQueue(orders, new Set(["intentado"]), now);
+  assert.deepEqual(ready.map(x => x.id), ["web-1", "web-2"], "más antiguo primero");
+  assert.equal(waiting, true);
+  assert.deepEqual(cajaAutoQueue([o("x", { paid_at: now - 1000 })], new Set(), now + 9000).ready.map(x => x.id), ["x"]);
+  assert.deepEqual(cajaAutoQueue(null, null, now), { ready: [], waiting: false });
+  // serializable: funciona evaluada como en el navegador
+  const fn = new Function("return " + String(cajaAutoQueue))();
+  assert.deepEqual(fn(orders, new Set(["intentado"]), now).ready.map(x => x.id), ["web-1", "web-2"]);
+});

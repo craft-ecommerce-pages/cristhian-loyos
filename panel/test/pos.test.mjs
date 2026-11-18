@@ -284,9 +284,14 @@ test("flujo caja sin LOYALTY: PIN local, pending, confirmar y cobrar en efectivo
   response = await panel.fetch(body(`/panel/api/orders/${created.id}/pay-cash`, { idempotency_key: "cash-0002" }, { headers: { cookie } }), env, ctx);
   assert.deepEqual(await response.json(), { error: "orden_ya_pagada" });
 
+  // La lista de la caja expone print_count (auto-impresión de pedidos web): 0 antes del acuse.
+  const cajaPaid = async () => (await (await panel.fetch(request("/panel/api/pos/orders?sede_id=centro&status=paid", { headers: { cookie } }), env, ctx)).json())
+    .orders.find(order => order.id === created.id);
+  assert.equal((await cajaPaid()).print_count, 0);
   // Impresión idempotente por clave y reimpresión explícita con otra clave.
   response = await panel.fetch(body(`/panel/api/kitchen/orders/${created.id}/print`, { idempotency_key: "print-0002" }, { headers: { cookie } }), env, ctx);
   assert.equal((await response.json()).print_count, 1);
+  assert.equal((await cajaPaid()).print_count, 1);
   response = await panel.fetch(body(`/panel/api/kitchen/orders/${created.id}/print`, { idempotency_key: "print-0002" }, { headers: { cookie } }), env, ctx);
   assert.equal((await response.json()).print_count, 1);
   response = await panel.fetch(body(`/panel/api/kitchen/orders/${created.id}/print`, { idempotency_key: "print-0003" }, { headers: { cookie } }), env, ctx);

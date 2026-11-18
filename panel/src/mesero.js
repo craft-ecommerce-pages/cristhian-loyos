@@ -78,6 +78,23 @@ export function isCoarsePointer(nav, matchMedia) {
   return /Android|iPhone|iPad|iPod|Mobile|Tablet|Silk/i.test(ua);
 }
 
+// Cola de impresión automática de la caja (se serializa al navegador): pagados de
+// la sede sin comanda impresa, de las últimas 12 h, que esta caja no intentó ya.
+// `ready` (más antiguo primero) son los que llevan >= 8 s pagados; `waiting` dice
+// si hay alguno más reciente (la caja que cobró está imprimiendo su comanda).
+export function cajaAutoQueue(orders, tried, now) {
+  const WAIT_MS = 8000, MAX_AGE_MS = 12 * 60 * 60 * 1000;
+  const pending = (Array.isArray(orders) ? orders : []).filter(
+    (order) =>
+      order && order.id && order.status === "paid" && !(Number(order.print_count) > 0) &&
+      !(tried && tried.has(order.id)) && Number(order.paid_at) > now - MAX_AGE_MS,
+  );
+  const ready = pending
+    .filter((order) => now - Number(order.paid_at) >= WAIT_MS)
+    .sort((a, b) => Number(a.paid_at) - Number(b.paid_at));
+  return { ready, waiting: ready.length < pending.length };
+}
+
 export async function renderMeseroPage(request, env, site) {
   const slug = String(site?.slug ?? "");
   const config = await env.MENUS.get(`${slug}:config`, "json").catch(
@@ -104,6 +121,7 @@ Cargando caja…</div></main>
 <script id="meseroHeight">var __height=${String(ticketPageHeight)};window.__meseroHeight=__height;</script>
 <script id="meseroShiftTicket">var __shiftTicket=${String(shiftTicketLines)};window.__meseroShiftTicket=__shiftTicket;</script>
 <script id="meseroNotify">window.__meseroNotify={phone:${String(normalizeEcPhone)},message:${String(noticeMessage)},url:${String(noticeUrl)},coarse:${String(isCoarsePointer)}};</script>
+<script id="meseroQueue">var __cajaQueue=${String(cajaAutoQueue)};window.__cajaQueue=__cajaQueue;</script>
 <script id="meseroLive">var __liveOrders=${String(liveOrders)};window.__liveOrders=__liveOrders;</script>
 <script id="meseroMain">${String(meseroRuntime)}
 meseroRuntime();</script></body></html>`;
@@ -188,6 +206,17 @@ text-transform:uppercase}
 font-weight:700;
 color:#ffad68}
 .top-live.on{color:#7fd4a8}
+.auto-print{display:inline-flex;
+align-items:center;
+gap:6px;
+margin-left:auto;
+font-size:13px;
+font-weight:700;
+cursor:pointer}
+.auto-print input{width:18px;
+height:18px;
+margin:0;
+accent-color:#da7b2b}
 .wrap{width:100%;
 max-width:none;
 margin:0 auto;
@@ -1638,14 +1667,76 @@ function meseroRuntime() {
   function startLive() {
     stopLive();
     if (!me || !sede || typeof window.__liveOrders !== "function") return;
-    live = window.__liveOrders({ sede, onChange: pollOrders, onStatus: paintLive });
+    readAutoprint();
+    live = window.__liveOrders({
+      sede,
+      onChange: () => {
+        autoPrintWeb();
+        return pollOrders();
+      },
+      onStatus: paintLive,
+    });
   }
   function startPolling() {
     if (pollTimer || typeof window.setInterval !== "function") return;
     pollTimer = window.setInterval(() => {
       if (!me) return stopPolling();
+      autoPrintWeb();
       return pollOrders();
     }, POLL_MS);
+  }
+  // ── Impresión automática de pedidos web ────────────────────────────────────
+  // Los pedidos del menú pagados con tarjeta nacen `paid` sin pasar por la caja:
+  // con la casilla activa (por sede, en este equipo) la caja imprime su comanda.
+  // Los cobros hechos en esta caja ya imprimen en printPaid (y quedan en
+  // autoTried); la espera de 8 s evita competir con ese flujo. Una sola caja por
+  // sede con la casilla activa: dos equipos imprimirían doble.
+  const AUTO_WAIT_MS = 8000;
+  const autoTried = new Set();
+  let autoprint = false, autoBusy = false, autoRetry = 0;
+  const autoKey = (id) => "caja.autoprint:" + id;
+  function readAutoprint() {
+    try {
+      autoprint = !!sede && localStorage.getItem(autoKey(sede)) === "1";
+    } catch {
+      autoprint = false;
+    }
+    return autoprint;
+  }
+  function setAutoprint(on) {
+    autoprint = !!on && !!sede;
+    try {
+      if (autoprint) localStorage.setItem(autoKey(sede), "1");
+      else if (sede) localStorage.removeItem(autoKey(sede));
+    } catch {
+      /* sin almacenamiento: vale solo mientras la página siga abierta */
+    }
+    toast(autoprint ? "La caja imprimirá sola los pedidos web pagados." : "Impresión automática desactivada.");
+    if (autoprint) autoPrintWeb();
+  }
+  async function autoPrintWeb() {
+    if (!autoprint || autoBusy || !me || !sede || typeof window.__cajaQueue !== "function") return;
+    autoBusy = true;
+    try {
+      const result = await call("orders?sede_id=" + encodeURIComponent(sede) + "&status=paid&limit=20");
+      if (result.status === 401) return sessionExpired();
+      if (result.status !== 200) return;
+      const { ready, waiting } = window.__cajaQueue(result.data?.orders, autoTried, Date.now());
+      for (const order of ready) {
+        if (!autoprint) break;
+        autoTried.add(order.id);
+        await printPaid(order);
+      }
+      if (waiting && !autoRetry)
+        autoRetry = window.setTimeout(() => {
+          autoRetry = 0;
+          autoPrintWeb();
+        }, AUTO_WAIT_MS + 1000);
+    } catch {
+      /* el próximo aviso o el respaldo reintentan */
+    } finally {
+      autoBusy = false;
+    }
   }
   // Sondeo: la misma consulta de loadOrders. Con el constructor o una hoja
   // abierta no se repinta nada (no se pierde lo digitado); solo el contador.
@@ -1679,12 +1770,24 @@ function meseroRuntime() {
       polling = false;
     }
   }
+  function autoprintToggle() {
+    const box = h("input", { type: "checkbox", id: "cajaAuto" });
+    box.checked = readAutoprint();
+    box.addEventListener("change", () => setAutoprint(box.checked));
+    return h(
+      "label",
+      { class: "auto-print", title: "Imprime sola la comanda de cada pedido web pagado de esta sede" },
+      box,
+      h("span", { text: "Auto-impresión web" }),
+    );
+  }
   function top() {
     const staff = text(me?.staff?.name) || (me?.owner ? "Caja · dueño" : "Caja");
     return h(
       "div",
       { class: "bar" },
       h("strong", { text: staff }),
+      sede ? autoprintToggle() : null,
       button("Salir", "btn link", logout),
     );
   }
@@ -3776,6 +3879,7 @@ body{margin:0;padding:3mm;font-family:monospace;font-size:11px;white-space:pre;l
     return act(buttonEl, () => printPaid(order));
   }
   async function printPaid(order) {
+      if (order?.id) autoTried.add(order.id);
       // Primero se abre la impresión: si el navegador falla, no se registra
       // un acuse que parezca una comanda impresa.
       const opened = await printTicket({
