@@ -465,3 +465,14 @@ test('legacy (sin checkout_orders) sigue abriendo WhatsApp, conserva el CTA y no
   assert.equal(m.calls.some(([url])=>url==='/api/orders'),false);
   assert.equal(m.opens.length,1);assert.match(m.opens[0][0],/^https:\/\/wa\.me\//);
 });
+
+test('servicio y retiro: "para llevar" y "lo antes posible" por defecto; pickup_at solo al programar',async()=>{
+  const m=menu({fetchImpl:handler,search:'?sede=sede-01'});await m.ready();
+  assert.ok(m.doc.getElementById('fieldService'),'pregunta ¿Cómo lo quieres?');
+  assert.ok(m.doc.getElementById('fieldWhen'),'pregunta ¿Cuándo lo retiras?');
+  fillBilling(m);
+  m.checkout();await m.ready();await m.ready();
+  const sent=JSON.parse(m.calls.find(([url])=>url==='/api/orders')[1].body);
+  assert.equal(sent.service_mode,'takeaway');
+  assert.equal(sent.pickup_at,undefined);
+});

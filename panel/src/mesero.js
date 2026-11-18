@@ -308,6 +308,7 @@ font-size:13.5px}
 margin-top:2px;
 color:var(--ink2);
 font-size:12.5px}
+.order-service{font-weight:800;color:#8a4a0f}
 .order-note{margin:10px 0 0;
 padding:9px 10px;
 border-radius:9px;
@@ -2499,6 +2500,15 @@ function meseroRuntime() {
           ),
         ),
       ),
+      order.service_mode || order.pickup_at
+        ? h("p", {
+            class: "order-note order-service",
+            text: [
+              order.service_mode === "dine_in" ? "Para servirse aquí" : order.service_mode === "takeaway" ? "Para llevar" : "",
+              order.pickup_at ? "Retira " + ecTime(order.pickup_at) : "",
+            ].filter(Boolean).join(" · "),
+          })
+        : null,
       order.note
         ? h("p", { class: "order-note", text: "Nota: " + order.note })
         : null,

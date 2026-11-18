@@ -103,6 +103,7 @@ box-shadow:0 1px 3px rgba(0,0,0,.06)}
 .ticket-no{font-size:30px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
 .ticket-time{color:var(--ink2);font-size:13px;font-variant-numeric:tabular-nums}
 .ticket-meta{margin:0;padding:0 16px;color:var(--ink2);font-size:13px}
+.ticket-service{margin:6px 16px 0;padding:6px 10px;border-radius:8px;background:#fff1df;color:#8a4a0f;font-weight:800;font-size:15px}
 .ticket-items{margin:12px 0 0;padding:0;list-style:none;border-top:1px solid var(--line)}
 .ticket-items li{display:grid;grid-template-columns:44px minmax(0,1fr);gap:8px;padding:10px 16px;border-bottom:1px solid var(--line);font-size:16px}
 .ticket-items .qty{font-weight:800;font-size:18px;font-variant-numeric:tabular-nums}
@@ -310,6 +311,7 @@ function kitchenRuntime() {
           h("span", { class: "ticket-no", text: order.number ? "#" + order.number : "#" + text(order.id).slice(-4) }),
           h("span", { class: "ticket-time", text: timeOf(when) })),
         h("p", { class: "ticket-meta", text: [money(order.total_cents), dateOf(when), text(order.customer_name)].filter(Boolean).join(" · ") }),
+        serviceLine(order) ? h("p", { class: "ticket-service", text: serviceLine(order) }) : null,
         autoFailed.has(order.id) ? h("p", { class: "print-warn", text: "Falló la impresión automática. Usa el botón para reintentar." }) : null,
         h("ul", { class: "ticket-items" }, items.map(item => h("li", {},
           h("span", { class: "qty", text: (Number(item.qty) || 1) + "×" }),
@@ -321,6 +323,11 @@ function kitchenRuntime() {
           h("span", { class: "print-count" + (count ? " printed" : ""), text: count ? "Acuse ×" + count : "Sin acuse" }),
           printButton));
     }));
+  }
+  // "Para llevar · Retira 10:50": lo que el cliente eligió en el checkout del menú.
+  function serviceLine(order) {
+    const mode = order.service_mode === "dine_in" ? "Para servirse aquí" : order.service_mode === "takeaway" ? "Para llevar" : "";
+    return [mode, order.pickup_at ? "Retira " + timeOf(order.pickup_at) : ""].filter(Boolean).join(" · ");
   }
   const printOrderTitle = order => order.number ? "#" + order.number : "#" + text(order.id).slice(-4);
   async function printOrder(order, buttonEl) {

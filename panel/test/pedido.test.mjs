@@ -326,3 +326,26 @@ test("la creación web no escribe analítica con PII fiscal", async () => {
   const row = env.DB.raw.prepare("SELECT * FROM pos_orders").get();
   assert.equal(row.billing_document_number, "1712345678", "el dato fiscal queda solo en D1");
 });
+
+test("pedido web: guarda para servirse/llevar y la hora de retiro; rechaza horas fuera de rango", async () => {
+  const env = pedidoEnv(), ctx = makeCtx();
+  const pickup = Date.now() + 40 * 60_000;
+  const ok = await panel.fetch(body("/api/orders", webOrder({
+    idempotency_key: "servicio-0001", service_mode: "dine_in", pickup_at: pickup,
+  })), env, ctx);
+  assert.ok(ok.status === 200 || ok.status === 201, String(ok.status));
+  const row = env.DB.raw.prepare("SELECT service_mode, pickup_at FROM pos_orders").get();
+  assert.equal(row.service_mode, "dine_in");
+  assert.equal(Number(row.pickup_at), pickup);
+  for (const [i, extra] of [{ service_mode: "delivery" }, { pickup_at: Date.now() - 3_600_000 }, { pickup_at: Date.now() + 20 * 3_600_000 }, { pickup_at: "10:50" }].entries()) {
+    const bad = await panel.fetch(body("/api/orders", webOrder({ idempotency_key: `servicio-bad-${i}`, ...extra })), env, ctx);
+    assert.equal(bad.status, 400, JSON.stringify(extra));
+  }
+});
+
+test("comanda: imprime para servirse/llevar y la hora de retiro en hora de Ecuador", async () => {
+  const { ticketLines } = await import("../../shared/ticket.js");
+  const lines = ticketLines({ number: 7, delivery_mode: "pickup", service_mode: "dine_in", pickup_at: Date.UTC(2026, 10, 18, 15, 50), items: [] }, { store: "Munch", width: 32 }).join("\n");
+  assert.match(lines, /PARA SERVIRSE AQUI/);
+  assert.match(lines, /RETIRA 10:50/);
+});

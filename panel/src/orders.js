@@ -282,9 +282,10 @@ function integer(raw, fallback, max) {
 export const POS_STATUS = ["pending", "confirmed", "paid", "ready", "rejected"];
 const POS_COLUMNS = "id, slug, sede_id, created_at, updated_at, number, source, status, status_at, currency, " +
   "subtotal_cents, total_cents, items, customer_name, customer_phone, delivery_mode, address, table_no, note, " +
-  "staff_id, idempotency_key, paid_at, payment_method, ready_at, " +
+  "staff_id, idempotency_key, paid_at, payment_method, ready_at, service_mode, pickup_at, " +
   "billing_document_type, billing_document_number, billing_email, billing_address";
 const SEDE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+const SERVICE_MODES = new Set(["dine_in", "takeaway"]);
 const IDEM_RE = /^[A-Za-z0-9_.:-]{8,100}$/;
 const PRODUCT_ID_RE = /^[A-Za-z0-9_-]{1,120}$/;
 const DELIVERY_MODES = new Set(["delivery", "pickup", "mesa"]);
@@ -644,6 +645,7 @@ export function posOrderData(row, extra = {}) {
     customer_name: row.customer_name || "", customer_phone: row.customer_phone || "",
     delivery_mode: row.delivery_mode || "", payment_method: row.payment_method || "cash", address: row.address || null,
     table_no: row.table_no || null, note: row.note || null, staff_id: row.staff_id || null,
+    service_mode: row.service_mode || null, pickup_at: row.pickup_at == null ? null : Number(row.pickup_at),
     paid_at: row.paid_at == null ? null : Number(row.paid_at),
     ready_at: ready ? Number(row.ready_at) : null,
     print_count: row.print_count == null ? 0 : Number(row.print_count),
@@ -809,7 +811,18 @@ function parsePosOrder(body, options = {}) {
   if (!(note == null || typeof note === "string" && [...note].length <= 200)) {
     return { error: "pedido_invalido", status: 400 };
   }
+  const serviceMode = body.service_mode == null || body.service_mode === "" ? null : body.service_mode;
+  if (serviceMode != null && !SERVICE_MODES.has(serviceMode)) return { error: "pedido_invalido", status: 400 };
+  // Hora de retiro programada: entre ahora y 14 h después (un día de clases). Nada en el pasado.
+  const pickupAt = body.pickup_at == null || body.pickup_at === "" ? null : body.pickup_at;
+  if (pickupAt != null) {
+    const now = Date.now();
+    if (!Number.isSafeInteger(pickupAt) || pickupAt < now - 5 * 60_000 || pickupAt > now + 14 * 3_600_000) {
+      return { error: "hora_retiro_invalida", status: 400, campo: "pickup_at" };
+    }
+  }
   return {
+    service_mode: serviceMode, pickup_at: pickupAt,
     sede_id: sedeId, idempotency_key: key, items, customer_name: String(name).trim(), customer_phone: String(phone).trim(),
     delivery_mode: mode, payment_method: paymentMethod, address: address == null ? null : String(address).trim(), table_no: table || null,
     note: note == null || note === "" ? null : note,
@@ -822,6 +835,7 @@ async function idempotencyHash(slug, source, order) {
     slug, source, sede_id: order.sede_id, items: order.items,
     delivery_mode: order.delivery_mode, payment_method: order.payment_method, address: order.address, table_no: order.table_no,
     customer_name: order.customer_name, customer_phone: order.customer_phone, note: order.note,
+    service_mode: order.service_mode || null, pickup_at: order.pickup_at || null,
     // La facturación forma parte del cuerpo: misma clave con datos fiscales
     // distintos es un conflicto, nunca una sobrescritura silenciosa.
     billing: order.billing || null,
@@ -838,14 +852,15 @@ async function insertPosOrder(env, values) {
       "INSERT INTO pos_orders (id, slug, sede_id, created_at, updated_at, number, source, status, currency, " +
       "subtotal_cents, total_cents, items, customer_name, customer_phone, delivery_mode, address, table_no, note, " +
       "staff_id, idempotency_key, idempotency_hash, payment_method, " +
-      "billing_document_type, billing_document_number, billing_email, billing_address) " +
-      "VALUES (?, ?, ?, ?, ?, (SELECT n FROM order_seq WHERE slug = ? AND day = ?), ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "billing_document_type, billing_document_number, billing_email, billing_address, service_mode, pickup_at) " +
+      "VALUES (?, ?, ?, ?, ?, (SELECT n FROM order_seq WHERE slug = ? AND day = ?), ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     ).bind(
       values.id, values.slug, values.sede_id, values.created_at, values.created_at, values.slug, day, values.source,
       values.currency, values.subtotal_cents, values.total_cents, JSON.stringify(values.items), values.customer_name,
       values.customer_phone, values.delivery_mode, values.address, values.table_no, values.note, values.staff_id,
       values.idempotency_key, values.idempotency_hash, values.payment_method,
       billing.document_type || null, billing.document_number || null, billing.email || null, billing.address || null,
+      values.service_mode || null, values.pickup_at || null,
     ),
   ]);
 }

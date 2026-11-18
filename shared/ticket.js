@@ -78,9 +78,17 @@ export function ticketLines(order, { store = "", width = 32, now } = {}) {
   centered(store || "Mi negocio");
   centered(`COMANDA #${number}`);
   const mode = String(value.delivery_mode || "").toLowerCase();
-  if (mode === "mesa") push(value.table_no ? `Mesa ${value.table_no}` : "Mesa");
+  const service = String(value.service_mode || "");
+  if (service === "dine_in") centered("PARA SERVIRSE AQUI");
+  else if (service === "takeaway") centered("PARA LLEVAR");
+  else if (mode === "mesa") push(value.table_no ? `Mesa ${value.table_no}` : "Mesa");
   else if (mode === "pickup" || mode === "retiro") push("Para llevar");
   else if (mode === "delivery" || mode === "domicilio") push("Domicilio");
+  // Pedido programado: la cocina lo prepara para esa hora (hora de Ecuador, UTC-5).
+  if (Number(value.pickup_at) > 0) {
+    const at = new Date(Number(value.pickup_at) - 5 * 60 * 60 * 1000);
+    centered(`*** RETIRA ${two(at.getUTCHours())}:${two(at.getUTCMinutes())} ***`);
+  }
   push(`${date} ${hour}`);
   if (value.sede_nombre) push(`Sede: ${String(value.sede_nombre)}`);
   if (Number(value.print_count) > 1)

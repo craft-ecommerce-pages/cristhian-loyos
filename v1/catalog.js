@@ -1592,6 +1592,70 @@
       const anchor=document.getElementById('fieldName')?.closest('.form-field');
       if(anchor) anchor.before(wrap); else body.prepend(wrap);
     }
+    /* ── Servicio y hora de retiro (food truck en universidades) ──
+       "¿Cómo lo quieres?" es obligatorio (empaque); "¿Cuándo?" por defecto es lo antes
+       posible. Programar exige pago previo: con efectivo la comanda solo sale al pagar. */
+    let serviceMode='takeaway',pickupAt=null;
+    const PICKUP_STEP_MIN=10,PICKUP_LEAD_MIN=15,PICKUP_WINDOW_H=6; // ponytail: ventana fija; usar el horario de la sede si hace falta
+    function pickupSlots(now=Date.now()){
+      const step=PICKUP_STEP_MIN*60000;
+      const first=Math.ceil((now+PICKUP_LEAD_MIN*60000)/step)*step;
+      const out=[];for(let at=first;at<=now+PICKUP_WINDOW_H*3600000;at+=step) out.push(at);
+      return out;
+    }
+    function pickupLabel(at){
+      try{return new Date(at).toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit',timeZone:'America/Guayaquil'});}catch(e){return '';}
+    }
+    function segmented(name,options,onPick,initial){
+      const group=document.createElement('div');group.className='svc-seg';group.setAttribute('role','radiogroup');
+      options.forEach(([value,label])=>{
+        const b=document.createElement('button');b.type='button';b.className='svc-opt';b.dataset.value=value;
+        const on=value===initial;if(on)b.classList.add('active');
+        b.setAttribute('role','radio');b.setAttribute('aria-checked',String(on));b.textContent=label;
+        b.addEventListener('click',()=>{
+          group.querySelectorAll('.svc-opt').forEach(x=>{const on=x===b;x.classList.toggle('active',on);x.setAttribute('aria-checked',String(on));});
+          onPick(value);
+        });
+        group.append(b);
+      });
+      group.id=name;return group;
+    }
+    function renderServiceFields(){
+      if(!checkoutOrders(config)||document.getElementById('fieldService')) return;
+      const body=document.querySelector('#cartStep2 .step2-body');
+      if(!body) return;
+      const how=document.createElement('div');how.className='form-field svc-field';
+      const howLabel=document.createElement('label');howLabel.textContent=t('¿Cómo lo quieres?');
+      // "Para llevar" preseleccionado: un toque menos; se cambia con uno.
+      how.append(howLabel,segmented('fieldService',[['dine_in','🍽️ '+t('Para servirse aquí')],['takeaway','🥡 '+t('Para llevar')]],v=>{serviceMode=v;},serviceMode));
+      const when=document.createElement('div');when.className='form-field svc-field';
+      const whenLabel=document.createElement('label');whenLabel.textContent=t('¿Cuándo lo retiras?');
+      const select=document.createElement('select');select.id='fieldPickupTime';select.hidden=true;
+      const hint=document.createElement('p');hint.className='svc-hint';hint.id='pickupHint';hint.hidden=true;
+      const fillSlots=()=>{
+        select.replaceChildren(...pickupSlots().map(at=>{const o=document.createElement('option');o.value=String(at);o.textContent=pickupLabel(at);return o;}));
+        pickupAt=Number(select.value)||null;
+      };
+      select.addEventListener('change',()=>{pickupAt=Number(select.value)||null;});
+      const seg=segmented('fieldWhen',[['now','⚡ '+t('Lo antes posible')],['later','🕐 '+t('Programar hora')]],v=>{
+        const later=v==='later';
+        select.hidden=!later;hint.hidden=!later;
+        if(later) fillSlots(); else pickupAt=null;
+        updatePickupHint();
+      },'now');
+      when.append(whenLabel,seg,select,hint);
+      const anchor=document.getElementById('fieldName')?.closest('.form-field');
+      if(anchor){anchor.before(how);anchor.before(when);} else body.prepend(how,when);
+    }
+    function updatePickupHint(){
+      const hint=document.getElementById('pickupHint');
+      if(!hint||hint.hidden) return;
+      const cash=String(document.getElementById('fieldPayment')?.value||'')==='cash';
+      hint.classList.toggle('warn',cash);
+      hint.textContent=cash
+        ?t('Para tenerlo listo a esa hora paga con tarjeta o transferencia. Con efectivo se prepara cuando pagues en caja.')
+        :t('Lo tendremos listo a esa hora. Solo pasa a retirarlo 🙌');
+    }
     function selectedSede(){
       const sedes=sedeList(config);
       const select=document.getElementById('fieldSede');
@@ -1966,6 +2030,7 @@
         if(addressWrap) addressWrap.style.display='none';
       }
       renderSedeField();
+      renderServiceFields();
       setupBillingSwitch();
       const note=document.getElementById('notifyNote');if(note)note.hidden=false;
       const confirm=document.getElementById('btnConfirm');
@@ -1984,7 +2049,7 @@
       paymentsBlocked=true;
       if(confirm) confirm.disabled=true;
       loadPaymentOptions(checkout,payment);
-      payment?.addEventListener('change',updatePaymentHint);
+      payment?.addEventListener('change',()=>{updatePaymentHint();updatePickupHint();});
       updatePaymentHint();
       wireBillingValidation();
       // Bloque de transferencia (datos + comprobante), oculto salvo con ese método.
@@ -2213,6 +2278,7 @@
           <h1 class="thanks-title">${t(thanksTitle(record))}</h1>
           <span class="thanks-badge ${tone}"${method?'':' hidden'}>${t(orderPaymentLabel(record))}</span>
           ${sede?`<p class="thanks-sede">${t('Sede')}: ${esc(sede.nombre)}</p>`:''}
+          ${record.service_mode||record.pickup_at?`<p class="thanks-service">${[record.service_mode==='dine_in'?t('Para servirse aquí'):record.service_mode==='takeaway'?t('Para llevar'):'',record.pickup_at?t('Listo a las {0}',pickupLabel(Number(record.pickup_at))):''].filter(Boolean).map(esc).join(' · ')}</p>`:''}
         </div>
         ${waHref?`<div class="thanks-wa">
           <a class="btn-whatsapp thanks-wa-btn" id="thanksWhatsapp" href="${esc(waHref)}" target="_blank" rel="noopener">${WHATSAPP_ICON}<span>${t(thanksWhatsappLabel())}</span></a>
@@ -2222,7 +2288,7 @@
           <h2>${t('Resumen')}</h2>
           ${lines?`<ul class="thanks-lines">${lines}</ul>`:`<p class="thanks-muted">${t('Resumen no disponible. Muestra tu número en caja.')}</p>`}
           <div class="thanks-tax-row"><span>${t('Subtotal')}</span><span>${formatPrice(subtotalCents/100)}</span></div>
-          <div class="thanks-tax-row"><span>${t('IVA')}</span><span>${formatPrice(taxCents/100)}</span></div>
+          ${taxCents>0?`<div class="thanks-tax-row"><span>${t('IVA')}</span><span>${formatPrice(taxCents/100)}</span></div>`:''}
           <div class="thanks-total"><span>${t('Total')}</span><strong>${Number.isFinite(total)?formatPrice(totalCents/100):''}</strong></div>
           <p class="thanks-muted">${methodLabel}</p>
         </section>
@@ -2401,6 +2467,14 @@
       if(mode==='delivery'&&!address){showToast(t('Ingresa tu dirección de entrega'));return;}
       const sedeId=selectedSede();
       if(!sedeId){showToast(t('Selecciona tu food truck'));document.getElementById('fieldSede')?.focus();return;}
+      if(document.getElementById('fieldService')&&!serviceMode){
+        showToast(t('Elige si es para servirse aquí o para llevar'));
+        document.getElementById('fieldService')?.scrollIntoView({block:'center',behavior:'smooth'});return;
+      }
+      if(pickupAt&&paymentMethod==='cash'){
+        showToast(t('Para programar tu pedido paga con tarjeta o transferencia'));
+        document.getElementById('fieldPayment')?.focus();return;
+      }
       const items=orderCartItems(cartItems,products);
       if(!items.length){showToast(t('Tu pedido está vacío'));return;}
       writeSede(sedeId);
@@ -2410,7 +2484,8 @@
         document_type:cargo.document_type,document_number:cargo.document_number,
         email:cargo.email,address:cargo.address,
       };
-      const fingerprint=JSON.stringify({sede_id:sedeId,items,customer,delivery_mode:mode,payment_method:paymentMethod,address:address||null});
+      const service={...(serviceMode?{service_mode:serviceMode}:{}),...(pickupAt?{pickup_at:pickupAt}:{})};
+      const fingerprint=JSON.stringify({sede_id:sedeId,items,customer,delivery_mode:mode,payment_method:paymentMethod,address:address||null,...service});
       const key=await orderKey(fingerprint);
       const button=document.getElementById('btnConfirm'),label=button?.textContent;
       checkoutBusy=true;
@@ -2421,7 +2496,7 @@
         const response=await fetch(ordersEndpoint(checkout,'/api/orders'),{
           method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,
           body:JSON.stringify({sede_id:sedeId,items,customer,delivery_mode:mode,payment_method:paymentMethod,
-            address:address||undefined,idempotency_key:key}),
+            address:address||undefined,idempotency_key:key,...service}),
         });
         const receipt=await response.json().catch(()=>null);
         const ok=response.status===200||response.status===201;
@@ -2437,7 +2512,7 @@
           customer_name:customer.name,
           customer_phone_masked:maskPhone(customer.phone),
           subtotal_cents:totals.subtotal_cents,tax_cents:totals.tax_cents,
-          receipt_uploaded:false,
+          receipt_uploaded:false,...service,
         });
         forgetOrderKey();
         saveOrderRecord(record);
