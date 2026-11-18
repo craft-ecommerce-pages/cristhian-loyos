@@ -2162,11 +2162,13 @@ function runtime() {
     }
     async function load(nextOffset = 0) {
       offset = Math.max(0, nextOffset); list.replaceChildren(h("p", { class: "empty", text: "Cargando pedidos…" }));
-      const [r, posR, readyR, sedeR] = await Promise.all([
+      const [r, posR, readyR, sedeR, paidR] = await Promise.all([
         api("orders?offset=" + offset + "&limit=20"),
         api("pos/orders?status=open&limit=50"),
         api("pos/orders?status=ready&limit=30"),
         api("sedes"),
+        // Cobradas sin marcar listas: sin esto desaparecían de Pedidos al cobrar en caja.
+        api("pos/orders?status=paid&limit=20"),
       ]);
       if (r.status === 401) return goLogin("Tu sesión venció. Vuelve a entrar.");
       if (r.status !== 200) return list.replaceChildren(h("p", { class: "empty", text: errMsg(r, "No pudimos cargar los pedidos.") }));
@@ -2182,7 +2184,8 @@ function runtime() {
       const openPos = posR.status === 200 && Array.isArray(posR.data?.orders) ? posR.data.orders : [];
       const readyPos = readyR.status === 200 && Array.isArray(readyR.data?.orders) ? readyR.data.orders : [];
       const seenPos = new Set();
-      const visiblePos = openPos.concat(readyPos).filter(o => {
+      const paidPos = paidR.status === 200 && Array.isArray(paidR.data?.orders) ? paidR.data.orders : [];
+      const visiblePos = openPos.concat(paidPos, readyPos).filter(o => {
         if (!o || seenPos.has(o.id)) return false;
         seenPos.add(o.id);
         return true;
@@ -2201,7 +2204,7 @@ function runtime() {
       h("div", { class: "actions" },
         h("a", { class: "btn primary small", href: "/panel/pos", text: "Cobrar (Caja)" }),
         h("a", { class: "btn small", href: "/panel/cocina", target: "_blank", rel: "noopener", text: "Abrir cocina" }),
-        h("a", { class: "btn small", href: "/panel/pos", target: "_blank", rel: "noopener", text: "Abrir caja POS" }))),
+        btn("Actualizar", "btn small", () => load(offset)))),
       notice, posSection, list, h("div", { class: "club-pagination" }, prev, page, next)));
     load();
   }

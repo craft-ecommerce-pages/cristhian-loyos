@@ -184,5 +184,5 @@ test("Pedidos renderiza número o id corto, mesa, origen e impresiones", async (
   assert.match(doc.body.textContent, /#xyzw · Luis/);
   assert.match(doc.body.textContent, /Mesa: — · Origen: Web/);
   assert.doesNotMatch(doc.body.textContent, /Impresa ×0/);
-  assert.match(doc.body.textContent, /Abrir caja POS/);
+  assert.match(doc.body.textContent, /Cobrar \(Caja\)/);
 });
