@@ -53,3 +53,7 @@ crons = ["* * * * *"]
 # Secrets (wrangler secret put; los aplica el workflow con SESSION_SECRET y ADMIN_TOKEN):
 # SESSION_SECRET, ADMIN_TOKEN, BENDO_CLIENT_ID, BENDO_CLIENT_SECRET.
 # LOYALTY_ADMIN_TOKEN solo si algún día se despliega el club.
+
+# Workers Logs (gratis, 3 días en Cloudflare); nas los copia cada 5 min y guarda 7 días.
+[observability]
+enabled = true

@@ -44,3 +44,7 @@ fallthrough = true
 [assets]
 directory = "../assets"
 binding = "ASSETS"
+
+# Workers Logs (gratis, 3 días en Cloudflare); nas los copia cada 5 min y guarda 7 días.
+[observability]
+enabled = true

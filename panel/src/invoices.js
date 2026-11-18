@@ -571,7 +571,15 @@ async function patchInvoice(env, row, patch, now, event = null) {
   await env.DB.prepare(
     `UPDATE invoices SET ${keys.map(key => `${key} = ?`).join(", ")} WHERE id = ? AND slug = ?`,
   ).bind(...keys.map(key => patch[key]), row.id, row.slug).run();
-  if (event) await appendEvent(env, row, event.kind, row.status, patch.status ?? row.status, event.detail, now);
+  if (event) {
+    await appendEvent(env, row, event.kind, row.status, patch.status ?? row.status, event.detail, now);
+    // Sin datos del cliente: solo pedido, transición y código. Va a Workers Logs → nas.
+    const to = patch.status ?? row.status;
+    (to === "failed" || to === "manual" ? console.warn : console.log)(JSON.stringify({
+      evt: "invoice", order_id: row.order_id, from: row.status, to, kind: event.kind,
+      code: patch.failure_code || null, msg: patch.failure_message || null,
+    }));
+  }
   return rowById(env, row.id, row.slug);
 }
 
