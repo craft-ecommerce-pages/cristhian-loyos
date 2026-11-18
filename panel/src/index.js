@@ -19,6 +19,9 @@ import { handleOrder, handleTableOrder } from "./orders.js";
 import { reconcilePendingBendo } from "./bendo.js";
 import { renderPage } from "./page.js";
 
+// Durable Object del tiempo real (binding ORDERS_HUB): una instancia por sede.
+export { OrdersHub } from "./realtime.js";
+
 const pageHeaders = {
   "content-type": "text/html;charset=utf-8", "cache-control": "no-cache", "x-frame-options": "DENY",
   "referrer-policy": "no-referrer",

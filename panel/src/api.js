@@ -18,6 +18,7 @@ import {
   sedesAllowed, sedesFor, setMeseroOrderStatus, setOrderStatus, taxSettings, transferInfo, uploadTransferReceipt, upsertSedes, webCashEnabled,
 } from "./orders.js";
 import { handleGetInvoice, handleInvoiceRide, handleRetryInvoice } from "./invoices.js";
+import { handleLive } from "./realtime.js";
 import { handleTurnosApi } from "./turnos.js";
 import {
   bendoAvailable, handleBendoMock, handleBendoReturn, handleBendoWebhook, reconcileBendo, startBendo, startPublicBendo,
@@ -83,7 +84,7 @@ export async function handleApi(request, env, ctx, site) {
   // POS: acciones de pedido (confirmar/rechazar/cobrar/listo), pantallas de caja/cocina
   // y turnos de caja. Todos comparten la resolución de sesión de handlePosApi
   // (dueño o cookie caja_s); las rutas turnos/* las atiende turnos.js.
-  if (path === "pos/orders" || path.startsWith("pos/orders/") || path === "kitchen" || path.startsWith("kitchen/") || path === "turnos" ||
+  if (path === "pos/orders" || path.startsWith("pos/orders/") || path === "pos/live" || path === "kitchen" || path.startsWith("kitchen/") || path === "turnos" ||
     path.startsWith("turnos/") ||
     /^orders\/[^/]+\/(confirm|reject|pay-cash|pay-transfer|pay-datafono|bendo|ready)$/.test(path)) return handlePosApi(request, env, ctx, site, path);
 
@@ -153,6 +154,8 @@ async function handlePosApi(request, env, ctx, site, path) {
     return getTransferReceipt(env, site, session, receipt[1], request);
   }
   if (request.method === "GET" && path === "kitchen/orders") return listKitchenOrders(env, site, session, request);
+  // Tiempo real (CONTRATO 2026-11-18): el WebSocket de la sede se reenvía al Durable Object.
+  if (request.method === "GET" && path === "pos/live") return handleLive(request, env, site, session);
   const print = /^kitchen\/orders\/([^/]+)\/print$/.exec(path);
   if (print && request.method === "POST") return printKitchenOrder(env, site, session, print[1], await readJson(request));
   const action = /^orders\/([^/]+)\/(confirm|reject|pay-cash|pay-transfer|pay-datafono|bendo|ready)$/.exec(path);
