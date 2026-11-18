@@ -3,7 +3,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
-import { makeEnv } from "./helpers.mjs";
+import panel from "../src/index.js";
+import { makeCtx, makeEnv } from "./helpers.mjs";
 import {
   INVOICE_SCHEMA, adapterFor, createFacturonAdapter, createMockAdapter,
   handleGetInvoice, handleInvoiceRide, handleInvoiceWebhook, handleRetryInvoice, invoiceDraftFromOrder, isPaidOrder,
@@ -673,6 +674,188 @@ test("cron de facturas: reconsulta las enviadas y reintenta las inciertas con la
   assert.equal(rowOf(env, "ord-2").status, "submitted");
   const post = calls.find(c => c.path === "/documents" && c.method === "POST");
   assert.equal(post.headers["Idempotency-Key"], rowOf(env, "ord-2").idempotency_key);
+});
+
+/* ── Cobro asíncrono: la caja nunca espera a Facturón ─────────────────────── */
+
+const margarita = {
+  id: "margarita", name: "Margarita", type: "producto", price: "8.50", promo_price: "", sku: "",
+  description: "", stock: null, active: true, catalog_visible: true, images: [], categories: [],
+  variants: [], groups: [], packaging_id: null, packaging_cost: 0,
+};
+const host = "pizza.craft-systems.com";
+const req = (path, options = {}) => new Request(`https://${host}${path}`, options);
+const jsonPost = (path, value, headers = {}) => req(path, {
+  method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(value),
+});
+// La caja factura con emisión habilitada: sin el hotfix, el cobro esperaría al proveedor.
+function cashEnv() {
+  const env = makeEnv({
+    "pizza:config": {
+      currency: "USD", store_name: "Pizza", web_cash: true,
+      location: { sedes: [{ nombre: "Centro", direccion: "Calle 1" }] },
+    },
+    "pizza:invoices": config(),
+  });
+  env.CLIENT_SLUG = "pizza";
+  env.FACTURON_API_KEY = "fec_test";
+  env.DB.raw.prepare("INSERT INTO catalogs (slug, doc, version, updated_at) VALUES (?, ?, 1, ?)")
+    .run("pizza", JSON.stringify({ categories: [], packagings: [], variant_groups: [], products: [margarita] }), Date.now());
+  env.DB.raw.prepare(
+    "INSERT INTO pos_shifts (id, slug, sede_id, opened_by, opened_at, opening_float_cents, open_key) " +
+    "VALUES ('turno-centro', 'pizza', 'centro', 'test', ?, 0, 'turno-centro')",
+  ).run(Date.now());
+  return env;
+}
+async function cashCookie(env) {
+  const owner = await panel.fetch(
+    jsonPost("/admin/pizza/owner", { email: "dueno@pizza.ec" }, { authorization: "Bearer admin-token" }),
+    env, {},
+  );
+  const login = await panel.fetch(jsonPost("/panel/api/login", await owner.json()), env, {});
+  return login.headers.get("set-cookie").split(";", 1)[0];
+}
+// Falla en vez de colgarse si una petición queda esperando al proveedor.
+const withDeadline = (promise, ms = 2_000) => {
+  let timer;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error("la petición quedó esperando al proveedor")), ms);
+  });
+  return Promise.race([promise.finally(() => clearTimeout(timer)), deadline]);
+};
+
+test("cobro en efectivo: responde aunque el fetch de Facturón nunca resuelva", async () => {
+  const env = cashEnv(), ctx = makeCtx(), cookie = await cashCookie(env);
+  const created = await panel.fetch(jsonPost("/api/orders", {
+    sede_id: "centro", idempotency_key: "cash-factura-0001", items: [{ product_id: "margarita", qty: 1 }],
+    customer: { name: "Ana", phone: "0991234567" }, delivery_mode: "pickup", total_cents: 1,
+  }), env, ctx);
+  assert.equal(created.status, 201);
+  const order = await created.json();
+
+  const realFetch = globalThis.fetch;
+  let providerCalls = 0;
+  globalThis.fetch = () => { providerCalls++; return new Promise(() => { /* cuelgue total */ }); };
+  try {
+    const paid = await withDeadline(panel.fetch(
+      jsonPost(`/panel/api/orders/${order.id}/pay-cash`, { idempotency_key: "cash-factura-0001" }, { cookie }),
+      env, ctx,
+    ));
+    assert.equal(paid.status, 200);
+    assert.equal((await paid.json()).order.status, "paid");
+  } finally { globalThis.fetch = realFetch; }
+
+  assert.equal(providerCalls, 0, "afterPaid no habla con Facturón");
+  const row = rowOf(env, order.id);
+  assert.ok(row, "la factura queda preparada como artefacto derivado");
+  assert.equal(row.status, "pending");
+  assert.equal(row.provider_status, null, "sin intento en curso: lo emite el cron");
+  assert.equal(row.failure_code, null);
+  assert.equal(env.DB.raw.prepare("SELECT COUNT(*) n FROM pos_comandas WHERE order_id = ?").get(order.id).n, 1);
+});
+
+test("cron: emite un pending nuevo y nunca lo emite dos veces", async () => {
+  const env = envWith();
+  await prepareInvoice(env, { slug: SLUG, order: posOrder(), config: config(), now: NOW });
+  assert.equal(rowOf(env, "ord-1").provider_status, null, "preparar no es emitir");
+
+  const calls = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = facturonFetch({
+    "GET /customers/lookup": () => [200, { success: true, data: { customer: { id: 1 } } }],
+    "POST /documents": () => [201, { success: true, data: { document: { id: 900, status: "processing", environment: "1" } } }],
+    "GET /documents/900/status": () => [200, { success: true, data: { status: "processing" } }],
+  }, calls);
+  try {
+    const { reconcileInvoices } = await import("../src/invoices.js");
+    assert.deepEqual(await reconcileInvoices(env, NOW + 30_000), { checked: 0 }, "espera un minuto");
+    assert.deepEqual(await reconcileInvoices(env, NOW + 120_000), { checked: 1 });
+    // Segunda vuelta: ya está `submitted`, solo reconsulta el estado.
+    assert.deepEqual(await reconcileInvoices(env, NOW + 240_000), { checked: 1 });
+  } finally { globalThis.fetch = realFetch; }
+
+  const row = rowOf(env, "ord-1");
+  assert.equal(row.status, "submitted");
+  assert.equal(row.idempotency_key, "invoice:pizza:ord-1:1");
+  const posts = calls.filter(c => c.method === "POST" && c.path === "/documents");
+  assert.equal(posts.length, 1, "un solo documento aunque el cron pase dos veces");
+  assert.equal(posts[0].headers["Idempotency-Key"], "invoice:pizza:ord-1:1");
+});
+
+test("cron: recupera un 'submitting' de más de 5 minutos con la misma clave", async () => {
+  const env = envWith();
+  await prepareInvoice(env, { slug: SLUG, order: posOrder(), config: config(), now: NOW });
+  // El Worker murió dentro de la llamada: candado tomado y sin acuse.
+  env.DB.raw.prepare(
+    "UPDATE invoices SET provider_status = 'submitting', created_at = ?, updated_at = ? WHERE order_id = 'ord-1'",
+  ).run(NOW - 10 * 60_000, NOW - 2 * 60_000);
+  const before = rowOf(env, "ord-1");
+
+  const calls = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = facturonFetch({
+    "GET /customers/lookup": () => [200, { success: true, data: { customer: { id: 1 } } }],
+    "POST /documents": () => [201, { success: true, data: { document: { id: 901, status: "processing", environment: "1" } } }],
+    "GET /documents/901/status": () => [200, { success: true, data: { status: "processing" } }],
+  }, calls);
+  try {
+    const { reconcileInvoices } = await import("../src/invoices.js");
+    assert.deepEqual(await reconcileInvoices(env, NOW + 60_000), { checked: 0 }, "el candado aún no vence");
+    assert.equal(calls.length, 0);
+    assert.deepEqual(await reconcileInvoices(env, NOW + 360_000), { checked: 1 });
+  } finally { globalThis.fetch = realFetch; }
+
+  const row = rowOf(env, "ord-1");
+  assert.equal(row.status, "submitted");
+  assert.equal(row.attempt, before.attempt, "mismo intento, no un documento nuevo");
+  assert.equal(row.idempotency_key, before.idempotency_key);
+  const posts = calls.filter(c => c.method === "POST" && c.path === "/documents");
+  assert.equal(posts.length, 1);
+  assert.equal(posts[0].headers["Idempotency-Key"], before.idempotency_key);
+  assert.equal(env.DB.raw.prepare("SELECT COUNT(*) n FROM invoices WHERE order_id = 'ord-1'").get().n, 1);
+});
+
+test("timeout de Facturón: queda incierto y se reintenta con la misma clave", async () => {
+  const env = envWith();
+  await prepareInvoice(env, { slug: SLUG, order: posOrder(), config: config(), now: NOW });
+
+  // fetch que solo termina cuando el AbortSignal de la llamada vence.
+  const abortingFetch = (_url, init) => new Promise((_resolve, reject) => {
+    init.signal.addEventListener("abort", () => reject(init.signal.reason));
+  });
+  const slow = createFacturonAdapter({
+    apiKey: "fec_test", companyId: 3, emissionPointId: 7, environment: "sandbox",
+    fetchImpl: abortingFetch, timeoutMs: 5,
+  });
+  const timedOut = await submitInvoice(env, { slug: SLUG, orderId: "ord-1", config: config(), adapter: slow, now: NOW });
+  assert.equal(timedOut.ok, false);
+  assert.equal(timedOut.code, "provider_uncertain");
+  const afterTimeout = rowOf(env, "ord-1");
+  assert.equal(afterTimeout.status, "pending");
+  assert.equal(afterTimeout.failure_code, "provider_uncertain");
+  assert.equal(afterTimeout.attempt, 1);
+  assert.equal(afterTimeout.provider_operation_id, null, "nunca se declara emitida");
+  assert.equal(afterTimeout.idempotency_key, "invoice:pizza:ord-1:1");
+
+  const calls = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = facturonFetch({
+    "GET /customers/lookup": () => [200, { success: true, data: { customer: { id: 1 } } }],
+    "POST /documents": () => [201, { success: true, data: { document: { id: 902, status: "processing", environment: "1" } } }],
+    "GET /documents/902/status": () => [200, { success: true, data: { status: "processing" } }],
+  }, calls);
+  try {
+    const { reconcileInvoices } = await import("../src/invoices.js");
+    assert.deepEqual(await reconcileInvoices(env, NOW + 120_000), { checked: 1 });
+  } finally { globalThis.fetch = realFetch; }
+
+  const row = rowOf(env, "ord-1");
+  assert.equal(row.status, "submitted");
+  assert.equal(row.attempt, 1);
+  assert.equal(row.idempotency_key, "invoice:pizza:ord-1:1", "el reintento conserva la clave");
+  const posts = calls.filter(c => c.method === "POST" && c.path === "/documents");
+  assert.equal(posts.length, 1);
+  assert.equal(posts[0].headers["Idempotency-Key"], afterTimeout.idempotency_key);
 });
 
 test("adaptador mock y selección por configuración", async () => {

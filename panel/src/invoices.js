@@ -20,6 +20,9 @@ export const INVOICE_STATUSES = Object.freeze(["pending", "manual", "submitted",
 const ENCODER = new TextEncoder();
 const MAX_WEBHOOK_BYTES = 64 * 1024;
 const SUBMIT_LOCK_MS = 5 * 60 * 1000;
+// Toda llamada HTTP a Facturón se corta a los 10 s: la caja nunca depende de ella
+// (la emisión va por cron) y un cuelgue del proveedor debe quedar como incierto.
+export const FACTURON_TIMEOUT_MS = 10_000;
 const SIGNATURE_TOLERANCE_SECONDS = 300;
 const ECON_FINAL_CONSUMER_MAX_CENTS = 5000; // USD 50.00, límite del SRI para consumidor final
 const SRI_IVA_CODE_BY_RATE_BP = new Map([
@@ -886,21 +889,30 @@ const FACTURON_SUBTOTAL_FIELD = new Map([
 
 export function createFacturonAdapter({
   apiKey, companyId, emissionPointId, environment = "sandbox", fetchImpl = globalThis.fetch,
+  timeoutMs = FACTURON_TIMEOUT_MS,
 } = {}) {
   if (typeof apiKey !== "string" || !apiKey) throw new Error("FACTURON_API_KEY ausente");
   if (!isPositiveInt(companyId) || !isPositiveInt(emissionPointId)) throw new Error("companyId y emissionPointId requeridos");
   if (!FACTURON_SRI_ENV[environment]) throw new Error("ambiente Facturón inválido");
   if (typeof fetchImpl !== "function") throw new Error("fetch no disponible");
+  const timeout = isPositiveInt(timeoutMs) ? timeoutMs : FACTURON_TIMEOUT_MS;
 
   const call = async (path, { method = "GET", body, headers = {} } = {}) => {
-    const response = await fetchImpl(`${FACTURON_API}${path}`, {
-      method,
-      headers: {
-        Authorization: `Bearer ${apiKey}`, Accept: "application/json",
-        ...(body ? { "Content-Type": "application/json" } : {}), ...headers,
-      },
-      ...(body ? { body: JSON.stringify(body) } : {}),
-    });
+    let response;
+    try {
+      response = await fetchImpl(`${FACTURON_API}${path}`, {
+        method,
+        headers: {
+          Authorization: `Bearer ${apiKey}`, Accept: "application/json",
+          ...(body ? { "Content-Type": "application/json" } : {}), ...headers,
+        },
+        signal: AbortSignal.timeout(timeout),
+        ...(body ? { body: JSON.stringify(body) } : {}),
+      });
+    } catch {
+      // Timeout o error de red: sin respuesta no se sabe si el proveedor recibió.
+      return { http: 0, data: null };
+    }
     return { http: Number(response?.status) || 0, data: await safeJson(response) };
   };
 
@@ -1151,17 +1163,24 @@ export async function handleInvoiceWebhook(request, env, site, { adapter = null,
   return json({ received: true, matched: true, status: result.invoice?.status || row.status });
 }
 
-// Cron: reconsulta facturas en proceso y reintenta (misma clave) las que quedaron sin
-// respuesta del proveedor. Facturón guarda la idempotencia 24 h; pasado eso, queda manual.
+// Cron: emite los borradores pendientes, reconsulta las enviadas y reintenta (misma
+// clave) las que quedaron sin respuesta del proveedor. Facturón guarda la idempotencia
+// 24 h; por eso la ventana es de 23 h, ordenada de la factura más antigua a la más nueva.
+// `submitting` con más de 5 minutos es un candado vencido (el Worker murió a mitad de
+// la llamada): se retoma con la MISMA idempotency key, nunca con un documento nuevo.
 const RECONCILE_LIMIT = 10;
 export async function reconcileInvoices(env, now = Date.now()) {
   if (!env?.DB) return { checked: 0 };
   const rows = await env.DB.prepare(
-    "SELECT slug, order_id, status FROM invoices WHERE updated_at < ? AND (" +
-    "(status = 'submitted' AND created_at >= ?) OR " +
-    "(status = 'pending' AND failure_code = 'provider_uncertain' AND created_at >= ?)) " +
+    "SELECT slug, order_id, status FROM invoices WHERE created_at >= ? AND updated_at < ? AND (" +
+    "(status = 'submitted') OR " +
+    "(status = 'pending' AND failure_code = 'provider_uncertain') OR " +
+    "(status = 'pending' AND failure_code IS NULL AND provider_status IS NULL) OR " +
+    "(status = 'pending' AND provider_status = 'submitting' AND updated_at < ?)) " +
     "ORDER BY updated_at ASC LIMIT ?",
-  ).bind(now - 60 * 1000, now - 7 * 24 * 3600 * 1000, now - 23 * 3600 * 1000, RECONCILE_LIMIT).all();
+  ).bind(
+    now - 23 * 3600 * 1000, now - 60 * 1000, now - SUBMIT_LOCK_MS, RECONCILE_LIMIT,
+  ).all();
   const list = rows.results || [];
   for (const row of list) {
     try {

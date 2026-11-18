@@ -6,7 +6,7 @@ import { bendoAvailable } from "./bendo.js";
 import { OWNER_STAFF } from "./caja.js";
 import { load, slugify } from "./catalog.js";
 import { dayOf, error, json, noContent } from "./contract.js";
-import { lineTaxSplit, loadInvoiceConfig, prepareInvoice, submitInvoice } from "./invoices.js";
+import { lineTaxSplit, loadInvoiceConfig, prepareInvoice } from "./invoices.js";
 import { openShiftFor } from "./turnos.js";
 
 const MAX_BYTES = 16 * 1024;
@@ -1273,14 +1273,13 @@ function invoiceCustomerOf(row) {
 
 // Factura derivada: se prepara después de persistir el cobro y NUNCA revierte,
 // bloquea ni pierde la orden o la comanda. Sin configuración fiscal queda `manual`.
+// Aquí solo se escribe en D1: la emisión la hace el cron (`reconcileInvoices`),
+// de modo que un Facturón lento o caído jamás deja la caja esperando.
 async function afterPaid(env, slug, row) {
   if (!row) return;
   try {
     const order = { ...posOrderData(row), invoice_customer: invoiceCustomerOf(row) };
-    const prepared = await prepareInvoice(env, { slug, order });
-    if (prepared.ok && prepared.invoice?.status === "pending") {
-      await submitInvoice(env, { slug, orderId: order.id });
-    }
+    await prepareInvoice(env, { slug, order });
   } catch { /* la factura es un artefacto derivado */ }
 }
 

@@ -19,7 +19,7 @@ import { dirname, join, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const SRC = process.env.MENU_MEDIA_SRC || "/home/jcadmin/mnt/files/filebrowser-data/clientes/menus/cristhian_loyos";
+const SRC = process.env.MENU_MEDIA_SRC || "/home/jcadmin/mnt/files/filebrowser-data/clientes/menus/munch";
 const BANK = process.env.MENU_BANK || "/home/jcadmin/mnt/files/filebrowser-data/banco_imagenes_menus";
 const DOCX = process.env.MENU_DOCX || join(SRC, "15_20261110-062712_document_wa_1794310032651.docx");
 const BRAND_SRC = process.env.MENU_BRAND_SRC || join(SRC, "17_20261110-093506_image_wa_1794321306422.jpg");
