@@ -51,6 +51,16 @@ test("status=active: pending, confirmed y paid sin listo, del más antiguo al m�
   assert.equal(orders.find(order => order.id === "listo") ?? null, null);
 });
 
+test("status=active con más de 50 en curso incluye el pedido más nuevo", async () => {
+  const env = makeEnv();
+  for (let i = 0; i < 55; i++) addOrder(env, { id: "viejo-" + i, status: "paid", createdAt: 1000 + i });
+  addOrder(env, { id: "nuevo", status: "pending", createdAt: 9000 });
+  const response = await listPosOrders(env, site, session, request("/panel/api/pos/orders?status=active&limit=50"));
+  const ids = (await response.json()).orders.map(order => order.id);
+  assert.equal(ids.length, 50);
+  assert.equal(ids.at(-1), "nuevo", "el recién creado aparece (al final, FIFO)");
+});
+
 test("status=paid conserva su orden descendente y no cambia por active", async () => {
   const env = makeEnv();
   addOrder(env, { id: "pagado", status: "paid", createdAt: 2000 });

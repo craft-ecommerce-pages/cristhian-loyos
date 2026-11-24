@@ -1166,9 +1166,11 @@ export async function listPosOrders(env, site, session, request) {
     // print_count: la caja imprime sola los pagados sin comanda (pedidos web con tarjeta).
     `SELECT ${POS_COLUMNS}, ${RECEIPT_COLUMNS}, (SELECT c.print_count FROM pos_comandas c WHERE c.slug = pos_orders.slug ` +
     `AND c.order_id = pos_orders.id) AS print_count FROM pos_orders WHERE ${clauses.join(" AND ")} ` +
-    `ORDER BY created_at ${status === "active" ? "ASC" : "DESC"} LIMIT ? OFFSET ?`,
+    // Siempre los más recientes: con ASC + LIMIT, 50 pagados sin "listo" dejaban fuera los nuevos.
+    `ORDER BY created_at DESC LIMIT ? OFFSET ?`,
   ).bind(...values, limit, offset).all();
   const orders = (rows.results || []).map(row => posOrderData(row));
+  if (status === "active") orders.reverse(); // FIFO en pantalla
   // "Pago: datáfono · aut. XXXX": el canal y la autorización del cobro viajan
   // solo por esta ruta de caja/panel, nunca por la API pública del comprador.
   const info = await paidPaymentInfoByOrder(env, site.slug, orders.map(order => order.id));
